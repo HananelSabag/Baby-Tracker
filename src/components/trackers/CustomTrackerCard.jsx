@@ -6,8 +6,8 @@ import { BottomSheet } from '../ui/BottomSheet'
 import { AddCustomEventForm } from '../forms/AddCustomEventForm'
 import { Card } from '../ui/Card'
 
-export function CustomTrackerCard({ tracker, familyId, memberId, childId }) {
-  const { events, loading, addEvent } = useEvents(familyId, { trackerId: tracker.id, days: 1, childId })
+export function CustomTrackerCard({ tracker, familyId, memberId, childId, viewDate }) {
+  const { events, loading, addEvent } = useEvents(familyId, { trackerId: tracker.id, date: viewDate, childId })
   const [sheetOpen, setSheetOpen] = useState(false)
   const [saving, setSaving] = useState(false)
 

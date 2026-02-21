@@ -72,7 +72,9 @@
     "addChange": "החלפת חיתול",
     "wet": "שתן",
     "dirty": "צואה",
-    "both": "שתן וצואה",
+    "both": "שניהם",
+    "todayTotal": "החלפות",
+    "lastChange": "אחרון",
     "time": "שעה",
     "save": "שמור",
     "cancel": "ביטול"

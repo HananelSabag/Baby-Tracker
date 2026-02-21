@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { STORAGE_KEYS } from '../lib/constants'
 
 const AppContext = createContext(null)
+const AVATAR_KEY = 'bt_member_avatar'
 
 export function AppProvider({ children }) {
   const { user, loading: authLoading, signInWithGoogle, signOut: authSignOut } = useAuth()
@@ -35,7 +36,12 @@ export function AppProvider({ children }) {
 
     // Use cached identity for instant load if available
     if (identity.familyId && identity.memberId) {
-      setFamilyData({ familyId: identity.familyId, memberId: identity.memberId, memberName: identity.memberName })
+      setFamilyData({
+        familyId: identity.familyId,
+        memberId: identity.memberId,
+        memberName: identity.memberName,
+        memberAvatarUrl: localStorage.getItem(AVATAR_KEY) ?? null,
+      })
       return
     }
 
@@ -50,6 +56,7 @@ export function AppProvider({ children }) {
         }
         saveIdentity(resolved)
         setFamilyData(resolved)
+        if (memberRecord.avatar_url) localStorage.setItem(AVATAR_KEY, memberRecord.avatar_url)
       }
       setFamilyLoading(false)
     })
@@ -78,8 +85,16 @@ export function AppProvider({ children }) {
     if (childId) setActiveChildId(childId)
   }
 
+  // Update member avatar URL in context + localStorage (called from ProfilePage after upload)
+  function setMemberAvatarUrl(url) {
+    if (url) localStorage.setItem(AVATAR_KEY, url)
+    else localStorage.removeItem(AVATAR_KEY)
+    setFamilyData(prev => prev ? { ...prev, memberAvatarUrl: url } : prev)
+  }
+
   async function signOut() {
     clearIdentity()
+    localStorage.removeItem(AVATAR_KEY)
     setActiveChildId(null)
     setFamilyData(null)
     await authSignOut()
@@ -107,6 +122,7 @@ export function AppProvider({ children }) {
       signOut,
       saveIdentity,
       setActiveChildId,
+      setMemberAvatarUrl,
     }}>
       {children}
     </AppContext.Provider>

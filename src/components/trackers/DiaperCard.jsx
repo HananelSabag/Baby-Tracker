@@ -6,18 +6,15 @@ import { BottomSheet } from '../ui/BottomSheet'
 import { AddDiaperForm } from '../forms/AddDiaperForm'
 import { Card } from '../ui/Card'
 
-const DIAPER_LABELS = {
-  wet: t('diaper.wet'),
-  dirty: t('diaper.dirty'),
-  both: t('diaper.both'),
-}
-
-export function DiaperCard({ tracker, familyId, memberId, childId }) {
-  const { events, loading, addEvent } = useEvents(familyId, { trackerId: tracker.id, days: 1, childId })
+export function DiaperCard({ tracker, familyId, memberId, childId, viewDate }) {
+  const { events, loading, addEvent } = useEvents(familyId, { trackerId: tracker.id, date: viewDate, childId })
   const [sheetOpen, setSheetOpen] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const lastEvent = events[0]
+  const wetCount = events.filter(e => e.data?.type === 'wet').length
+  const dirtyCount = events.filter(e => e.data?.type === 'dirty').length
+  const bothCount = events.filter(e => e.data?.type === 'both').length
 
   async function handleSave(data, occurredAt) {
     setSaving(true)
@@ -45,16 +42,29 @@ export function DiaperCard({ tracker, familyId, memberId, childId }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="rounded-2xl px-4 py-3 flex-1 text-center" style={{ backgroundColor: `${tracker.color}18` }}>
-            <p className="text-xs text-brown-500 font-rubik mb-0.5">היום</p>
-            <p className="font-rubik font-bold text-brown-800">{loading ? '...' : events.length} החלפות</p>
+        <div className="rounded-2xl px-4 py-3" style={{ backgroundColor: `${tracker.color}18` }}>
+          {/* Total + last change */}
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <p className="text-xs text-brown-500 font-rubik">{t('diaper.todayTotal')}</p>
+              <p className="font-rubik font-bold text-brown-800 text-2xl leading-tight">
+                {loading ? '...' : events.length}
+              </p>
+            </div>
+            {lastEvent && (
+              <div className="text-center">
+                <p className="text-xs text-brown-500 font-rubik">{t('diaper.lastChange')}</p>
+                <p className="font-rubik font-bold text-brown-800 text-lg leading-tight">{formatTime(lastEvent.occurred_at)}</p>
+              </div>
+            )}
           </div>
-          {lastEvent && (
-            <div className="rounded-2xl px-4 py-3 flex-1 text-center" style={{ backgroundColor: `${tracker.color}18` }}>
-              <p className="text-xs text-brown-500 font-rubik mb-0.5">אחרון</p>
-              <p className="font-rubik font-bold text-brown-800">{formatTime(lastEvent.occurred_at)}</p>
-              <p className="text-xs text-brown-400">{DIAPER_LABELS[lastEvent.data?.type] ?? ''}</p>
+
+          {/* Breakdown by type */}
+          {events.length > 0 && (
+            <div className="flex gap-3 text-xs font-rubik text-brown-500 border-t border-black/5 pt-2">
+              {wetCount > 0 && <span>🌊 {t('diaper.wet')} ×{wetCount}</span>}
+              {dirtyCount > 0 && <span>💩 {t('diaper.dirty')} ×{dirtyCount}</span>}
+              {bothCount > 0 && <span>✌️ {t('diaper.both')} ×{bothCount}</span>}
             </div>
           )}
         </div>

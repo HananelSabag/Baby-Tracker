@@ -12,7 +12,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { cn } from '../lib/utils'
 
 export function ProfilePage() {
-  const { identity, user, signOut, saveIdentity } = useApp()
+  const { identity, user, signOut, saveIdentity, setMemberAvatarUrl } = useApp()
   const navigate = useNavigate()
   const isAdmin = user?.email === ADMIN_EMAIL
   const members = useFamilyMembers(identity.familyId)
@@ -43,6 +43,7 @@ export function ProfilePage() {
         await updateFamily(identity.familyId, { name: familyNameEdit })
       }
       saveIdentity({ familyId: identity.familyId, memberId: identity.memberId, memberName: displayName })
+      setMemberAvatarUrl(avatarUrl)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } finally {
@@ -60,6 +61,7 @@ export function ProfilePage() {
     if (!error) {
       const { data } = supabase.storage.from('avatars').getPublicUrl(path)
       setAvatarUrl(data.publicUrl)
+      setMemberAvatarUrl(data.publicUrl)
     }
   }
 

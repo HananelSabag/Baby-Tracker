@@ -10,7 +10,7 @@ import { DiaperCard } from '../components/trackers/DiaperCard'
 import { CustomTrackerCard } from '../components/trackers/CustomTrackerCard'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { Spinner } from '../components/ui/Spinner'
-import { format } from 'date-fns'
+import { format, addDays, subDays, isSameDay } from 'date-fns'
 import { he } from 'date-fns/locale'
 
 export function HomePage() {
@@ -18,9 +18,15 @@ export function HomePage() {
   const { trackers, loading } = useTrackers(identity.familyId)
   const { children } = useChildren(identity.familyId)
   const [childPickerOpen, setChildPickerOpen] = useState(false)
+  const [viewDate, setViewDate] = useState(() => new Date())
 
-  const today = format(new Date(), 'EEEE, d בMMMM', { locale: he })
+  const todayLabel = format(new Date(), 'EEEE, d בMMMM', { locale: he })
+  const isToday = isSameDay(viewDate, new Date())
   const activeChild = children.find(c => c.id === identity.activeChildId) ?? children[0] ?? null
+
+  const dateLabel = isToday
+    ? 'היום'
+    : format(viewDate, 'EEEE, d בMMMM', { locale: he })
 
   function renderTracker(tracker) {
     const props = {
@@ -29,6 +35,7 @@ export function HomePage() {
       familyId: identity.familyId,
       memberId: identity.memberId,
       childId: activeChild?.id ?? null,
+      viewDate,
     }
     switch (tracker.tracker_type) {
       case TRACKER_TYPES.FEEDING:   return <FeedingCard {...props} />
@@ -44,7 +51,7 @@ export function HomePage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <p className="font-rubik text-brown-400 text-sm capitalize">{today}</p>
+          <p className="font-rubik text-brown-400 text-sm capitalize">{todayLabel}</p>
           <h1 className="font-rubik font-bold text-3xl text-brown-800">
             שלום, {identity.memberName} 👋
           </h1>
@@ -61,7 +68,7 @@ export function HomePage() {
       {activeChild && (
         <button
           onClick={() => children.length > 1 && setChildPickerOpen(true)}
-          className="flex items-center gap-3 bg-white rounded-2xl shadow-soft px-4 py-3 mb-5 w-full text-right transition-transform"
+          className="flex items-center gap-3 bg-white rounded-2xl shadow-soft px-4 py-3 mb-4 w-full text-right transition-transform"
           style={{ cursor: children.length > 1 ? 'pointer' : 'default' }}
         >
           <div className="w-10 h-10 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center flex-shrink-0">
@@ -79,6 +86,34 @@ export function HomePage() {
           )}
         </button>
       )}
+
+      {/* Day navigator — RTL: first child on right = prev, last child on left = next */}
+      <div className="flex items-center justify-between bg-white rounded-2xl shadow-soft px-4 py-3 mb-4">
+        <button
+          onClick={() => setViewDate(d => subDays(d, 1))}
+          className="w-9 h-9 rounded-full bg-cream-100 flex items-center justify-center text-brown-600 text-xl font-bold active:scale-95 transition-transform"
+        >
+          ›
+        </button>
+
+        <button
+          className="text-center flex-1 mx-2"
+          onClick={() => !isToday && setViewDate(new Date())}
+        >
+          <p className="font-rubik font-semibold text-brown-800 text-sm">{dateLabel}</p>
+          {!isToday && (
+            <p className="text-xs text-brown-400 font-rubik">לחץ לחזרה להיום</p>
+          )}
+        </button>
+
+        <button
+          onClick={() => setViewDate(d => addDays(d, 1))}
+          disabled={isToday}
+          className="w-9 h-9 rounded-full bg-cream-100 flex items-center justify-center text-brown-600 text-xl font-bold active:scale-95 transition-transform disabled:opacity-25"
+        >
+          ‹
+        </button>
+      </div>
 
       {/* Trackers */}
       {loading ? (

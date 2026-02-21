@@ -2,14 +2,12 @@ import { useState } from 'react'
 import { t } from '../../lib/strings'
 import { formatTime, formatTimeAgo, formatMl } from '../../lib/utils'
 import { useEvents } from '../../hooks/useEvents'
-import { useApp } from '../../hooks/useAppContext'
 import { BottomSheet } from '../ui/BottomSheet'
 import { AddFeedingForm } from '../forms/AddFeedingForm'
 import { Card } from '../ui/Card'
-import { TRACKER_TYPES } from '../../lib/constants'
 
-export function FeedingCard({ tracker, familyId, memberId, childId }) {
-  const { events, loading, addEvent } = useEvents(familyId, { trackerId: tracker.id, days: 1, childId })
+export function FeedingCard({ tracker, familyId, memberId, childId, viewDate }) {
+  const { events, loading, addEvent } = useEvents(familyId, { trackerId: tracker.id, date: viewDate, childId })
   const [sheetOpen, setSheetOpen] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -29,6 +27,7 @@ export function FeedingCard({ tracker, familyId, memberId, childId }) {
   return (
     <>
       <Card className="cursor-pointer" onClick={() => setSheetOpen(true)}>
+        {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <span className="text-2xl">{tracker.icon}</span>
@@ -42,15 +41,39 @@ export function FeedingCard({ tracker, familyId, memberId, childId }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          <StatBox label={t('home.totalMl')} value={loading ? '...' : formatMl(todayTotal)} color={tracker.color} />
-          <StatBox label={t('home.feedings')} value={loading ? '...' : events.length} color={tracker.color} />
-          <StatBox
-            label={t('home.lastFeeding')}
-            value={lastEvent ? formatTime(lastEvent.occurred_at) : '—'}
-            sub={lastEvent ? `${formatTimeAgo(lastEvent.occurred_at)} ${t('home.ago')}` : t('home.noFeedingYet')}
-            color={tracker.color}
-          />
+        {/* Last feeding — primary info */}
+        <div className="rounded-2xl px-4 py-3 mb-2" style={{ backgroundColor: `${tracker.color}18` }}>
+          {lastEvent ? (
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-brown-500 font-rubik mb-0.5">{t('home.lastFeeding')}</p>
+                <p className="font-rubik font-bold text-brown-800 text-2xl leading-tight">{formatTime(lastEvent.occurred_at)}</p>
+                <p className="text-xs text-brown-400 font-rubik mt-0.5">{formatTimeAgo(lastEvent.occurred_at)} {t('home.ago')}</p>
+              </div>
+              {lastEvent.data?.amount_ml ? (
+                <div className="text-center">
+                  <p className="font-rubik font-bold text-3xl leading-tight" style={{ color: tracker.color }}>
+                    {lastEvent.data.amount_ml}
+                  </p>
+                  <p className="text-xs text-brown-400 font-rubik">{t('feeding.ml')}</p>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <p className="text-brown-400 font-rubik text-sm text-center py-1">{t('home.noFeedingYet')}</p>
+          )}
+        </div>
+
+        {/* Today's totals — secondary */}
+        <div className="flex gap-2">
+          <div className="flex-1 rounded-xl px-3 py-2 text-center bg-cream-100">
+            <p className="text-xs text-brown-400 font-rubik">{t('home.totalMl')}</p>
+            <p className="font-rubik font-semibold text-brown-700 text-sm">{loading ? '...' : formatMl(todayTotal)}</p>
+          </div>
+          <div className="flex-1 rounded-xl px-3 py-2 text-center bg-cream-100">
+            <p className="text-xs text-brown-400 font-rubik">{t('home.feedings')}</p>
+            <p className="font-rubik font-semibold text-brown-700 text-sm">{loading ? '...' : events.length}</p>
+          </div>
         </div>
       </Card>
 
@@ -58,15 +81,5 @@ export function FeedingCard({ tracker, familyId, memberId, childId }) {
         <AddFeedingForm onSave={handleSave} onCancel={() => setSheetOpen(false)} loading={saving} />
       </BottomSheet>
     </>
-  )
-}
-
-function StatBox({ label, value, sub, color }) {
-  return (
-    <div className="rounded-2xl p-3 text-center" style={{ backgroundColor: `${color}18` }}>
-      <p className="text-xs text-brown-500 font-rubik mb-1">{label}</p>
-      <p className="font-rubik font-bold text-brown-800 text-sm leading-tight">{value}</p>
-      {sub && <p className="text-xs text-brown-400 mt-0.5 leading-tight">{sub}</p>}
-    </div>
   )
 }

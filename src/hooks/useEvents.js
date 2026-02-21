@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { startOfDay, endOfDay, subDays } from 'date-fns'
 
-export function useEvents(familyId, { trackerId, days, childId } = {}) {
+export function useEvents(familyId, { trackerId, days, date, childId } = {}) {
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -15,14 +15,21 @@ export function useEvents(familyId, { trackerId, days, childId } = {}) {
       .order('occurred_at', { ascending: false })
 
     if (trackerId) query = query.eq('tracker_id', trackerId)
-    if (days) query = query.gte('occurred_at', subDays(new Date(), days).toISOString())
+    if (date) {
+      // Filter by specific calendar day
+      query = query
+        .gte('occurred_at', startOfDay(date).toISOString())
+        .lte('occurred_at', endOfDay(date).toISOString())
+    } else if (days) {
+      query = query.gte('occurred_at', subDays(new Date(), days).toISOString())
+    }
     // Show events for this child OR legacy events with no child_id
     if (childId) query = query.or(`child_id.eq.${childId},child_id.is.null`)
 
     const { data } = await query
     setEvents(data ?? [])
     setLoading(false)
-  }, [familyId, trackerId, days, childId])
+  }, [familyId, trackerId, date?.toISOString(), days, childId])
 
   useEffect(() => {
     fetchEvents()
