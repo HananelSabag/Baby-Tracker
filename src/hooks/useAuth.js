@@ -7,13 +7,11 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // onAuthStateChange fires immediately with INITIAL_SESSION —
+    // this correctly handles OAuth redirects without a double-render flash
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null)
-      setLoading(false)
-    })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
+      if (event === 'INITIAL_SESSION') setLoading(false)
     })
 
     return () => subscription.unsubscribe()
