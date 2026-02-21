@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useApp } from '../../hooks/useAppContext'
 import { useToast } from '../../hooks/useToast'
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications'
@@ -14,6 +15,15 @@ export function AppLayout({ children }) {
   const { identity } = useApp()
   const { toasts, showToast, dismissToast } = useToast()
   const notificationsEnabled = getNotificationsEnabled()
+
+  // Welcome toast — shown once per session on first app load
+  useEffect(() => {
+    if (!identity.memberName) return
+    if (!sessionStorage.getItem('bt_welcome')) {
+      showToast({ message: `שלום, ${identity.memberName}! 👋`, emoji: '🏠' })
+      sessionStorage.setItem('bt_welcome', '1')
+    }
+  }, [])
 
   useRealtimeNotifications({
     familyId: identity.familyId,

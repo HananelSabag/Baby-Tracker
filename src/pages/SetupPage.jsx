@@ -19,9 +19,12 @@ export function SetupPage() {
   const [familyName, setFamilyName] = useState('')
   const [code, setCode] = useState('')
   const [createdCode, setCreatedCode] = useState('')
-  const [pendingFamilyId, setPendingFamilyId] = useState(null)
+  // Pending data — filled after CHILD step, used in DONE step button
+  const [pendingFamily, setPendingFamily] = useState(null)
+  const [pendingMember, setPendingMember] = useState(null)
+  const [pendingChildId, setPendingChildId] = useState(null)
   const [childName, setChildName] = useState('')
-  const [childAvatar, setChildAvatar] = useState(null)      // data URL preview
+  const [childAvatar, setChildAvatar] = useState(null)
   const [childAvatarFile, setChildAvatarFile] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -29,6 +32,14 @@ export function SetupPage() {
 
   const avatarUrl = user?.user_metadata?.avatar_url ?? null
   const googleName = user?.user_metadata?.full_name ?? ''
+
+  function goBack() {
+    setError('')
+    if (step === STEPS.ROLE) setStep(STEPS.CHOOSE)
+    else if (step === STEPS.FAMILY_NAME) setStep(STEPS.ROLE)
+    else if (step === STEPS.CODE) setStep(STEPS.ROLE)
+    else if (step === STEPS.CHILD) setStep(STEPS.FAMILY_NAME)
+  }
 
   function handleChoose(act) {
     setAction(act)
@@ -41,27 +52,11 @@ export function SetupPage() {
     setStep(action === 'create' ? STEPS.FAMILY_NAME : STEPS.CODE)
   }
 
-  async function handleCreate() {
+  // Validate family name and advance — family is NOT created in DB yet
+  function handleFamilyNameNext() {
     if (!familyName.trim()) { setError(t('setup.nameRequired')); return }
-    setLoading(true)
     setError('')
-    try {
-      const { family, member } = await createFamily({
-        familyName: familyName.trim(),
-        role,
-        customRole,
-        authUserId: user.id,
-        avatarUrl,
-      })
-      setCreatedCode(family.code)
-      setPendingFamilyId(family.id)
-      onFamilyJoined({ family, member })
-      setStep(STEPS.CHILD)
-    } catch {
-      setError(t('errors.saveFailed'))
-    } finally {
-      setLoading(false)
-    }
+    setStep(STEPS.CHILD)
   }
 
   async function handleJoin() {
@@ -69,30 +64,14 @@ export function SetupPage() {
     setLoading(true)
     setError('')
     try {
-      const { family, member } = await joinFamily({
-        code,
-        role,
-        customRole,
-        authUserId: user.id,
-        avatarUrl,
-      })
-      // Check if family already has children set up
+      const { family, member } = await joinFamily({ code, role, customRole, authUserId: user.id, avatarUrl })
+      // Auto-select first child if family already has one
       const { data: existingChildren } = await supabase
-        .from('children')
-        .select('id')
-        .eq('family_id', family.id)
-        .order('created_at', { ascending: true })
-        .limit(1)
-
-      if (existingChildren?.length > 0) {
-        // Family already has a child — just join and go
-        onFamilyJoined({ family, member, childId: existingChildren[0].id })
-      } else {
-        // No child yet — set one up
-        setPendingFamilyId(family.id)
-        onFamilyJoined({ family, member })
-        setStep(STEPS.CHILD)
-      }
+        .from('children').select('id').eq('family_id', family.id)
+        .order('created_at', { ascending: true }).limit(1)
+      const childId = existingChildren?.[0]?.id ?? null
+      onFamilyJoined({ family, member, childId })
+      // isSetupDone → true → App navigates to HomePage automatically
     } catch {
       setError(t('setup.codeError'))
     } finally {
@@ -109,6 +88,7 @@ export function SetupPage() {
     reader.readAsDataURL(file)
   }
 
+  // Create family + member + child all at once — deferred from FAMILY_NAME step
   async function handleChildSave() {
     if (!childName.trim()) { setError(t('children.nameRequired')); return }
     setLoading(true)
@@ -118,22 +98,27 @@ export function SetupPage() {
       if (childAvatarFile) {
         const ext = childAvatarFile.name.split('.').pop()
         const path = `children/${Date.now()}.${ext}`
-        const { error: uploadErr } = await supabase.storage
-          .from('avatars')
-          .upload(path, childAvatarFile)
+        const { error: uploadErr } = await supabase.storage.from('avatars').upload(path, childAvatarFile)
         if (!uploadErr) {
           const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
           uploadedUrl = urlData.publicUrl
         }
       }
 
-      const child = await addChild({
-        familyId: pendingFamilyId,
-        name: childName.trim(),
-        avatarUrl: uploadedUrl,
+      const { family, member } = await createFamily({
+        familyName: familyName.trim(),
+        role,
+        customRole,
+        authUserId: user.id,
+        avatarUrl,
       })
+      const child = await addChild({ familyId: family.id, name: childName.trim(), avatarUrl: uploadedUrl })
 
-      setActiveChildId(child.id)
+      // Store for DONE step — don't call onFamilyJoined yet so DONE step stays visible
+      setCreatedCode(family.code)
+      setPendingFamily(family)
+      setPendingMember(member)
+      setPendingChildId(child.id)
       setStep(STEPS.DONE)
     } catch {
       setError(t('errors.saveFailed'))
@@ -142,9 +127,21 @@ export function SetupPage() {
     }
   }
 
+  const showBack = step !== STEPS.CHOOSE && step !== STEPS.DONE
+
   return (
     <div className="min-h-screen bg-cream-100 flex justify-center">
       <div className="w-full max-w-[480px] min-h-screen flex flex-col px-6 py-10">
+
+        {/* Back button */}
+        {showBack && (
+          <button
+            onClick={goBack}
+            className="self-start mb-4 flex items-center gap-1 text-brown-500 font-rubik text-sm py-2 active:scale-95 transition-transform"
+          >
+            ← {t('common.back')}
+          </button>
+        )}
 
         {/* User greeting */}
         {avatarUrl && (
@@ -217,8 +214,8 @@ export function SetupPage() {
               autoFocus
             />
             {error && <p className="text-red-500 text-sm text-center font-rubik">{error}</p>}
-            <Button className="w-full" size="lg" onClick={handleCreate} disabled={loading}>
-              {loading ? t('app.loading') : t('setup.createFamily')}
+            <Button className="w-full" size="lg" onClick={handleFamilyNameNext}>
+              {t('setup.continue')}
             </Button>
           </div>
         )}
@@ -252,7 +249,6 @@ export function SetupPage() {
               <p className="font-rubik text-brown-400 text-sm mt-1">{t('setup.addChildSubtitle')}</p>
             </div>
 
-            {/* Avatar picker */}
             <div className="flex flex-col items-center gap-3">
               <button
                 onClick={() => fileRef.current?.click()}
@@ -269,7 +265,6 @@ export function SetupPage() {
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
             </div>
 
-            {/* Child name */}
             <input
               type="text"
               value={childName}
@@ -287,7 +282,7 @@ export function SetupPage() {
           </div>
         )}
 
-        {/* Step: Done */}
+        {/* Step: Done — show family code, then navigate to app */}
         {step === STEPS.DONE && (
           <div className="flex-1 flex flex-col justify-center text-center space-y-5">
             <div className="text-5xl">🎉</div>
@@ -300,7 +295,11 @@ export function SetupPage() {
                 <p className="text-sm text-brown-400 font-rubik">{t('setup.shareCode')}</p>
               </>
             )}
-            <Button className="w-full" size="lg" onClick={() => window.location.reload()}>
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={() => onFamilyJoined({ family: pendingFamily, member: pendingMember, childId: pendingChildId })}
+            >
               {t('setup.goToDashboard')}
             </Button>
           </div>
