@@ -42,11 +42,19 @@ export function HomePage() {
   return (
     <div className="px-4 pt-6 pb-4">
       {/* Header */}
-      <div className="mb-5">
-        <p className="font-rubik text-brown-400 text-sm capitalize">{today}</p>
-        <h1 className="font-rubik font-bold text-3xl text-brown-800">
-          שלום, {identity.memberName} 👋
-        </h1>
+      <div className="flex items-center justify-between mb-5">
+        <div>
+          <p className="font-rubik text-brown-400 text-sm capitalize">{today}</p>
+          <h1 className="font-rubik font-bold text-3xl text-brown-800">
+            שלום, {identity.memberName} 👋
+          </h1>
+        </div>
+        <div className="w-12 h-12 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center flex-shrink-0 shadow-soft border-2 border-white">
+          {(identity.memberAvatarUrl || identity.googleAvatarUrl)
+            ? <img src={identity.memberAvatarUrl ?? identity.googleAvatarUrl} alt={identity.memberName} className="w-full h-full object-cover" />
+            : <span className="text-2xl">👤</span>
+          }
+        </div>
       </div>
 
       {/* Child selector */}

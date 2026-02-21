@@ -16,7 +16,7 @@ export function ProfilePage() {
   const [role, setRole] = useState(identity.memberName ?? '')
   const [customRole, setCustomRole] = useState('')
   const [familyNameEdit, setFamilyNameEdit] = useState('')
-  const [avatarUrl, setAvatarUrl] = useState(identity.googleAvatarUrl ?? null)
+  const [avatarUrl, setAvatarUrl] = useState(identity.memberAvatarUrl ?? identity.googleAvatarUrl ?? null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [signOutConfirm, setSignOutConfirm] = useState(false)
@@ -52,7 +52,7 @@ export function ProfilePage() {
     if (!file) return
     // Upload to Supabase Storage
     const ext = file.name.split('.').pop()
-    const path = `avatars/${identity.memberId}.${ext}`
+    const path = `members/${identity.memberId}.${ext}`
     const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
     if (!error) {
       const { data } = supabase.storage.from('avatars').getPublicUrl(path)

@@ -17,7 +17,7 @@ import { TRACKER_TYPES } from '../lib/constants'
 export function HistoryPage() {
   const { identity } = useApp()
   const { trackers } = useTrackers(identity.familyId)
-  const { events, loading, deleteEvent, updateEvent } = useEvents(identity.familyId, { days: 30 })
+  const { events, loading, deleteEvent, updateEvent, refetch } = useEvents(identity.familyId, { days: 30 })
   const [filterTrackerId, setFilterTrackerId] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
@@ -30,6 +30,7 @@ export function HistoryPage() {
     if (!deleteTarget) return
     await deleteEvent(deleteTarget)
     setDeleteTarget(null)
+    refetch()
   }
 
   // Called by feeding / diaper / custom forms on save
@@ -113,7 +114,7 @@ export function HistoryPage() {
     const type = event.tracker?.tracker_type
     const data = event.data ?? {}
     if (type === 'feeding') return `${data.amount_ml} מ"ל`
-    if (type === 'vitamin_d') return data.dose === 'morning' ? t('vitaminD.morning') : t('vitaminD.evening')
+    if (type === 'vitamin_d' || type === 'dose') return data.dose_label ?? data.dose ?? ''
     if (type === 'diaper') {
       const map = { wet: t('diaper.wet'), dirty: t('diaper.dirty'), both: t('diaper.both') }
       return map[data.type] ?? ''

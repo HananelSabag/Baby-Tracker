@@ -46,6 +46,7 @@ export function AppProvider({ children }) {
           familyId: memberRecord.family_id,
           memberId: memberRecord.id,
           memberName: memberRecord.display_name,
+          memberAvatarUrl: memberRecord.avatar_url ?? null,
         }
         saveIdentity(resolved)
         setFamilyData(resolved)
@@ -71,7 +72,7 @@ export function AppProvider({ children }) {
   }, [familyData?.familyId, identity.familyId])
 
   function onFamilyJoined({ family, member, childId }) {
-    const resolved = { familyId: family.id, memberId: member.id, memberName: member.display_name }
+    const resolved = { familyId: family.id, memberId: member.id, memberName: member.display_name, memberAvatarUrl: member.avatar_url ?? null }
     saveIdentity(resolved)
     setFamilyData(resolved)
     if (childId) setActiveChildId(childId)
@@ -88,8 +89,10 @@ export function AppProvider({ children }) {
     familyId: familyData?.familyId ?? identity.familyId,
     memberId: familyData?.memberId ?? identity.memberId,
     memberName: familyData?.memberName ?? identity.memberName,
-    email: user?.email ?? null,
+    // memberAvatarUrl: custom uploaded photo; googleAvatarUrl: Google profile photo fallback
+    memberAvatarUrl: familyData?.memberAvatarUrl ?? null,
     googleAvatarUrl: user?.user_metadata?.avatar_url ?? null,
+    email: user?.email ?? null,
     activeChildId,
   }
 
