@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Environment variables (contain secrets)
+.env
+.env.local
+.env.*.local
+
+# MCP config (contains Personal Access Token)
+.mcp.json
+
+# Claude context file (developer tool, not part of the app)
+CLAUDE_CONTEXT.md
+
+# Build output
+dist/
+
+# Vite cache
+.vite/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln

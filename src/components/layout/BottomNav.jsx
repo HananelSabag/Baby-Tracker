@@ -1,0 +1,35 @@
+import { NavLink } from 'react-router-dom'
+import { t } from '../../lib/strings'
+import { cn } from '../../lib/utils'
+
+const NAV_ITEMS = [
+  { to: '/', label: t('nav.home'), icon: '🏠' },
+  { to: '/history', label: t('nav.history'), icon: '📋' },
+  { to: '/reports', label: t('nav.reports'), icon: '📊' },
+  { to: '/settings', label: t('nav.settings'), icon: '⚙️' },
+]
+
+export function BottomNav() {
+  return (
+    <nav className="fixed bottom-0 inset-x-0 z-40 flex justify-center">
+      <div className="w-full max-w-[480px] bg-white border-t border-cream-200 pb-safe">
+        <div className="flex items-stretch">
+          {NAV_ITEMS.map(({ to, label, icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === '/'}
+              className={({ isActive }) => cn(
+                'flex flex-1 flex-col items-center justify-center gap-0.5 py-2 min-h-[56px] transition-colors font-rubik',
+                isActive ? 'text-brown-600' : 'text-brown-400'
+              )}
+            >
+              <span className="text-xl leading-none">{icon}</span>
+              <span className="text-xs font-medium">{label}</span>
+            </NavLink>
+          ))}
+        </div>
+      </div>
+    </nav>
+  )
+}

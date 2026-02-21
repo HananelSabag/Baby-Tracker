@@ -1,0 +1,147 @@
+{
+  "app": {
+    "title": "הרל",
+    "loading": "טוען..."
+  },
+  "setup": {
+    "welcome": "ברוכים הבאים",
+    "subtitle": "מעקב פשוט ויפה עבור הרל",
+    "createFamily": "צור משפחה חדשה",
+    "joinFamily": "הצטרף למשפחה קיימת",
+    "enterCode": "הכנס קוד משפחה",
+    "codePlaceholder": "6 תווים",
+    "join": "הצטרף",
+    "chooseName": "מי את/ה?",
+    "dad": "אבא",
+    "mom": "אמא",
+    "continue": "המשך",
+    "familyCode": "קוד המשפחה שלך",
+    "shareCode": "שתף את הקוד הזה עם בן/בת זוגך",
+    "codeError": "קוד לא תקין — בדוק שוב",
+    "nameRequired": "בחר שם לפני שממשיכים"
+  },
+  "nav": {
+    "home": "בית",
+    "history": "היסטוריה",
+    "reports": "דוחות",
+    "settings": "הגדרות"
+  },
+  "home": {
+    "today": "היום",
+    "totalMl": "סה\"כ מ\"ל",
+    "feedings": "האכלות",
+    "lastFeeding": "האכלה אחרונה",
+    "ago": "לפני",
+    "noFeedingYet": "עדיין אין האכלות היום",
+    "minutesAgo": "דקות",
+    "hoursAgo": "שעות",
+    "justNow": "עכשיו"
+  },
+  "feeding": {
+    "title": "האכלה",
+    "addFeeding": "הוסף האכלה",
+    "amount": "כמות",
+    "ml": "מ\"ל",
+    "time": "שעה",
+    "presets": "כמויות מהירות",
+    "custom": "אחר",
+    "customPlaceholder": "כמות מ\"ל",
+    "save": "שמור",
+    "cancel": "ביטול",
+    "amountRequired": "יש להזין כמות"
+  },
+  "vitaminD": {
+    "title": "ויטמין D",
+    "morning": "בוקר",
+    "evening": "ערב",
+    "done": "ניתן",
+    "notDone": "טרם ניתן",
+    "markDone": "סמן כניתן",
+    "todayStatus": "מינונים היום"
+  },
+  "diaper": {
+    "title": "חיתול",
+    "addChange": "החלפת חיתול",
+    "wet": "שתן",
+    "dirty": "צואה",
+    "both": "שתן וצואה",
+    "time": "שעה",
+    "save": "שמור",
+    "cancel": "ביטול"
+  },
+  "history": {
+    "title": "היסטוריה",
+    "noEvents": "אין אירועים להציג",
+    "filterAll": "הכל",
+    "today": "היום",
+    "deleteConfirm": "למחוק את האירוע הזה?",
+    "delete": "מחק",
+    "cancel": "ביטול",
+    "edit": "ערוך",
+    "by": "על ידי"
+  },
+  "reports": {
+    "title": "דוחות",
+    "feedingTrend": "מגמת האכלות",
+    "last7Days": "7 ימים אחרונים",
+    "last14Days": "14 ימים אחרונים",
+    "dailyAverage": "ממוצע יומי",
+    "totalThisWeek": "סה\"כ השבוע",
+    "noData": "אין מספיק נתונים להצגה"
+  },
+  "settings": {
+    "title": "הגדרות",
+    "familyCode": "קוד משפחה",
+    "myName": "השם שלי",
+    "trackers": "מעקבים",
+    "addTracker": "הוסף מעקב",
+    "editTracker": "ערוך מעקב",
+    "trackerName": "שם המעקב",
+    "trackerIcon": "אייקון",
+    "trackerColor": "צבע",
+    "fieldType": "סוג שדה",
+    "fieldLabel": "תווית שדה",
+    "save": "שמור",
+    "cancel": "ביטול",
+    "delete": "מחק",
+    "deleteTrackerConfirm": "למחוק את המעקב הזה? כל הנתונים יאבדו.",
+    "builtinTrackers": "מעקבים מובנים",
+    "customTrackers": "מעקבים מותאמים אישית",
+    "changesSaved": "השינויים נשמרו"
+  },
+  "tracker": {
+    "addEvent": "הוסף",
+    "noEventsToday": "אין אירועים היום",
+    "fieldTypes": {
+      "number": "מספר",
+      "text": "טקסט חופשי",
+      "choice": "בחירה מרשימה",
+      "boolean": "כן / לא"
+    }
+  },
+  "errors": {
+    "loadFailed": "שגיאה בטעינת הנתונים",
+    "saveFailed": "שגיאה בשמירה",
+    "tryAgain": "נסה שוב"
+  },
+  "common": {
+    "by": "על ידי",
+    "at": "בשעה",
+    "on": "בתאריך",
+    "save": "שמור",
+    "cancel": "ביטול",
+    "delete": "מחק",
+    "edit": "ערוך",
+    "close": "סגור",
+    "confirm": "אישור",
+    "yes": "כן",
+    "no": "לא",
+    "sunday": "ראשון",
+    "monday": "שני",
+    "tuesday": "שלישי",
+    "wednesday": "רביעי",
+    "thursday": "חמישי",
+    "friday": "שישי",
+    "saturday": "שבת"
+  }
+}
