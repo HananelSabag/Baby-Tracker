@@ -12,8 +12,8 @@ export function BottomNav() {
     { to: '/', label: t('nav.home'), icon: '🏠' },
     { to: '/history', label: t('nav.history'), icon: '📋' },
     { to: '/reports', label: t('nav.reports'), icon: '📊' },
+    { to: '/settings', label: t('nav.settings'), icon: '⚙️' },
     { to: '/profile', label: t('nav.profile'), icon: '👤' },
-    ...(isAdmin ? [{ to: '/admin', label: t('admin.title'), icon: '🔐' }] : []),
   ]
 
   return (

@@ -79,6 +79,9 @@ export const BUILTIN_TRACKERS = [
 // Feeding preset amounts in ml
 export const FEEDING_PRESETS = [30, 60, 90, 120, 150, 180]
 
+// Roles that are allowed to manage children (add / edit / delete)
+export const PARENT_ROLES = ['אמא', 'אבא']
+
 // Available roles for family members
 export const ROLES = [
   { value: 'אבא', label: 'אבא', emoji: '👨' },
