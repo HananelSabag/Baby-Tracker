@@ -1,21 +1,23 @@
 {
   "app": {
-    "title": "הרל",
+    "title": "BabyTracker",
     "loading": "טוען..."
   },
   "auth": {
     "welcome": "ברוכים הבאים",
-    "subtitle": "מעקב פשוט ויפה עבור הרל",
+    "subtitle": "מעקב פשוט ויפה לתינוק שלכם",
     "signInWithGoogle": "כניסה עם Google",
     "signingIn": "מתחבר...",
     "signOut": "התנתק"
   },
   "setup": {
+    "addFirstChild": "הוסיפו את הילד/ה הראשון/ה",
+    "addChildSubtitle": "שם, תמונה — ואפשר להוסיף עוד בהמשך",
     "createOrJoin": "רוצה ליצור משפחה חדשה או להצטרף לקיימת?",
     "createFamily": "צור משפחה חדשה",
     "joinFamily": "הצטרף למשפחה קיימת",
     "familyName": "שם המשפחה",
-    "familyNamePlaceholder": "משפחת כהן, הרל ומשפחתו...",
+    "familyNamePlaceholder": "משפחת כהן...",
     "enterCode": "הכנס קוד משפחה",
     "codePlaceholder": "6 תווים",
     "join": "הצטרף",
@@ -107,6 +109,25 @@
     "photoFromGallery": "בחר תמונה מהגלריה",
     "joined": "הצטרף"
   },
+  "children": {
+    "title": "ילדים",
+    "addChild": "הוסף ילד/ה",
+    "childName": "שם הילד/ה",
+    "childNamePlaceholder": "הרל, שי, רוני...",
+    "addPhoto": "הוסף תמונה",
+    "editChild": "ערוך ילד/ה",
+    "save": "שמור",
+    "cancel": "ביטול",
+    "switchChild": "החלף ילד/ה",
+    "noChildren": "אין ילדים עדיין",
+    "nameRequired": "הכנס שם"
+  },
+  "notifications": {
+    "title": "התראות בזמן אמת",
+    "subtitle": "קבל התראה כשמישהו מוסיף אירוע",
+    "added": "הוסיף/ה",
+    "for": "עבור"
+  },
   "settings": {
     "title": "הגדרות",
     "trackers": "מעקבים",
@@ -122,7 +143,9 @@
     "deleteTrackerConfirm": "למחוק את המעקב הזה? כל הנתונים יאבדו.",
     "builtinTrackers": "מעקבים מובנים",
     "customTrackers": "מעקבים מותאמים אישית",
-    "configureVitaminD": "הגדר מינונים"
+    "configureVitaminD": "הגדר מינונים",
+    "childrenSection": "ילדים",
+    "notificationsSection": "התראות"
   },
   "admin": {
     "title": "ניהול",

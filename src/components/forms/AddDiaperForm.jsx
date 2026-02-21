@@ -10,9 +10,9 @@ const DIAPER_TYPES = [
   { key: 'both', label: t('diaper.both'), emoji: '💧💩' },
 ]
 
-export function AddDiaperForm({ onSave, onCancel, loading }) {
-  const [type, setType] = useState(null)
-  const [time, setTime] = useState(format(new Date(), 'HH:mm'))
+export function AddDiaperForm({ onSave, onCancel, loading, initialData, initialTime }) {
+  const [type, setType] = useState(initialData?.type ?? null)
+  const [time, setTime] = useState(initialTime ?? format(new Date(), 'HH:mm'))
 
   function handleSave() {
     if (!type) return

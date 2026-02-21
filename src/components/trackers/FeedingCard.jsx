@@ -8,8 +8,8 @@ import { AddFeedingForm } from '../forms/AddFeedingForm'
 import { Card } from '../ui/Card'
 import { TRACKER_TYPES } from '../../lib/constants'
 
-export function FeedingCard({ tracker, familyId, memberId }) {
-  const { events, loading, addEvent } = useEvents(familyId, { trackerId: tracker.id, days: 1 })
+export function FeedingCard({ tracker, familyId, memberId, childId }) {
+  const { events, loading, addEvent } = useEvents(familyId, { trackerId: tracker.id, days: 1, childId })
   const [sheetOpen, setSheetOpen] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -19,7 +19,7 @@ export function FeedingCard({ tracker, familyId, memberId }) {
   async function handleSave(data, occurredAt) {
     setSaving(true)
     try {
-      await addEvent({ trackerId: tracker.id, memberId, data, occurredAt: occurredAt.toISOString() })
+      await addEvent({ trackerId: tracker.id, memberId, childId, data, occurredAt: occurredAt.toISOString() })
       setSheetOpen(false)
     } finally {
       setSaving(false)

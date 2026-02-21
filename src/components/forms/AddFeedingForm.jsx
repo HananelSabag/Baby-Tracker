@@ -5,10 +5,12 @@ import { FEEDING_PRESETS } from '../../lib/constants'
 import { Button } from '../ui/Button'
 import { cn } from '../../lib/utils'
 
-export function AddFeedingForm({ onSave, onCancel, loading }) {
-  const [amount, setAmount] = useState(null)
-  const [custom, setCustom] = useState('')
-  const [time, setTime] = useState(format(new Date(), 'HH:mm'))
+export function AddFeedingForm({ onSave, onCancel, loading, initialData, initialTime }) {
+  const initAmount = initialData?.amount_ml ?? null
+  const isPreset = initAmount !== null && FEEDING_PRESETS.includes(initAmount)
+  const [amount, setAmount] = useState(isPreset ? initAmount : null)
+  const [custom, setCustom] = useState(!isPreset && initAmount ? String(initAmount) : '')
+  const [time, setTime] = useState(initialTime ?? format(new Date(), 'HH:mm'))
   const [error, setError] = useState('')
 
   const finalAmount = amount ?? (custom ? parseInt(custom, 10) : null)

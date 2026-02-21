@@ -114,6 +114,8 @@ export const STORAGE_KEYS = {
   FAMILY_ID: 'bt_family_id',
   MEMBER_ID: 'bt_member_id',
   MEMBER_NAME: 'bt_member_name',
+  CHILD_ID: 'bt_child_id',
+  NOTIFICATIONS: 'bt_notifications',
 }
 
 // Admin configuration — keep secret

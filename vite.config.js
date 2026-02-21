@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/*.png'],
       manifest: {
-        name: 'Baby Tracker — הרל',
-        short_name: 'הרל',
-        description: 'מעקב האכלות, חיתולים וויטמינים עבור הרל',
+        name: 'BabyTracker',
+        short_name: 'BabyTracker',
+        description: 'מעקב האכלות, חיתולים וויטמינים לתינוק שלכם',
         theme_color: '#8B5E3C',
         background_color: '#FFF8F0',
         display: 'standalone',
@@ -36,5 +36,16 @@ export default defineConfig({
         ]
       }
     })
-  ]
+  ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'supabase': ['@supabase/supabase-js'],
+          'recharts': ['recharts'],
+        },
+      },
+    },
+  },
 })

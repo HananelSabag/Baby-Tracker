@@ -7,8 +7,8 @@ import { cn } from '../../lib/utils'
 // Dose slot emojis by position
 const DOSE_EMOJIS = ['🌅', '☀️', '🌙', '⭐']
 
-export function VitaminDCard({ tracker, familyId, memberId }) {
-  const { events, addEvent } = useEvents(familyId, { trackerId: tracker.id, days: 1 })
+export function VitaminDCard({ tracker, familyId, memberId, childId }) {
+  const { events, addEvent } = useEvents(familyId, { trackerId: tracker.id, days: 1, childId })
   const [saving, setSaving] = useState(null)
 
   // Read dose config from tracker, fallback to defaults
@@ -33,6 +33,7 @@ export function VitaminDCard({ tracker, familyId, memberId }) {
       await addEvent({
         trackerId: tracker.id,
         memberId,
+        childId,
         data: { dose_index: doseKey, dose_label: doseLabel },
         occurredAt: new Date().toISOString(),
       })

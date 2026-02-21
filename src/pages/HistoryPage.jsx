@@ -1,18 +1,27 @@
 import { useState } from 'react'
+import { format } from 'date-fns'
 import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
 import { useEvents } from '../hooks/useEvents'
 import { groupEventsByDay, formatTime } from '../lib/utils'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
+import { BottomSheet } from '../components/ui/BottomSheet'
+import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
+import { AddFeedingForm } from '../components/forms/AddFeedingForm'
+import { AddDiaperForm } from '../components/forms/AddDiaperForm'
+import { AddCustomEventForm } from '../components/forms/AddCustomEventForm'
+import { TRACKER_TYPES } from '../lib/constants'
 
 export function HistoryPage() {
   const { identity } = useApp()
   const { trackers } = useTrackers(identity.familyId)
-  const { events, loading, deleteEvent } = useEvents(identity.familyId, { days: 30 })
+  const { events, loading, deleteEvent, updateEvent } = useEvents(identity.familyId, { days: 30 })
   const [filterTrackerId, setFilterTrackerId] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [editTarget, setEditTarget] = useState(null)
+  const [editSaving, setEditSaving] = useState(false)
 
   const filtered = filterTrackerId ? events.filter(e => e.tracker_id === filterTrackerId) : events
   const grouped = groupEventsByDay(filtered)
@@ -21,6 +30,83 @@ export function HistoryPage() {
     if (!deleteTarget) return
     await deleteEvent(deleteTarget)
     setDeleteTarget(null)
+  }
+
+  // Called by feeding / diaper / custom forms on save
+  async function handleEditSave(data, occurredAt) {
+    setEditSaving(true)
+    try {
+      const original = new Date(editTarget.occurred_at)
+      original.setHours(occurredAt.getHours(), occurredAt.getMinutes(), 0, 0)
+      await updateEvent(editTarget.id, { data, occurred_at: original.toISOString() })
+      setEditTarget(null)
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  // Called by time-only form for vitamin_d / dose
+  async function handleTimeOnlySave(timeStr) {
+    setEditSaving(true)
+    try {
+      const [h, m] = timeStr.split(':').map(Number)
+      const original = new Date(editTarget.occurred_at)
+      original.setHours(h, m, 0, 0)
+      await updateEvent(editTarget.id, { occurred_at: original.toISOString() })
+      setEditTarget(null)
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  function renderEditForm() {
+    if (!editTarget) return null
+    const type = editTarget.tracker?.tracker_type
+    const initialTime = format(new Date(editTarget.occurred_at), 'HH:mm')
+
+    if (type === TRACKER_TYPES.FEEDING) {
+      return (
+        <AddFeedingForm
+          initialData={editTarget.data}
+          initialTime={initialTime}
+          onSave={handleEditSave}
+          onCancel={() => setEditTarget(null)}
+          loading={editSaving}
+        />
+      )
+    }
+    if (type === TRACKER_TYPES.DIAPER) {
+      return (
+        <AddDiaperForm
+          initialData={editTarget.data}
+          initialTime={initialTime}
+          onSave={handleEditSave}
+          onCancel={() => setEditTarget(null)}
+          loading={editSaving}
+        />
+      )
+    }
+    if (type === TRACKER_TYPES.VITAMIN_D || type === TRACKER_TYPES.DOSE) {
+      return (
+        <TimeOnlyForm
+          initialTime={initialTime}
+          onSave={handleTimeOnlySave}
+          onCancel={() => setEditTarget(null)}
+          loading={editSaving}
+        />
+      )
+    }
+    // custom
+    return (
+      <AddCustomEventForm
+        tracker={editTarget.tracker}
+        initialData={editTarget.data}
+        initialTime={initialTime}
+        onSave={handleEditSave}
+        onCancel={() => setEditTarget(null)}
+        loading={editSaving}
+      />
+    )
   }
 
   function formatEventSummary(event) {
@@ -32,7 +118,7 @@ export function HistoryPage() {
       const map = { wet: t('diaper.wet'), dirty: t('diaper.dirty'), both: t('diaper.both') }
       return map[data.type] ?? ''
     }
-    return Object.values(data).join(', ')
+    return Object.values(data).filter(Boolean).join(', ')
   }
 
   return (
@@ -74,6 +160,12 @@ export function HistoryPage() {
                       </p>
                     </div>
                     <button
+                      onClick={() => setEditTarget(event)}
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-brown-300 hover:text-blue-400 hover:bg-blue-50 transition-colors"
+                    >
+                      ✏️
+                    </button>
+                    <button
                       onClick={() => setDeleteTarget(event.id)}
                       className="w-8 h-8 rounded-full flex items-center justify-center text-brown-300 hover:text-red-400 hover:bg-red-50 transition-colors"
                     >
@@ -93,6 +185,14 @@ export function HistoryPage() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      <BottomSheet
+        isOpen={Boolean(editTarget)}
+        onClose={() => setEditTarget(null)}
+        title={`${t('common.edit')} ${editTarget?.tracker?.name ?? ''}`}
+      >
+        {renderEditForm()}
+      </BottomSheet>
     </div>
   )
 }
@@ -109,5 +209,26 @@ function FilterChip({ label, active, color, onClick }) {
         {label}
       </span>
     </button>
+  )
+}
+
+function TimeOnlyForm({ initialTime, onSave, onCancel, loading }) {
+  const [time, setTime] = useState(initialTime)
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-sm font-medium text-brown-600 mb-2">{t('feeding.time')}</p>
+        <input
+          type="time"
+          value={time}
+          onChange={e => setTime(e.target.value)}
+          className="w-full bg-cream-200 rounded-2xl px-4 py-3 text-brown-800 font-rubik outline-none"
+        />
+      </div>
+      <div className="flex gap-3 pt-2">
+        <Button variant="secondary" className="flex-1" onClick={onCancel}>{t('common.cancel')}</Button>
+        <Button className="flex-1" onClick={() => onSave(time)} disabled={loading}>{t('common.save')}</Button>
+      </div>
+    </div>
   )
 }

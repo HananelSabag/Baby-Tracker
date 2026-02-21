@@ -1,24 +1,31 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { t } from '../lib/strings'
 import { ROLES } from '../lib/constants'
 import { createFamily, joinFamily } from '../hooks/useFamily'
+import { addChild } from '../hooks/useChildren'
 import { useApp } from '../hooks/useAppContext'
 import { Button } from '../components/ui/Button'
 import { cn } from '../lib/utils'
+import { supabase } from '../lib/supabase'
 
-const STEPS = { CHOOSE: 'choose', ROLE: 'role', FAMILY_NAME: 'family_name', CODE: 'code', DONE: 'done' }
+const STEPS = { CHOOSE: 'choose', ROLE: 'role', FAMILY_NAME: 'family_name', CODE: 'code', CHILD: 'child', DONE: 'done' }
 
 export function SetupPage() {
-  const { user, onFamilyJoined } = useApp()
+  const { user, onFamilyJoined, setActiveChildId } = useApp()
   const [step, setStep] = useState(STEPS.CHOOSE)
-  const [action, setAction] = useState(null) // 'create' | 'join'
+  const [action, setAction] = useState(null)
   const [role, setRole] = useState('')
   const [customRole, setCustomRole] = useState('')
   const [familyName, setFamilyName] = useState('')
   const [code, setCode] = useState('')
   const [createdCode, setCreatedCode] = useState('')
+  const [pendingFamilyId, setPendingFamilyId] = useState(null)
+  const [childName, setChildName] = useState('')
+  const [childAvatar, setChildAvatar] = useState(null)      // data URL preview
+  const [childAvatarFile, setChildAvatarFile] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const fileRef = useRef(null)
 
   const avatarUrl = user?.user_metadata?.avatar_url ?? null
   const googleName = user?.user_metadata?.full_name ?? ''
@@ -31,11 +38,7 @@ export function SetupPage() {
   function handleRoleContinue() {
     if (!role) { setError(t('setup.roleRequired')); return }
     setError('')
-    if (action === 'create') {
-      setStep(STEPS.FAMILY_NAME)
-    } else {
-      setStep(STEPS.CODE)
-    }
+    setStep(action === 'create' ? STEPS.FAMILY_NAME : STEPS.CODE)
   }
 
   async function handleCreate() {
@@ -51,8 +54,9 @@ export function SetupPage() {
         avatarUrl,
       })
       setCreatedCode(family.code)
+      setPendingFamilyId(family.id)
       onFamilyJoined({ family, member })
-      setStep(STEPS.DONE)
+      setStep(STEPS.CHILD)
     } catch {
       setError(t('errors.saveFailed'))
     } finally {
@@ -72,9 +76,67 @@ export function SetupPage() {
         authUserId: user.id,
         avatarUrl,
       })
-      onFamilyJoined({ family, member })
+      // Check if family already has children set up
+      const { data: existingChildren } = await supabase
+        .from('children')
+        .select('id')
+        .eq('family_id', family.id)
+        .order('created_at', { ascending: true })
+        .limit(1)
+
+      if (existingChildren?.length > 0) {
+        // Family already has a child — just join and go
+        onFamilyJoined({ family, member, childId: existingChildren[0].id })
+      } else {
+        // No child yet — set one up
+        setPendingFamilyId(family.id)
+        onFamilyJoined({ family, member })
+        setStep(STEPS.CHILD)
+      }
     } catch {
       setError(t('setup.codeError'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function handleAvatarChange(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setChildAvatarFile(file)
+    const reader = new FileReader()
+    reader.onload = ev => setChildAvatar(ev.target.result)
+    reader.readAsDataURL(file)
+  }
+
+  async function handleChildSave() {
+    if (!childName.trim()) { setError(t('children.nameRequired')); return }
+    setLoading(true)
+    setError('')
+    try {
+      let uploadedUrl = null
+      if (childAvatarFile) {
+        const ext = childAvatarFile.name.split('.').pop()
+        const path = `children/${Date.now()}.${ext}`
+        const { error: uploadErr } = await supabase.storage
+          .from('avatars')
+          .upload(path, childAvatarFile)
+        if (!uploadErr) {
+          const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
+          uploadedUrl = urlData.publicUrl
+        }
+      }
+
+      const child = await addChild({
+        familyId: pendingFamilyId,
+        name: childName.trim(),
+        avatarUrl: uploadedUrl,
+      })
+
+      setActiveChildId(child.id)
+      setStep(STEPS.DONE)
+    } catch {
+      setError(t('errors.saveFailed'))
     } finally {
       setLoading(false)
     }
@@ -125,8 +187,6 @@ export function SetupPage() {
                 {r.label}
               </button>
             ))}
-
-            {/* Custom role input */}
             {role === 'אחר' && (
               <input
                 type="text"
@@ -137,9 +197,7 @@ export function SetupPage() {
                 autoFocus
               />
             )}
-
             {error && <p className="text-red-500 text-sm text-center font-rubik">{error}</p>}
-
             <Button className="w-full mt-2" size="lg" onClick={handleRoleContinue}>
               {t('setup.continue')}
             </Button>
@@ -185,20 +243,69 @@ export function SetupPage() {
           </div>
         )}
 
-        {/* Step: Done — show family code */}
+        {/* Step: Add first child */}
+        {step === STEPS.CHILD && (
+          <div className="flex-1 flex flex-col justify-center space-y-5">
+            <div className="text-center">
+              <div className="text-4xl mb-2">👶</div>
+              <h2 className="font-rubik font-bold text-xl text-brown-800">{t('setup.addFirstChild')}</h2>
+              <p className="font-rubik text-brown-400 text-sm mt-1">{t('setup.addChildSubtitle')}</p>
+            </div>
+
+            {/* Avatar picker */}
+            <div className="flex flex-col items-center gap-3">
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="w-24 h-24 rounded-full bg-cream-200 shadow-soft flex items-center justify-center overflow-hidden active:scale-95 transition-transform border-4 border-white"
+              >
+                {childAvatar
+                  ? <img src={childAvatar} alt="avatar" className="w-full h-full object-cover" />
+                  : <span className="text-5xl">👶</span>
+                }
+              </button>
+              <button onClick={() => fileRef.current?.click()} className="text-xs font-rubik text-brown-500 bg-cream-200 px-4 py-2 rounded-full">
+                {t('children.addPhoto')}
+              </button>
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+            </div>
+
+            {/* Child name */}
+            <input
+              type="text"
+              value={childName}
+              onChange={e => { setChildName(e.target.value); setError('') }}
+              placeholder={t('children.childNamePlaceholder')}
+              className="w-full bg-white rounded-2xl shadow-soft px-5 py-4 font-rubik text-brown-800 text-xl text-center outline-none"
+              autoFocus
+            />
+
+            {error && <p className="text-red-500 text-sm text-center font-rubik">{error}</p>}
+
+            <Button className="w-full" size="lg" onClick={handleChildSave} disabled={loading}>
+              {loading ? t('app.loading') : t('common.save')}
+            </Button>
+          </div>
+        )}
+
+        {/* Step: Done */}
         {step === STEPS.DONE && (
           <div className="flex-1 flex flex-col justify-center text-center space-y-5">
             <div className="text-5xl">🎉</div>
             <h2 className="font-rubik font-bold text-2xl text-brown-800">{t('setup.familyCode')}</h2>
-            <div className="bg-white rounded-3xl shadow-card py-8 px-4">
-              <p className="font-rubik font-bold text-5xl tracking-[0.4em] text-brown-800">{createdCode}</p>
-            </div>
-            <p className="text-sm text-brown-400 font-rubik">{t('setup.shareCode')}</p>
+            {createdCode && (
+              <>
+                <div className="bg-white rounded-3xl shadow-card py-8 px-4">
+                  <p className="font-rubik font-bold text-5xl tracking-[0.4em] text-brown-800">{createdCode}</p>
+                </div>
+                <p className="text-sm text-brown-400 font-rubik">{t('setup.shareCode')}</p>
+              </>
+            )}
             <Button className="w-full" size="lg" onClick={() => window.location.reload()}>
               {t('setup.goToDashboard')}
             </Button>
           </div>
         )}
+
       </div>
     </div>
   )

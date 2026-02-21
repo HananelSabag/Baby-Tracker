@@ -12,8 +12,8 @@ const DIAPER_LABELS = {
   both: t('diaper.both'),
 }
 
-export function DiaperCard({ tracker, familyId, memberId }) {
-  const { events, loading, addEvent } = useEvents(familyId, { trackerId: tracker.id, days: 1 })
+export function DiaperCard({ tracker, familyId, memberId, childId }) {
+  const { events, loading, addEvent } = useEvents(familyId, { trackerId: tracker.id, days: 1, childId })
   const [sheetOpen, setSheetOpen] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -22,7 +22,7 @@ export function DiaperCard({ tracker, familyId, memberId }) {
   async function handleSave(data, occurredAt) {
     setSaving(true)
     try {
-      await addEvent({ trackerId: tracker.id, memberId, data, occurredAt: occurredAt.toISOString() })
+      await addEvent({ trackerId: tracker.id, memberId, childId, data, occurredAt: occurredAt.toISOString() })
       setSheetOpen(false)
     } finally {
       setSaving(false)

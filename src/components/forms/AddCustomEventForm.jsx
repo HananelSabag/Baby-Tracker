@@ -3,9 +3,9 @@ import { format } from 'date-fns'
 import { t } from '../../lib/strings'
 import { Button } from '../ui/Button'
 
-export function AddCustomEventForm({ tracker, onSave, onCancel, loading }) {
-  const [fieldValues, setFieldValues] = useState({})
-  const [time, setTime] = useState(format(new Date(), 'HH:mm'))
+export function AddCustomEventForm({ tracker, onSave, onCancel, loading, initialData, initialTime }) {
+  const [fieldValues, setFieldValues] = useState(initialData ?? {})
+  const [time, setTime] = useState(initialTime ?? format(new Date(), 'HH:mm'))
 
   const schema = tracker.field_schema ?? []
 
