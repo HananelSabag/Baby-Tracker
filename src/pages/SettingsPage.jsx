@@ -3,7 +3,7 @@ import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
 import { useChildren, addChild } from '../hooks/useChildren'
-import { TRACKER_COLORS, TRACKER_ICONS, FIELD_TYPES, TRACKER_ARCHETYPES, STORAGE_KEYS } from '../lib/constants'
+import { TRACKER_COLORS, TRACKER_ICONS, FIELD_TYPES, TRACKER_ARCHETYPES, STORAGE_KEYS, PARENT_ROLES } from '../lib/constants'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { BottomSheet } from '../components/ui/BottomSheet'
@@ -31,6 +31,7 @@ export function SettingsPage() {
 
   const builtins = trackers.filter(tr => tr.is_builtin)
   const customs = trackers.filter(tr => !tr.is_builtin)
+  const isParent = PARENT_ROLES.includes(identity.memberName)
 
   function toggleNotifications() {
     const next = !notificationsOn
@@ -46,18 +47,27 @@ export function SettingsPage() {
       <div className="mb-5">
         <div className="flex items-center justify-between mb-2">
           <p className="font-rubik font-semibold text-brown-500 text-xs uppercase tracking-wide">{t('settings.childrenSection')}</p>
-          <button
-            onClick={() => setAddChildSheetOpen(true)}
-            className="text-sm font-rubik font-semibold text-white bg-brown-600 px-4 py-1.5 rounded-full active:scale-95 transition-transform shadow-soft"
-          >
-            + {t('children.addChild')}
-          </button>
+          {isParent && (
+            <button
+              onClick={() => setAddChildSheetOpen(true)}
+              className="text-sm font-rubik font-semibold text-white bg-brown-600 px-4 py-1.5 rounded-full active:scale-95 transition-transform shadow-soft"
+            >
+              + {t('children.addChild')}
+            </button>
+          )}
         </div>
         {children.length === 0 ? (
-          <button onClick={() => setAddChildSheetOpen(true)} className="w-full py-6 rounded-3xl border-2 border-dashed border-cream-300 text-brown-400 font-rubik text-sm active:scale-95 transition-transform">
-            <div className="text-3xl mb-1">👶</div>
-            {t('children.noChildren')}
-          </button>
+          isParent ? (
+            <button onClick={() => setAddChildSheetOpen(true)} className="w-full py-6 rounded-3xl border-2 border-dashed border-cream-300 text-brown-400 font-rubik text-sm active:scale-95 transition-transform">
+              <div className="text-3xl mb-1">👶</div>
+              {t('children.noChildren')}
+            </button>
+          ) : (
+            <div className="w-full py-6 rounded-3xl bg-cream-100 text-brown-400 font-rubik text-sm text-center">
+              <div className="text-3xl mb-1">👶</div>
+              {t('children.noChildren')}
+            </div>
+          )
         ) : (
           <div className="space-y-2">
             {children.map(child => (
@@ -69,12 +79,14 @@ export function SettingsPage() {
                   }
                 </div>
                 <span className="font-rubik font-medium text-brown-800 flex-1">{child.name}</span>
-                <button
-                  onClick={() => setEditChildTarget(child)}
-                  className="text-xs font-rubik text-brown-500 bg-cream-200 px-3 py-1.5 rounded-full"
-                >
-                  ✏️ ערוך
-                </button>
+                {isParent && (
+                  <button
+                    onClick={() => setEditChildTarget(child)}
+                    className="text-xs font-rubik text-brown-500 bg-cream-200 px-3 py-1.5 rounded-full"
+                  >
+                    ✏️ ערוך
+                  </button>
+                )}
               </div>
             ))}
           </div>

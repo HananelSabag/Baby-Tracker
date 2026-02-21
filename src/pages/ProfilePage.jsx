@@ -3,7 +3,8 @@ import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
 import { useFamilyMembers, updateMember, updateFamily } from '../hooks/useFamily'
-import { ROLES } from '../lib/constants'
+import { ROLES, ADMIN_EMAIL } from '../lib/constants'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -12,6 +13,8 @@ import { cn } from '../lib/utils'
 
 export function ProfilePage() {
   const { identity, user, signOut, saveIdentity } = useApp()
+  const navigate = useNavigate()
+  const isAdmin = user?.email === ADMIN_EMAIL
   const members = useFamilyMembers(identity.familyId)
   const [role, setRole] = useState(identity.memberName ?? '')
   const [customRole, setCustomRole] = useState('')
@@ -175,6 +178,13 @@ export function ProfilePage() {
       <Button className="w-full mb-3" size="lg" onClick={handleSave} disabled={saving}>
         {saved ? t('profile.changesSaved') : saving ? t('app.loading') : t('profile.saveChanges')}
       </Button>
+
+      {/* Admin access */}
+      {isAdmin && (
+        <Button variant="ghost" className="w-full text-brown-500 mb-1" onClick={() => navigate('/admin')}>
+          🔐 {t('profile.admin')}
+        </Button>
+      )}
 
       {/* Sign out */}
       <Button variant="ghost" className="w-full text-brown-400" onClick={() => setSignOutConfirm(true)}>

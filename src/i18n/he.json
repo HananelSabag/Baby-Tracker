@@ -107,7 +107,8 @@
     "signOut": "התנתק",
     "signOutConfirm": "להתנתק?",
     "photoFromGallery": "בחר תמונה מהגלריה",
-    "joined": "הצטרף"
+    "joined": "הצטרף",
+    "admin": "ניהול מערכת"
   },
   "children": {
     "title": "ילדים",
