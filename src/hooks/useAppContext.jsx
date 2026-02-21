@@ -1,19 +1,74 @@
-import { createContext, useContext, useState } from 'react'
-import { useIdentity } from './useFamily'
+import { createContext, useContext, useState, useEffect } from 'react'
+import { useIdentity, getMemberByAuthUser } from './useFamily'
+import { useAuth } from './useAuth'
 
 const AppContext = createContext(null)
 
 export function AppProvider({ children }) {
-  const { identity, saveIdentity } = useIdentity()
-  const [activeSheet, setActiveSheet] = useState(null) // { type, trackerId, ... }
+  const { user, loading: authLoading, signInWithGoogle, signOut: authSignOut } = useAuth()
+  const { identity, saveIdentity, clearIdentity } = useIdentity()
+  const [familyData, setFamilyData] = useState(null)
+  const [familyLoading, setFamilyLoading] = useState(false)
 
-  const isSetupDone = Boolean(identity.familyId && identity.memberId)
+  // After Google auth, resolve the user's family membership
+  useEffect(() => {
+    if (!user) {
+      setFamilyData(null)
+      return
+    }
 
-  function openSheet(config) { setActiveSheet(config) }
-  function closeSheet() { setActiveSheet(null) }
+    // Use cached identity for instant load if available
+    if (identity.familyId && identity.memberId) {
+      setFamilyData({ familyId: identity.familyId, memberId: identity.memberId, memberName: identity.memberName })
+      return
+    }
+
+    setFamilyLoading(true)
+    getMemberByAuthUser(user.id).then(memberRecord => {
+      if (memberRecord) {
+        const resolved = {
+          familyId: memberRecord.family_id,
+          memberId: memberRecord.id,
+          memberName: memberRecord.display_name,
+        }
+        saveIdentity(resolved)
+        setFamilyData(resolved)
+      }
+      setFamilyLoading(false)
+    })
+  }, [user?.id])
+
+  function onFamilyJoined({ family, member }) {
+    const resolved = { familyId: family.id, memberId: member.id, memberName: member.display_name }
+    saveIdentity(resolved)
+    setFamilyData(resolved)
+  }
+
+  async function signOut() {
+    clearIdentity()
+    setFamilyData(null)
+    await authSignOut()
+  }
+
+  const combinedIdentity = {
+    familyId: familyData?.familyId ?? identity.familyId,
+    memberId: familyData?.memberId ?? identity.memberId,
+    memberName: familyData?.memberName ?? identity.memberName,
+    email: user?.email ?? null,
+    googleAvatarUrl: user?.user_metadata?.avatar_url ?? null,
+  }
 
   return (
-    <AppContext.Provider value={{ identity, saveIdentity, isSetupDone, activeSheet, openSheet, closeSheet }}>
+    <AppContext.Provider value={{
+      user,
+      identity: combinedIdentity,
+      isAuthLoading: authLoading || familyLoading,
+      isSetupDone: Boolean(user && (familyData?.familyId || identity.familyId)),
+      onFamilyJoined,
+      signInWithGoogle,
+      signOut,
+      saveIdentity,
+    }}>
       {children}
     </AppContext.Provider>
   )

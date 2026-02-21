@@ -2,71 +2,90 @@ import { useState } from 'react'
 import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
-import { TRACKER_COLORS, TRACKER_ICONS, FIELD_TYPES } from '../lib/constants'
+import { TRACKER_COLORS, TRACKER_ICONS, FIELD_TYPES, TRACKER_ARCHETYPES } from '../lib/constants'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { cn } from '../lib/utils'
 
+// Wizard steps for creating a new tracker
+const WIZARD_STEPS = { ARCHETYPE: 'archetype', IDENTITY: 'identity', DOSE_CONFIG: 'dose_config', FIELDS: 'fields' }
+
 export function SettingsPage() {
   const { identity } = useApp()
-  const { trackers, addTracker, deleteTracker } = useTrackers(identity.familyId)
+  const { trackers, addTracker, updateTracker, deleteTracker } = useTrackers(identity.familyId)
   const [addSheetOpen, setAddSheetOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [editTarget, setEditTarget] = useState(null) // tracker to edit doses for
 
-  const builtins = trackers.filter(t => t.is_builtin)
-  const customs = trackers.filter(t => !t.is_builtin)
+  const builtins = trackers.filter(tr => tr.is_builtin)
+  const customs = trackers.filter(tr => !tr.is_builtin)
 
   return (
     <div className="px-4 pt-6 pb-4">
-      <h1 className="font-rubik font-bold text-2xl text-brown-800 mb-6">{t('settings.title')}</h1>
-
-      {/* Family info */}
-      <Card className="mb-4">
-        <p className="text-xs text-brown-400 font-rubik mb-1">{t('settings.myName')}</p>
-        <p className="font-rubik font-bold text-brown-800 text-lg">{identity.memberName}</p>
-      </Card>
+      <h1 className="font-rubik font-bold text-2xl text-brown-800 mb-5">{t('settings.title')}</h1>
 
       {/* Built-in trackers */}
-      <div className="mb-4">
-        <p className="font-rubik font-semibold text-brown-600 text-sm mb-2">{t('settings.builtinTrackers')}</p>
+      <div className="mb-5">
+        <p className="font-rubik font-semibold text-brown-500 text-xs uppercase tracking-wide mb-2">{t('settings.builtinTrackers')}</p>
         <div className="space-y-2">
           {builtins.map(tr => (
             <div key={tr.id} className="bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center gap-3">
-              <span className="text-2xl">{tr.icon}</span>
+              <span className="text-xl">{tr.icon}</span>
               <span className="font-rubik font-medium text-brown-800 flex-1">{tr.name}</span>
-              <div className="w-4 h-4 rounded-full" style={{ backgroundColor: tr.color }} />
+              {/* Dose config button for vitamin_d and dose types */}
+              {(tr.tracker_type === 'vitamin_d' || tr.tracker_type === 'dose') && (
+                <button
+                  onClick={() => setEditTarget(tr)}
+                  className="text-xs font-rubik text-brown-500 bg-cream-200 px-3 py-1.5 rounded-full"
+                >
+                  ⚙️ מינונים
+                </button>
+              )}
+              <div className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: tr.color }} />
             </div>
           ))}
         </div>
       </div>
 
       {/* Custom trackers */}
-      <div className="mb-4">
+      <div className="mb-5">
         <div className="flex items-center justify-between mb-2">
-          <p className="font-rubik font-semibold text-brown-600 text-sm">{t('settings.customTrackers')}</p>
+          <p className="font-rubik font-semibold text-brown-500 text-xs uppercase tracking-wide">{t('settings.customTrackers')}</p>
           <button
             onClick={() => setAddSheetOpen(true)}
-            className="text-sm font-rubik font-medium text-brown-600 bg-cream-200 px-3 py-1 rounded-full active:scale-95 transition-transform"
+            className="text-sm font-rubik font-semibold text-white bg-brown-600 px-4 py-1.5 rounded-full active:scale-95 transition-transform shadow-soft"
           >
             + {t('settings.addTracker')}
           </button>
         </div>
         {customs.length === 0 ? (
-          <div className="text-center py-6 text-brown-400 font-rubik text-sm bg-cream-50 rounded-2xl">
-            עדיין אין מעקבים מותאמים אישית
-          </div>
+          <button
+            onClick={() => setAddSheetOpen(true)}
+            className="w-full py-8 rounded-3xl border-2 border-dashed border-cream-300 text-brown-400 font-rubik text-sm active:scale-95 transition-transform"
+          >
+            <div className="text-3xl mb-1">➕</div>
+            הוסף מעקב מותאם אישית
+          </button>
         ) : (
           <div className="space-y-2">
             {customs.map(tr => (
               <div key={tr.id} className="bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center gap-3">
-                <span className="text-2xl">{tr.icon}</span>
+                <span className="text-xl">{tr.icon}</span>
                 <span className="font-rubik font-medium text-brown-800 flex-1">{tr.name}</span>
-                <div className="w-4 h-4 rounded-full ml-2" style={{ backgroundColor: tr.color }} />
+                {(tr.tracker_type === 'dose') && (
+                  <button
+                    onClick={() => setEditTarget(tr)}
+                    className="text-xs font-rubik text-brown-500 bg-cream-200 px-3 py-1.5 rounded-full"
+                  >
+                    ⚙️ מינונים
+                  </button>
+                )}
+                <div className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: tr.color }} />
                 <button
                   onClick={() => setDeleteTarget(tr.id)}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-brown-300 hover:text-red-400 transition-colors"
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-brown-200 hover:text-red-400 transition-colors text-lg"
                 >
                   🗑
                 </button>
@@ -76,11 +95,25 @@ export function SettingsPage() {
         )}
       </div>
 
-      <AddTrackerSheet
+      {/* Add tracker wizard */}
+      <AddTrackerWizard
         isOpen={addSheetOpen}
         onClose={() => setAddSheetOpen(false)}
-        onAdd={async (data) => { await addTracker(data); setAddSheetOpen(false) }}
+        onAdd={async data => { await addTracker(data); setAddSheetOpen(false) }}
       />
+
+      {/* Edit dose config sheet */}
+      {editTarget && (
+        <DoseConfigSheet
+          tracker={editTarget}
+          isOpen={Boolean(editTarget)}
+          onClose={() => setEditTarget(null)}
+          onSave={async config => {
+            await updateTracker(editTarget.id, { config })
+            setEditTarget(null)
+          }}
+        />
+      )}
 
       <ConfirmDialog
         isOpen={Boolean(deleteTarget)}
@@ -92,15 +125,153 @@ export function SettingsPage() {
   )
 }
 
-function AddTrackerSheet({ isOpen, onClose, onAdd }) {
+// ─── Dose Configuration Sheet ───────────────────────────────────────────────
+
+function DoseConfigSheet({ tracker, isOpen, onClose, onSave }) {
+  const existingConfig = tracker.config ?? {}
+  const [doseCount, setDoseCount] = useState(existingConfig.daily_doses ?? 2)
+  const [labels, setLabels] = useState(
+    existingConfig.dose_labels ?? ['בוקר', 'ערב', 'צהריים', 'לילה', 'בוקר מאוחר', 'ערב מוקדם']
+  )
+  const [saving, setSaving] = useState(false)
+
+  const DOSE_EMOJIS = ['🌅', '☀️', '🌤', '🌙', '⭐', '💫']
+  const MAX_DOSES = 6
+
+  function updateLabel(i, val) {
+    setLabels(prev => prev.map((l, idx) => idx === i ? val : l))
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    await onSave({ daily_doses: doseCount, dose_labels: labels.slice(0, doseCount) })
+    setSaving(false)
+  }
+
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title={`הגדרת מינונים — ${tracker.name}`}>
+      <div className="space-y-5">
+        {/* How many doses per day */}
+        <div>
+          <p className="text-sm font-medium text-brown-600 mb-3">{t('settings.dosesPerDay')}</p>
+          <div className="flex gap-2">
+            {Array.from({ length: MAX_DOSES }, (_, i) => i + 1).map(n => (
+              <button
+                key={n}
+                onClick={() => setDoseCount(n)}
+                className={cn(
+                  'flex-1 py-3 rounded-2xl font-rubik font-bold text-lg transition-all active:scale-95',
+                  doseCount === n ? 'text-white shadow-soft' : 'bg-cream-200 text-brown-600'
+                )}
+                style={doseCount === n ? { backgroundColor: tracker.color } : {}}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Dose labels */}
+        <div>
+          <p className="text-sm font-medium text-brown-600 mb-3">שם כל מינון</p>
+          <div className="space-y-2">
+            {Array.from({ length: doseCount }, (_, i) => (
+              <div key={i} className="flex items-center gap-3 bg-cream-200 rounded-2xl px-4 py-3">
+                <span className="text-xl">{DOSE_EMOJIS[i]}</span>
+                <input
+                  type="text"
+                  value={labels[i] ?? ''}
+                  onChange={e => updateLabel(i, e.target.value)}
+                  placeholder={`מינון ${i + 1}`}
+                  className="flex-1 bg-transparent font-rubik text-brown-800 outline-none text-base"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex gap-3 pt-1">
+          <Button variant="secondary" className="flex-1" onClick={onClose}>{t('common.cancel')}</Button>
+          <Button className="flex-1" onClick={handleSave} disabled={saving}>
+            {saving ? t('app.loading') : t('common.save')}
+          </Button>
+        </div>
+      </div>
+    </BottomSheet>
+  )
+}
+
+// ─── Add Tracker Wizard ──────────────────────────────────────────────────────
+
+function AddTrackerWizard({ isOpen, onClose, onAdd }) {
+  const [step, setStep] = useState(WIZARD_STEPS.ARCHETYPE)
+  const [archetype, setArchetype] = useState(null)
   const [name, setName] = useState('')
   const [icon, setIcon] = useState(TRACKER_ICONS[0])
-  const [color, setColor] = useState(TRACKER_COLORS[0])
+  const [color, setColor] = useState(TRACKER_COLORS[3])
+  const [doseCount, setDoseCount] = useState(2)
+  const [doseLabels, setDoseLabels] = useState(['בוקר', 'ערב', 'צהריים', 'לילה', 'בוקר מאוחר', 'ערב מוקדם'])
   const [fields, setFields] = useState([])
   const [saving, setSaving] = useState(false)
 
+  const DOSE_EMOJIS = ['🌅', '☀️', '🌤', '🌙', '⭐', '💫']
+
+  function reset() {
+    setStep(WIZARD_STEPS.ARCHETYPE)
+    setArchetype(null)
+    setName('')
+    setIcon(TRACKER_ICONS[0])
+    setColor(TRACKER_COLORS[3])
+    setDoseCount(2)
+    setDoseLabels(['בוקר', 'ערב', 'צהריים', 'לילה', 'בוקר מאוחר', 'ערב מוקדם'])
+    setFields([])
+  }
+
+  function handleClose() { reset(); onClose() }
+
+  function handleArchetypeSelect(a) {
+    setArchetype(a)
+    if (a.preset_fields) setFields(a.preset_fields)
+    setStep(WIZARD_STEPS.IDENTITY)
+  }
+
+  function handleIdentityNext() {
+    if (!name.trim()) return
+    if (archetype.id === 'dose') {
+      setStep(WIZARD_STEPS.DOSE_CONFIG)
+    } else if (archetype.id === 'freetext') {
+      setStep(WIZARD_STEPS.FIELDS)
+    } else {
+      handleSave()
+    }
+  }
+
+  function handleDoseNext() {
+    handleSave()
+  }
+
+  async function handleSave() {
+    if (!name.trim()) return
+    setSaving(true)
+    try {
+      const isDose = archetype.id === 'dose'
+      const payload = {
+        name: name.trim(),
+        icon,
+        color,
+        tracker_type: archetype.tracker_type,
+        field_schema: isDose ? [] : (archetype.preset_fields ?? fields),
+        config: isDose ? { daily_doses: doseCount, dose_labels: doseLabels.slice(0, doseCount) } : {},
+      }
+      await onAdd(payload)
+      reset()
+    } finally {
+      setSaving(false)
+    }
+  }
+
   function addField() {
-    setFields(prev => [...prev, { key: `field_${Date.now()}`, type: 'number', label: '' }])
+    setFields(prev => [...prev, { key: `f_${Date.now()}`, type: 'number', label: '' }])
   }
 
   function updateField(idx, updates) {
@@ -111,100 +282,180 @@ function AddTrackerSheet({ isOpen, onClose, onAdd }) {
     setFields(prev => prev.filter((_, i) => i !== idx))
   }
 
-  async function handleSave() {
-    if (!name.trim()) return
-    setSaving(true)
-    try {
-      await onAdd({ name: name.trim(), icon, color, field_schema: fields })
-      setName(''); setIcon(TRACKER_ICONS[0]); setColor(TRACKER_COLORS[0]); setFields([])
-    } finally {
-      setSaving(false)
-    }
-  }
+  const stepTitle = {
+    [WIZARD_STEPS.ARCHETYPE]: t('settings.addTracker'),
+    [WIZARD_STEPS.IDENTITY]: 'שם ועיצוב',
+    [WIZARD_STEPS.DOSE_CONFIG]: 'הגדרת מינונים',
+    [WIZARD_STEPS.FIELDS]: 'שדות מותאמים',
+  }[step]
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title={t('settings.addTracker')}>
+    <BottomSheet isOpen={isOpen} onClose={handleClose} title={stepTitle}>
       <div className="space-y-4">
-        {/* Name */}
-        <div>
-          <p className="text-sm font-medium text-brown-600 mb-2">{t('settings.trackerName')}</p>
-          <input
-            type="text"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder={t('settings.trackerName')}
-            className="w-full bg-cream-200 rounded-2xl px-4 py-3 font-rubik text-brown-800 outline-none"
-          />
-        </div>
 
-        {/* Icon */}
-        <div>
-          <p className="text-sm font-medium text-brown-600 mb-2">{t('settings.trackerIcon')}</p>
-          <div className="flex flex-wrap gap-2">
-            {TRACKER_ICONS.map(ic => (
+        {/* Step 1: Choose archetype */}
+        {step === WIZARD_STEPS.ARCHETYPE && (
+          <div className="grid grid-cols-2 gap-3">
+            {TRACKER_ARCHETYPES.map(a => (
               <button
-                key={ic}
-                onClick={() => setIcon(ic)}
-                className={cn('w-10 h-10 rounded-xl text-xl flex items-center justify-center transition-all', icon === ic ? 'bg-brown-600 shadow-soft scale-110' : 'bg-cream-200')}
+                key={a.id}
+                onClick={() => handleArchetypeSelect(a)}
+                className="flex flex-col items-center gap-2 py-5 px-3 rounded-3xl bg-white shadow-card active:scale-95 transition-all text-center"
               >
-                {ic}
+                <span className="text-4xl">{a.icon}</span>
+                <span className="font-rubik font-bold text-brown-800 text-base">{a.label}</span>
+                <span className="font-rubik text-brown-400 text-xs leading-tight">{a.description}</span>
               </button>
             ))}
           </div>
-        </div>
+        )}
 
-        {/* Color */}
-        <div>
-          <p className="text-sm font-medium text-brown-600 mb-2">{t('settings.trackerColor')}</p>
-          <div className="flex flex-wrap gap-2">
-            {TRACKER_COLORS.map(c => (
-              <button
-                key={c}
-                onClick={() => setColor(c)}
-                className={cn('w-8 h-8 rounded-full transition-all', color === c ? 'scale-125 ring-2 ring-brown-600 ring-offset-2' : '')}
-                style={{ backgroundColor: c }}
+        {/* Step 2: Name, icon, color */}
+        {step === WIZARD_STEPS.IDENTITY && (
+          <>
+            {/* Name */}
+            <div>
+              <p className="text-sm font-medium text-brown-600 mb-2">{t('settings.trackerName')}</p>
+              <input
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder={`${archetype.icon} שם המעקב`}
+                className="w-full bg-cream-200 rounded-2xl px-4 py-3 font-rubik text-brown-800 outline-none text-base"
+                autoFocus
               />
-            ))}
-          </div>
-        </div>
+            </div>
 
-        {/* Fields */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-medium text-brown-600">שדות</p>
-            <button onClick={addField} className="text-xs font-rubik text-brown-600 bg-cream-200 px-3 py-1 rounded-full">+ הוסף שדה</button>
-          </div>
-          <div className="space-y-2">
-            {fields.map((field, idx) => (
-              <div key={field.key} className="bg-cream-200 rounded-2xl p-3 space-y-2">
-                <div className="flex gap-2">
+            {/* Icon */}
+            <div>
+              <p className="text-sm font-medium text-brown-600 mb-2">{t('settings.trackerIcon')}</p>
+              <div className="flex flex-wrap gap-2">
+                {TRACKER_ICONS.map(ic => (
+                  <button
+                    key={ic}
+                    onClick={() => setIcon(ic)}
+                    className={cn('w-11 h-11 rounded-2xl text-2xl flex items-center justify-center transition-all active:scale-95', icon === ic ? 'bg-brown-600 shadow-soft scale-110' : 'bg-cream-200')}
+                  >
+                    {ic}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Color */}
+            <div>
+              <p className="text-sm font-medium text-brown-600 mb-2">{t('settings.trackerColor')}</p>
+              <div className="flex flex-wrap gap-2">
+                {TRACKER_COLORS.map(c => (
+                  <button
+                    key={c}
+                    onClick={() => setColor(c)}
+                    className={cn('w-9 h-9 rounded-full transition-all active:scale-95', color === c ? 'scale-125 ring-2 ring-brown-700 ring-offset-2' : '')}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Preview */}
+            <div className="flex items-center gap-3 bg-white rounded-2xl shadow-soft px-4 py-3 mt-1">
+              <span className="text-2xl">{icon}</span>
+              <span className="font-rubik font-semibold text-brown-800 flex-1">{name || 'תצוגה מקדימה'}</span>
+              <div className="w-4 h-4 rounded-full" style={{ backgroundColor: color }} />
+            </div>
+
+            <div className="flex gap-3 pt-1">
+              <Button variant="secondary" className="flex-1" onClick={() => setStep(WIZARD_STEPS.ARCHETYPE)}>{t('common.cancel')}</Button>
+              <Button className="flex-1" onClick={handleIdentityNext} disabled={!name.trim() || saving}>
+                {archetype.id === 'dose' ? 'הבא ←' : saving ? t('app.loading') : t('common.save')}
+              </Button>
+            </div>
+          </>
+        )}
+
+        {/* Step 3: Dose configuration */}
+        {step === WIZARD_STEPS.DOSE_CONFIG && (
+          <>
+            <p className="text-sm font-medium text-brown-600">כמה מינונים ביום?</p>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4, 5, 6].map(n => (
+                <button
+                  key={n}
+                  onClick={() => setDoseCount(n)}
+                  className={cn('flex-1 py-3 rounded-2xl font-rubik font-bold text-lg transition-all active:scale-95', doseCount === n ? 'text-white shadow-soft' : 'bg-cream-200 text-brown-600')}
+                  style={doseCount === n ? { backgroundColor: color } : {}}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+
+            <p className="text-sm font-medium text-brown-600">שם כל מינון</p>
+            <div className="space-y-2">
+              {Array.from({ length: doseCount }, (_, i) => (
+                <div key={i} className="flex items-center gap-3 bg-cream-200 rounded-2xl px-4 py-3">
+                  <span className="text-xl">{DOSE_EMOJIS[i]}</span>
                   <input
                     type="text"
-                    value={field.label}
-                    onChange={e => updateField(idx, { label: e.target.value })}
-                    placeholder={t('settings.fieldLabel')}
-                    className="flex-1 bg-white rounded-xl px-3 py-2 font-rubik text-sm text-brown-800 outline-none"
+                    value={doseLabels[i] ?? ''}
+                    onChange={e => setDoseLabels(prev => prev.map((l, idx) => idx === i ? e.target.value : l))}
+                    placeholder={`מינון ${i + 1}`}
+                    className="flex-1 bg-transparent font-rubik text-brown-800 outline-none"
                   />
-                  <button onClick={() => removeField(idx)} className="text-brown-300 hover:text-red-400">×</button>
                 </div>
-                <select
-                  value={field.type}
-                  onChange={e => updateField(idx, { type: e.target.value })}
-                  className="w-full bg-white rounded-xl px-3 py-2 font-rubik text-sm text-brown-800 outline-none"
-                >
-                  {FIELD_TYPES.map(ft => <option key={ft.value} value={ft.value}>{ft.label}</option>)}
-                </select>
-              </div>
-            ))}
-          </div>
-        </div>
+              ))}
+            </div>
 
-        <div className="flex gap-3 pt-2">
-          <Button variant="secondary" className="flex-1" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button className="flex-1" onClick={handleSave} disabled={!name.trim() || saving}>
-            {t('common.save')}
-          </Button>
-        </div>
+            <div className="flex gap-3 pt-1">
+              <Button variant="secondary" className="flex-1" onClick={() => setStep(WIZARD_STEPS.IDENTITY)}>{t('common.cancel')}</Button>
+              <Button className="flex-1" onClick={handleDoseNext} disabled={saving}>
+                {saving ? t('app.loading') : t('common.save')}
+              </Button>
+            </div>
+          </>
+        )}
+
+        {/* Step 4: Free-text fields */}
+        {step === WIZARD_STEPS.FIELDS && (
+          <>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-brown-600">שדות</p>
+              <button onClick={addField} className="text-sm font-rubik font-semibold text-brown-600 bg-cream-200 px-3 py-1.5 rounded-full">+ הוסף שדה</button>
+            </div>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {fields.map((field, idx) => (
+                <div key={field.key} className="bg-cream-200 rounded-2xl p-3 space-y-2">
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={field.label}
+                      onChange={e => updateField(idx, { label: e.target.value })}
+                      placeholder={t('settings.fieldLabel')}
+                      className="flex-1 bg-white rounded-xl px-3 py-2 font-rubik text-sm text-brown-800 outline-none"
+                    />
+                    <button onClick={() => removeField(idx)} className="text-brown-300 hover:text-red-400 text-xl font-bold">×</button>
+                  </div>
+                  <select
+                    value={field.type}
+                    onChange={e => updateField(idx, { type: e.target.value })}
+                    className="w-full bg-white rounded-xl px-3 py-2 font-rubik text-sm text-brown-700 outline-none"
+                  >
+                    {FIELD_TYPES.map(ft => <option key={ft.value} value={ft.value}>{ft.label}</option>)}
+                  </select>
+                </div>
+              ))}
+              {fields.length === 0 && (
+                <p className="text-center text-brown-400 text-sm font-rubik py-3">הוסף לפחות שדה אחד</p>
+              )}
+            </div>
+            <div className="flex gap-3 pt-1">
+              <Button variant="secondary" className="flex-1" onClick={() => setStep(WIZARD_STEPS.IDENTITY)}>{t('common.cancel')}</Button>
+              <Button className="flex-1" onClick={handleSave} disabled={saving}>
+                {saving ? t('app.loading') : t('common.save')}
+              </Button>
+            </div>
+          </>
+        )}
       </div>
     </BottomSheet>
   )

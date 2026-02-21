@@ -1,15 +1,21 @@
 import { NavLink } from 'react-router-dom'
 import { t } from '../../lib/strings'
+import { useApp } from '../../hooks/useAppContext'
+import { ADMIN_EMAIL } from '../../lib/constants'
 import { cn } from '../../lib/utils'
 
-const NAV_ITEMS = [
-  { to: '/', label: t('nav.home'), icon: '🏠' },
-  { to: '/history', label: t('nav.history'), icon: '📋' },
-  { to: '/reports', label: t('nav.reports'), icon: '📊' },
-  { to: '/settings', label: t('nav.settings'), icon: '⚙️' },
-]
-
 export function BottomNav() {
+  const { identity } = useApp()
+  const isAdmin = identity.email === ADMIN_EMAIL
+
+  const NAV_ITEMS = [
+    { to: '/', label: t('nav.home'), icon: '🏠' },
+    { to: '/history', label: t('nav.history'), icon: '📋' },
+    { to: '/reports', label: t('nav.reports'), icon: '📊' },
+    { to: '/profile', label: t('nav.profile'), icon: '👤' },
+    ...(isAdmin ? [{ to: '/admin', label: t('admin.title'), icon: '🔐' }] : []),
+  ]
+
   return (
     <nav className="fixed bottom-0 inset-x-0 z-40 flex justify-center">
       <div className="w-full max-w-[480px] bg-white border-t border-cream-200 pb-safe">

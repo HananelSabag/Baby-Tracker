@@ -19,10 +19,11 @@ export function HomePage() {
   function renderTracker(tracker) {
     const props = { key: tracker.id, tracker, familyId: identity.familyId, memberId: identity.memberId }
     switch (tracker.tracker_type) {
-      case TRACKER_TYPES.FEEDING: return <FeedingCard {...props} />
+      case TRACKER_TYPES.FEEDING:   return <FeedingCard {...props} />
       case TRACKER_TYPES.VITAMIN_D: return <VitaminDCard {...props} />
-      case TRACKER_TYPES.DIAPER: return <DiaperCard {...props} />
-      default: return <CustomTrackerCard {...props} />
+      case TRACKER_TYPES.DIAPER:    return <DiaperCard {...props} />
+      case TRACKER_TYPES.DOSE:      return <VitaminDCard {...props} /> // reuse dose UI
+      default:                      return <CustomTrackerCard {...props} />
     }
   }
 

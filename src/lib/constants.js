@@ -3,8 +3,44 @@ export const TRACKER_TYPES = {
   FEEDING: 'feeding',
   VITAMIN_D: 'vitamin_d',
   DIAPER: 'diaper',
+  DOSE: 'dose',    // generic configurable dose tracker (medicine, vitamins, etc.)
   CUSTOM: 'custom',
 }
+
+// Archetypes shown in the "Add tracker" creation wizard
+export const TRACKER_ARCHETYPES = [
+  {
+    id: 'dose',
+    icon: '💊',
+    label: 'מינונים',
+    description: 'תרופה, ויטמין — כמה פעמים ביום',
+    tracker_type: 'dose',
+  },
+  {
+    id: 'amount',
+    icon: '📏',
+    label: 'כמות',
+    description: 'כמות במ"ל, גרם, יחידות',
+    tracker_type: 'custom',
+    preset_fields: [{ key: 'amount', type: 'number', label: 'כמות' }],
+  },
+  {
+    id: 'event',
+    icon: '✅',
+    label: 'אירוע',
+    description: 'סמן שמשהו קרה — אמבטיה, שינה',
+    tracker_type: 'custom',
+    preset_fields: [],
+  },
+  {
+    id: 'freetext',
+    icon: '📝',
+    label: 'פתוח',
+    description: 'שדות חופשיים לכל מה שתרצה',
+    tracker_type: 'custom',
+    preset_fields: [],
+  },
+]
 
 // Built-in tracker definitions (seeded per family on creation)
 export const BUILTIN_TRACKERS = [
@@ -16,6 +52,7 @@ export const BUILTIN_TRACKERS = [
     display_order: 0,
     is_builtin: true,
     field_schema: [{ key: 'amount_ml', type: 'number', label: 'כמות מ"ל' }],
+    config: {},
   },
   {
     name: 'ויטמין D',
@@ -25,6 +62,7 @@ export const BUILTIN_TRACKERS = [
     display_order: 1,
     is_builtin: true,
     field_schema: [{ key: 'dose', type: 'choice', label: 'מינון', options: ['morning', 'evening'] }],
+    config: { daily_doses: 2, dose_labels: ['בוקר', 'ערב'] },
   },
   {
     name: 'חיתול',
@@ -34,17 +72,21 @@ export const BUILTIN_TRACKERS = [
     display_order: 2,
     is_builtin: true,
     field_schema: [{ key: 'type', type: 'choice', label: 'סוג', options: ['wet', 'dirty', 'both'] }],
+    config: {},
   },
 ]
 
 // Feeding preset amounts in ml
 export const FEEDING_PRESETS = [30, 60, 90, 120, 150, 180]
 
-// Display names for family members
-export const MEMBER_NAMES = {
-  DAD: 'אבא',
-  MOM: 'אמא',
-}
+// Available roles for family members
+export const ROLES = [
+  { value: 'אבא', label: 'אבא', emoji: '👨' },
+  { value: 'אמא', label: 'אמא', emoji: '👩' },
+  { value: 'סבא', label: 'סבא', emoji: '👴' },
+  { value: 'סבתא', label: 'סבתא', emoji: '👵' },
+  { value: 'אחר', label: 'אחר', emoji: '👤' },
+]
 
 // Custom field types available for new trackers
 export const FIELD_TYPES = [
@@ -67,10 +109,14 @@ export const TRACKER_ICONS = [
   '🌙', '☀️', '❤️', '⭐', '🎵', '🌸', '🦋', '🐣',
 ]
 
-// LocalStorage keys
+// LocalStorage keys for caching identity after auth
 export const STORAGE_KEYS = {
   FAMILY_ID: 'bt_family_id',
   MEMBER_ID: 'bt_member_id',
   MEMBER_NAME: 'bt_member_name',
-  DEVICE_TOKEN: 'bt_device_token',
 }
+
+// Admin configuration — keep secret
+export const ADMIN_EMAIL = 'hananel12345@gmail.com'
+export const ADMIN_TAP_COUNT = 7   // taps on logo to trigger admin prompt
+export const ADMIN_PASSWORD = '123456'

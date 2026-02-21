@@ -3,27 +3,37 @@
     "title": "הרל",
     "loading": "טוען..."
   },
-  "setup": {
+  "auth": {
     "welcome": "ברוכים הבאים",
     "subtitle": "מעקב פשוט ויפה עבור הרל",
+    "signInWithGoogle": "כניסה עם Google",
+    "signingIn": "מתחבר...",
+    "signOut": "התנתק"
+  },
+  "setup": {
+    "createOrJoin": "רוצה ליצור משפחה חדשה או להצטרף לקיימת?",
     "createFamily": "צור משפחה חדשה",
     "joinFamily": "הצטרף למשפחה קיימת",
+    "familyName": "שם המשפחה",
+    "familyNamePlaceholder": "משפחת כהן, הרל ומשפחתו...",
     "enterCode": "הכנס קוד משפחה",
     "codePlaceholder": "6 תווים",
     "join": "הצטרף",
-    "chooseName": "מי את/ה?",
-    "dad": "אבא",
-    "mom": "אמא",
+    "chooseRole": "מה התפקיד שלך?",
+    "customRolePlaceholder": "הכנס תפקיד...",
     "continue": "המשך",
     "familyCode": "קוד המשפחה שלך",
-    "shareCode": "שתף את הקוד הזה עם בן/בת זוגך",
+    "shareCode": "שתף את הקוד הזה כדי שאחרים יצטרפו",
     "codeError": "קוד לא תקין — בדוק שוב",
-    "nameRequired": "בחר שם לפני שממשיכים"
+    "roleRequired": "בחר תפקיד לפני שממשיכים",
+    "nameRequired": "הכנס שם משפחה",
+    "goToDashboard": "לדאשבורד"
   },
   "nav": {
     "home": "בית",
     "history": "היסטוריה",
     "reports": "דוחות",
+    "profile": "פרופיל",
     "settings": "הגדרות"
   },
   "home": {
@@ -32,10 +42,7 @@
     "feedings": "האכלות",
     "lastFeeding": "האכלה אחרונה",
     "ago": "לפני",
-    "noFeedingYet": "עדיין אין האכלות היום",
-    "minutesAgo": "דקות",
-    "hoursAgo": "שעות",
-    "justNow": "עכשיו"
+    "noFeedingYet": "עדיין אין האכלות היום"
   },
   "feeding": {
     "title": "האכלה",
@@ -52,12 +59,11 @@
   },
   "vitaminD": {
     "title": "ויטמין D",
-    "morning": "בוקר",
-    "evening": "ערב",
-    "done": "ניתן",
+    "done": "ניתן ✓",
     "notDone": "טרם ניתן",
-    "markDone": "סמן כניתן",
-    "todayStatus": "מינונים היום"
+    "todayStatus": "מינונים היום",
+    "dosesPerDay": "מינונים ביום",
+    "doseLabel": "שם המינון"
   },
   "diaper": {
     "title": "חיתול",
@@ -73,7 +79,6 @@
     "title": "היסטוריה",
     "noEvents": "אין אירועים להציג",
     "filterAll": "הכל",
-    "today": "היום",
     "deleteConfirm": "למחוק את האירוע הזה?",
     "delete": "מחק",
     "cancel": "ביטול",
@@ -83,19 +88,29 @@
   "reports": {
     "title": "דוחות",
     "feedingTrend": "מגמת האכלות",
-    "last7Days": "7 ימים אחרונים",
-    "last14Days": "14 ימים אחרונים",
     "dailyAverage": "ממוצע יומי",
     "totalThisWeek": "סה\"כ השבוע",
     "noData": "אין מספיק נתונים להצגה"
   },
+  "profile": {
+    "title": "פרופיל",
+    "myRole": "התפקיד שלי",
+    "familyName": "שם המשפחה",
+    "familyCode": "קוד משפחה",
+    "familyCodeHint": "שתף עם בני המשפחה כדי שיצטרפו",
+    "members": "בני המשפחה",
+    "editRole": "שנה תפקיד",
+    "saveChanges": "שמור שינויים",
+    "changesSaved": "נשמר ✓",
+    "signOut": "התנתק",
+    "signOutConfirm": "להתנתק?",
+    "photoFromGallery": "בחר תמונה מהגלריה",
+    "joined": "הצטרף"
+  },
   "settings": {
     "title": "הגדרות",
-    "familyCode": "קוד משפחה",
-    "myName": "השם שלי",
     "trackers": "מעקבים",
     "addTracker": "הוסף מעקב",
-    "editTracker": "ערוך מעקב",
     "trackerName": "שם המעקב",
     "trackerIcon": "אייקון",
     "trackerColor": "צבע",
@@ -107,41 +122,40 @@
     "deleteTrackerConfirm": "למחוק את המעקב הזה? כל הנתונים יאבדו.",
     "builtinTrackers": "מעקבים מובנים",
     "customTrackers": "מעקבים מותאמים אישית",
-    "changesSaved": "השינויים נשמרו"
+    "configureVitaminD": "הגדר מינונים"
+  },
+  "admin": {
+    "title": "ניהול",
+    "passwordPrompt": "סיסמת ניהול",
+    "passwordPlaceholder": "הכנס סיסמא",
+    "enter": "כניסה",
+    "wrongPassword": "סיסמא שגויה",
+    "allFamilies": "כל המשפחות",
+    "members": "חברים",
+    "events": "אירועים",
+    "noFamilies": "אין משפחות רשומות"
   },
   "tracker": {
     "addEvent": "הוסף",
-    "noEventsToday": "אין אירועים היום",
-    "fieldTypes": {
-      "number": "מספר",
-      "text": "טקסט חופשי",
-      "choice": "בחירה מרשימה",
-      "boolean": "כן / לא"
-    }
+    "noEventsToday": "אין אירועים היום"
   },
   "errors": {
     "loadFailed": "שגיאה בטעינת הנתונים",
     "saveFailed": "שגיאה בשמירה",
-    "tryAgain": "נסה שוב"
+    "tryAgain": "נסה שוב",
+    "authFailed": "שגיאה בהתחברות — נסה שוב"
   },
   "common": {
     "by": "על ידי",
     "at": "בשעה",
-    "on": "בתאריך",
     "save": "שמור",
     "cancel": "ביטול",
     "delete": "מחק",
     "edit": "ערוך",
     "close": "סגור",
-    "confirm": "אישור",
     "yes": "כן",
     "no": "לא",
-    "sunday": "ראשון",
-    "monday": "שני",
-    "tuesday": "שלישי",
-    "wednesday": "רביעי",
-    "thursday": "חמישי",
-    "friday": "שישי",
-    "saturday": "שבת"
+    "copy": "העתק",
+    "copied": "הועתק ✓"
   }
 }

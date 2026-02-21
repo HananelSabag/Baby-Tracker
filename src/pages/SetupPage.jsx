@@ -1,44 +1,57 @@
 import { useState } from 'react'
 import { t } from '../lib/strings'
-import { MEMBER_NAMES } from '../lib/constants'
+import { ROLES } from '../lib/constants'
 import { createFamily, joinFamily } from '../hooks/useFamily'
 import { useApp } from '../hooks/useAppContext'
 import { Button } from '../components/ui/Button'
 import { cn } from '../lib/utils'
 
-const STEPS = { CHOOSE: 'choose', NAME: 'name', CODE: 'code', DONE: 'done' }
+const STEPS = { CHOOSE: 'choose', ROLE: 'role', FAMILY_NAME: 'family_name', CODE: 'code', DONE: 'done' }
 
 export function SetupPage() {
-  const { saveIdentity } = useApp()
+  const { user, onFamilyJoined } = useApp()
   const [step, setStep] = useState(STEPS.CHOOSE)
   const [action, setAction] = useState(null) // 'create' | 'join'
-  const [name, setName] = useState('')
+  const [role, setRole] = useState('')
+  const [customRole, setCustomRole] = useState('')
+  const [familyName, setFamilyName] = useState('')
   const [code, setCode] = useState('')
-  const [familyCode, setFamilyCode] = useState('')
+  const [createdCode, setCreatedCode] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const avatarUrl = user?.user_metadata?.avatar_url ?? null
+  const googleName = user?.user_metadata?.full_name ?? ''
+
   function handleChoose(act) {
     setAction(act)
-    setStep(STEPS.NAME)
+    setStep(STEPS.ROLE)
   }
 
-  function handleNameSelect(n) {
-    setName(n)
+  function handleRoleContinue() {
+    if (!role) { setError(t('setup.roleRequired')); return }
+    setError('')
     if (action === 'create') {
-      handleCreate(n)
+      setStep(STEPS.FAMILY_NAME)
     } else {
       setStep(STEPS.CODE)
     }
   }
 
-  async function handleCreate(memberName) {
+  async function handleCreate() {
+    if (!familyName.trim()) { setError(t('setup.nameRequired')); return }
     setLoading(true)
     setError('')
     try {
-      const { family, member, deviceToken } = await createFamily(memberName)
-      setFamilyCode(family.code)
-      saveIdentity({ familyId: family.id, memberId: member.id, memberName, deviceToken })
+      const { family, member } = await createFamily({
+        familyName: familyName.trim(),
+        role,
+        customRole,
+        authUserId: user.id,
+        avatarUrl,
+      })
+      setCreatedCode(family.code)
+      onFamilyJoined({ family, member })
       setStep(STEPS.DONE)
     } catch {
       setError(t('errors.saveFailed'))
@@ -49,12 +62,17 @@ export function SetupPage() {
 
   async function handleJoin() {
     if (code.length !== 6) { setError(t('setup.codeError')); return }
-    if (!name) { setError(t('setup.nameRequired')); return }
     setLoading(true)
     setError('')
     try {
-      const { family, member, deviceToken } = await joinFamily(code, name)
-      saveIdentity({ familyId: family.id, memberId: member.id, memberName: name, deviceToken })
+      const { family, member } = await joinFamily({
+        code,
+        role,
+        customRole,
+        authUserId: user.id,
+        avatarUrl,
+      })
+      onFamilyJoined({ family, member })
     } catch {
       setError(t('setup.codeError'))
     } finally {
@@ -64,60 +82,100 @@ export function SetupPage() {
 
   return (
     <div className="min-h-screen bg-cream-100 flex justify-center">
-      <div className="w-full max-w-[480px] min-h-screen flex flex-col items-center justify-center px-6 py-10">
-        {/* Header */}
-        <div className="text-center mb-10">
-          <div className="text-6xl mb-4">🍼</div>
-          <h1 className="font-rubik font-bold text-4xl text-brown-800 mb-2">{t('setup.welcome')}</h1>
-          <p className="font-rubik text-brown-400 text-base">{t('setup.subtitle')}</p>
-        </div>
+      <div className="w-full max-w-[480px] min-h-screen flex flex-col px-6 py-10">
 
-        {/* Step: Choose */}
+        {/* User greeting */}
+        {avatarUrl && (
+          <div className="flex items-center gap-3 mb-8">
+            <img src={avatarUrl} alt={googleName} className="w-10 h-10 rounded-full object-cover" />
+            <p className="font-rubik text-brown-600 text-sm">שלום, {googleName} 👋</p>
+          </div>
+        )}
+
+        {/* Step: Choose create or join */}
         {step === STEPS.CHOOSE && (
-          <div className="w-full space-y-3">
-            <Button className="w-full" size="lg" onClick={() => handleChoose('create')}>
-              {t('setup.createFamily')}
-            </Button>
-            <Button variant="secondary" className="w-full" size="lg" onClick={() => handleChoose('join')}>
-              {t('setup.joinFamily')}
+          <div className="flex-1 flex flex-col justify-center space-y-4">
+            <div className="text-center mb-6">
+              <div className="text-5xl mb-3">🍼</div>
+              <h1 className="font-rubik font-bold text-2xl text-brown-800">{t('setup.createOrJoin')}</h1>
+            </div>
+            <button onClick={() => handleChoose('create')} className="w-full py-5 rounded-3xl bg-white shadow-card font-rubik font-semibold text-brown-800 text-lg active:scale-95 transition-transform">
+              ✨ {t('setup.createFamily')}
+            </button>
+            <button onClick={() => handleChoose('join')} className="w-full py-5 rounded-3xl bg-cream-200 font-rubik font-medium text-brown-700 text-lg active:scale-95 transition-transform">
+              🔗 {t('setup.joinFamily')}
+            </button>
+          </div>
+        )}
+
+        {/* Step: Choose role */}
+        {step === STEPS.ROLE && (
+          <div className="flex-1 flex flex-col justify-center space-y-3">
+            <h2 className="font-rubik font-bold text-xl text-brown-800 text-center mb-2">{t('setup.chooseRole')}</h2>
+            {ROLES.map(r => (
+              <button
+                key={r.value}
+                onClick={() => { setRole(r.value); setError('') }}
+                className={cn(
+                  'w-full flex items-center gap-4 py-4 px-5 rounded-2xl font-rubik font-medium text-lg transition-all active:scale-95',
+                  role === r.value ? 'bg-brown-600 text-white shadow-soft' : 'bg-white shadow-card text-brown-800'
+                )}
+              >
+                <span className="text-2xl">{r.emoji}</span>
+                {r.label}
+              </button>
+            ))}
+
+            {/* Custom role input */}
+            {role === 'אחר' && (
+              <input
+                type="text"
+                value={customRole}
+                onChange={e => setCustomRole(e.target.value)}
+                placeholder={t('setup.customRolePlaceholder')}
+                className="w-full bg-cream-200 rounded-2xl px-4 py-3 font-rubik text-brown-800 outline-none mt-1"
+                autoFocus
+              />
+            )}
+
+            {error && <p className="text-red-500 text-sm text-center font-rubik">{error}</p>}
+
+            <Button className="w-full mt-2" size="lg" onClick={handleRoleContinue}>
+              {t('setup.continue')}
             </Button>
           </div>
         )}
 
-        {/* Step: Choose name */}
-        {step === STEPS.NAME && (
-          <div className="w-full space-y-3">
-            <p className="font-rubik font-semibold text-brown-700 text-center text-lg mb-4">{t('setup.chooseName')}</p>
-            {loading ? (
-              <div className="text-center text-brown-400 font-rubik">{t('app.loading')}</div>
-            ) : (
-              <>
-                {[MEMBER_NAMES.DAD, MEMBER_NAMES.MOM].map(n => (
-                  <button
-                    key={n}
-                    onClick={() => handleNameSelect(n)}
-                    className="w-full py-5 rounded-3xl bg-white shadow-card font-rubik font-semibold text-brown-800 text-2xl active:scale-95 transition-transform"
-                  >
-                    {n === MEMBER_NAMES.DAD ? '👨 ' : '👩 '}{n}
-                  </button>
-                ))}
-                {error && <p className="text-red-500 text-sm text-center font-rubik">{error}</p>}
-              </>
-            )}
+        {/* Step: Enter family name (create) */}
+        {step === STEPS.FAMILY_NAME && (
+          <div className="flex-1 flex flex-col justify-center space-y-4">
+            <h2 className="font-rubik font-bold text-xl text-brown-800 text-center mb-2">{t('setup.familyName')}</h2>
+            <input
+              type="text"
+              value={familyName}
+              onChange={e => { setFamilyName(e.target.value); setError('') }}
+              placeholder={t('setup.familyNamePlaceholder')}
+              className="w-full bg-white rounded-2xl shadow-soft px-5 py-4 font-rubik text-brown-800 text-lg outline-none"
+              autoFocus
+            />
+            {error && <p className="text-red-500 text-sm text-center font-rubik">{error}</p>}
+            <Button className="w-full" size="lg" onClick={handleCreate} disabled={loading}>
+              {loading ? t('app.loading') : t('setup.createFamily')}
+            </Button>
           </div>
         )}
 
         {/* Step: Enter code (join) */}
         {step === STEPS.CODE && (
-          <div className="w-full space-y-4">
-            <p className="font-rubik text-brown-600 text-center">{t('setup.enterCode')}</p>
+          <div className="flex-1 flex flex-col justify-center space-y-4">
+            <h2 className="font-rubik font-bold text-xl text-brown-800 text-center mb-2">{t('setup.enterCode')}</h2>
             <input
               type="text"
               maxLength={6}
               value={code}
               onChange={e => { setCode(e.target.value.toUpperCase()); setError('') }}
               placeholder={t('setup.codePlaceholder')}
-              className="w-full bg-white text-center text-3xl font-bold font-rubik tracking-[0.5em] rounded-2xl py-4 shadow-soft outline-none text-brown-800 uppercase"
+              className="w-full bg-white text-center text-3xl font-bold font-rubik tracking-[0.5em] rounded-2xl py-5 shadow-soft outline-none text-brown-800 uppercase"
               autoFocus
             />
             {error && <p className="text-red-500 text-sm text-center font-rubik">{error}</p>}
@@ -127,20 +185,17 @@ export function SetupPage() {
           </div>
         )}
 
-        {/* Step: Done (show family code) */}
+        {/* Step: Done — show family code */}
         {step === STEPS.DONE && (
-          <div className="w-full text-center space-y-4">
-            <p className="font-rubik text-brown-600">{t('setup.shareCode')}</p>
+          <div className="flex-1 flex flex-col justify-center text-center space-y-5">
+            <div className="text-5xl">🎉</div>
+            <h2 className="font-rubik font-bold text-2xl text-brown-800">{t('setup.familyCode')}</h2>
             <div className="bg-white rounded-3xl shadow-card py-8 px-4">
-              <p className="font-rubik font-bold text-5xl tracking-[0.4em] text-brown-800">{familyCode}</p>
+              <p className="font-rubik font-bold text-5xl tracking-[0.4em] text-brown-800">{createdCode}</p>
             </div>
             <p className="text-sm text-brown-400 font-rubik">{t('setup.shareCode')}</p>
-            <Button
-              className="w-full mt-4"
-              size="lg"
-              onClick={() => window.location.reload()}
-            >
-              {t('setup.continue')}
+            <Button className="w-full" size="lg" onClick={() => window.location.reload()}>
+              {t('setup.goToDashboard')}
             </Button>
           </div>
         )}
