@@ -1,0 +1,80 @@
+# BabyTracker 👶
+
+A personal PWA for tracking a newborn's daily activities — feedings, diapers, vitamins, and more.
+Built with love for family use, with real-time sync between parents.
+
+---
+
+## Features
+
+- **Feedings** — log time + amount (ml) with quick presets; see last feeding at a glance
+- **Diapers** — wet / dirty / both; full daily breakdown with counts
+- **Vitamin D & Doses** — configurable daily doses with custom labels (morning / evening / etc.)
+- **Custom Trackers** — 4-step wizard to create any tracker you need
+- **Day Navigator** — browse history day by day from the home screen
+- **Multi-child** — each child is a separate entity; events are tagged per child
+- **Real-time sync** — both parents see updates instantly via Supabase Realtime
+- **Toast notifications** — when the other parent logs an event, you get a live notification
+- **Hebrew RTL UI** — fully localized, Rubik font, cream & brown design system
+- **PWA** — installable on Android & iPhone, works offline-ready
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 18 + Vite 6 + Tailwind CSS 3 |
+| Backend | Supabase (Postgres + Realtime + Auth + Storage) |
+| Auth | Google OAuth via Supabase |
+| Charts | Recharts |
+| Dates | date-fns |
+| Routing | React Router v6 |
+| Hosting | Vercel (auto-deploy from GitHub `main`) |
+| PWA | vite-plugin-pwa |
+| Font | Rubik |
+
+---
+
+## Getting Started
+
+```bash
+# Install dependencies
+npm install
+
+# Create .env.local with your Supabase credentials
+VITE_SUPABASE_URL=your_project_url
+VITE_SUPABASE_ANON_KEY=your_anon_key
+
+# Run locally
+npm run dev
+
+# Production build
+npm run build
+```
+
+---
+
+## Project Structure
+
+```
+src/
+├── i18n/he.json              # All UI strings in Hebrew
+├── lib/                      # Constants, Supabase client, utils
+├── hooks/                    # useAuth, useAppContext, useEvents, useTrackers, ...
+├── components/
+│   ├── layout/               # AppLayout, BottomNav
+│   ├── ui/                   # Button, Card, Toast, BottomSheet, ...
+│   └── trackers/             # FeedingCard, DiaperCard, VitaminDCard, CustomTrackerCard
+└── pages/                    # Auth, Setup, Home, History, Reports, Settings, Profile, Admin
+```
+
+---
+
+## Author
+
+**Hananel Sabag**
+© 2025 Hananel Sabag. All rights reserved.
+
+This project was built as a personal tool for family use.
+Not open for redistribution without explicit permission.
