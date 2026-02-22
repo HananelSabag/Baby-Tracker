@@ -91,7 +91,11 @@ export async function joinFamily({ code, role, customRole, authUserId, avatarUrl
     })
     .select()
     .single()
-  if (memberErr) throw memberErr
+  if (memberErr) {
+    if (memberErr.message?.includes('family_full')) throw new Error('family_full')
+    if (memberErr.code === '23505') throw new Error('role_taken')
+    throw memberErr
+  }
 
   return { family, member }
 }
@@ -101,6 +105,15 @@ export async function updateMember(memberId, updates) {
   const { error } = await supabase
     .from('family_members')
     .update(updates)
+    .eq('id', memberId)
+  if (error) throw error
+}
+
+// Remove a member from the family (parents only, enforced by RLS)
+export async function removeMember(memberId) {
+  const { error } = await supabase
+    .from('family_members')
+    .delete()
     .eq('id', memberId)
   if (error) throw error
 }

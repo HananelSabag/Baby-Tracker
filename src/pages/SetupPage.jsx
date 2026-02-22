@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { t } from '../lib/strings'
-import { ROLES } from '../lib/constants'
+import { ROLES, PARENT_ROLES } from '../lib/constants'
 import { createFamily, joinFamily } from '../hooks/useFamily'
 import { addChild } from '../hooks/useChildren'
 import { useApp } from '../hooks/useAppContext'
@@ -12,6 +12,7 @@ const STEPS = { CHOOSE: 'choose', ROLE: 'role', FAMILY_NAME: 'family_name', CODE
 
 export function SetupPage() {
   const { user, onFamilyJoined, setActiveChildId } = useApp()
+  const [codeCopied, setCodeCopied] = useState(false)
   const [step, setStep] = useState(STEPS.CHOOSE)
   const [action, setAction] = useState(null)
   const [role, setRole] = useState('')
@@ -72,8 +73,10 @@ export function SetupPage() {
       const childId = existingChildren?.[0]?.id ?? null
       onFamilyJoined({ family, member, childId })
       // isSetupDone → true → App navigates to HomePage automatically
-    } catch {
-      setError(t('setup.codeError'))
+    } catch (err) {
+      if (err.message === 'family_full') setError(t('errors.familyFull'))
+      else if (err.message === 'role_taken') setError(t('errors.roleTaken'))
+      else setError(t('setup.codeError'))
     } finally {
       setLoading(false)
     }
@@ -171,7 +174,8 @@ export function SetupPage() {
         {step === STEPS.ROLE && (
           <div className="flex-1 flex flex-col justify-center space-y-3">
             <h2 className="font-rubik font-bold text-xl text-brown-800 text-center mb-2">{t('setup.chooseRole')}</h2>
-            {ROLES.map(r => (
+            {/* When creating: only parent roles (needed for child management RLS) */}
+            {(action === 'create' ? ROLES.filter(r => PARENT_ROLES.includes(r.value)) : ROLES).map(r => (
               <button
                 key={r.value}
                 onClick={() => { setRole(r.value); setError('') }}
@@ -289,8 +293,18 @@ export function SetupPage() {
             <h2 className="font-rubik font-bold text-2xl text-brown-800">{t('setup.familyCode')}</h2>
             {createdCode && (
               <>
-                <div className="bg-white rounded-3xl shadow-card py-8 px-4">
+                <div className="bg-white rounded-3xl shadow-card py-8 px-4 relative">
                   <p className="font-rubik font-bold text-5xl tracking-[0.4em] text-brown-800">{createdCode}</p>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(createdCode)
+                      setCodeCopied(true)
+                      setTimeout(() => setCodeCopied(false), 2000)
+                    }}
+                    className="mt-4 text-sm font-rubik text-brown-600 bg-cream-100 px-5 py-2 rounded-full active:scale-95 transition-transform"
+                  >
+                    {codeCopied ? t('common.copied') : t('setup.copyCode')}
+                  </button>
                 </div>
                 <p className="text-sm text-brown-400 font-rubik">{t('setup.shareCode')}</p>
               </>

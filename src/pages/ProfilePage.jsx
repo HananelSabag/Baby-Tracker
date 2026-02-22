@@ -1,9 +1,8 @@
 import { useState, useRef } from 'react'
 import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
-import { useTrackers } from '../hooks/useTrackers'
-import { useFamilyMembers, updateMember, updateFamily } from '../hooks/useFamily'
-import { ROLES, ADMIN_EMAIL } from '../lib/constants'
+import { useFamilyMembers, updateMember, updateFamily, removeMember } from '../hooks/useFamily'
+import { ROLES, ADMIN_EMAIL, PARENT_ROLES } from '../lib/constants'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Card } from '../components/ui/Card'
@@ -24,6 +23,9 @@ export function ProfilePage() {
   const [saved, setSaved] = useState(false)
   const [signOutConfirm, setSignOutConfirm] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [removingMember, setRemovingMember] = useState(null) // { id, display_name }
+
+  const isParent = PARENT_ROLES.includes(identity.memberName)
   const fileInputRef = useRef(null)
 
   // Load family name from first member's family — we'll fetch it separately
@@ -167,10 +169,20 @@ export function ProfilePage() {
                   : <span>{ROLES.find(r => r.value === m.role)?.emoji ?? '👤'}</span>
                 }
               </div>
-              <div>
+              <div className="flex-1">
                 <p className="font-rubik font-medium text-brown-800 text-sm">{m.display_name}</p>
                 {m.id === identity.memberId && <p className="text-xs text-brown-400 font-rubik">אתה</p>}
               </div>
+              {/* Parents can remove other members */}
+              {isParent && m.id !== identity.memberId && (
+                <button
+                  onClick={() => setRemovingMember(m)}
+                  className="w-7 h-7 rounded-full bg-cream-200 flex items-center justify-center text-brown-400 hover:bg-red-100 hover:text-red-500 transition-colors active:scale-95"
+                  title={t('profile.removeMember')}
+                >
+                  −
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -198,6 +210,19 @@ export function ProfilePage() {
         message={t('profile.signOutConfirm')}
         onConfirm={signOut}
         onCancel={() => setSignOutConfirm(false)}
+      />
+
+      <ConfirmDialog
+        isOpen={!!removingMember}
+        message={t('profile.removeMemberConfirm').replace('{{name}}', removingMember?.display_name ?? '')}
+        onConfirm={async () => {
+          if (!removingMember) return
+          try {
+            await removeMember(removingMember.id)
+          } catch {}
+          setRemovingMember(null)
+        }}
+        onCancel={() => setRemovingMember(null)}
       />
     </div>
   )
