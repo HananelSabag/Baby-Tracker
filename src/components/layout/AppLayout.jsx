@@ -12,7 +12,7 @@ function getNotificationsEnabled() {
 }
 
 export function AppLayout({ children }) {
-  const { identity } = useApp()
+  const { identity, addNotification } = useApp()
   const { toasts, showToast, dismissToast } = useToast()
   const notificationsEnabled = getNotificationsEnabled()
 
@@ -30,6 +30,7 @@ export function AppLayout({ children }) {
     memberId: identity.memberId,
     enabled: notificationsEnabled,
     showToast,
+    addNotification,
   })
 
   return (

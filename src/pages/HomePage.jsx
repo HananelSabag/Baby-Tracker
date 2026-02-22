@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
@@ -7,18 +8,28 @@ import { TRACKER_TYPES } from '../lib/constants'
 import { FeedingCard } from '../components/trackers/FeedingCard'
 import { VitaminDCard } from '../components/trackers/VitaminDCard'
 import { DiaperCard } from '../components/trackers/DiaperCard'
+import { SleepCard } from '../components/trackers/SleepCard'
 import { CustomTrackerCard } from '../components/trackers/CustomTrackerCard'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { Spinner } from '../components/ui/Spinner'
 import { format, addDays, subDays, isSameDay } from 'date-fns'
 import { he } from 'date-fns/locale'
+import { formatTime } from '../lib/utils'
 
 export function HomePage() {
-  const { identity, setActiveChildId } = useApp()
-  const { trackers, loading } = useTrackers(identity.familyId)
+  const { identity, setActiveChildId, notifications, unreadCount, markNotificationsRead } = useApp()
+  const navigate = useNavigate()
+  const { trackers: allTrackers, loading } = useTrackers(identity.familyId)
+  const trackers = allTrackers.filter(t => t.is_active !== false)
   const { children } = useChildren(identity.familyId)
   const [childPickerOpen, setChildPickerOpen] = useState(false)
   const [viewDate, setViewDate] = useState(() => new Date())
+  const [bellOpen, setBellOpen] = useState(false)
+
+  function handleBellClick() {
+    markNotificationsRead()
+    setBellOpen(prev => !prev)
+  }
 
   const todayLabel = format(new Date(), 'EEEE, d בMMMM', { locale: he })
   const isToday = isSameDay(viewDate, new Date())
@@ -41,13 +52,21 @@ export function HomePage() {
       case TRACKER_TYPES.FEEDING:   return <FeedingCard {...props} />
       case TRACKER_TYPES.VITAMIN_D: return <VitaminDCard {...props} />
       case TRACKER_TYPES.DIAPER:    return <DiaperCard {...props} />
-      case TRACKER_TYPES.DOSE:      return <VitaminDCard {...props} />
+      case TRACKER_TYPES.SLEEP:     return <SleepCard {...props} />
+      case TRACKER_TYPES.DOSE:      return tracker.config?.display_mode === 'simple'
+                                      ? <CustomTrackerCard {...props} />
+                                      : <VitaminDCard {...props} />
       default:                      return <CustomTrackerCard {...props} />
     }
   }
 
   return (
     <div className="px-4 pt-6 pb-4">
+      {/* Backdrop to close bell dropdown */}
+      {bellOpen && (
+        <div className="fixed inset-0 z-40" onClick={() => setBellOpen(false)} />
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
@@ -56,11 +75,61 @@ export function HomePage() {
             שלום, {identity.memberName} 👋
           </h1>
         </div>
-        <div className="w-12 h-12 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center flex-shrink-0 shadow-soft border-2 border-white">
-          {(identity.memberAvatarUrl || identity.googleAvatarUrl)
-            ? <img src={identity.memberAvatarUrl ?? identity.googleAvatarUrl} alt={identity.memberName} className="w-full h-full object-cover" />
-            : <span className="text-2xl">👤</span>
-          }
+        <div className="flex items-center gap-2">
+          {/* Notification bell */}
+          <div className="relative">
+            <button
+              onClick={handleBellClick}
+              className="w-10 h-10 rounded-full bg-white shadow-soft flex items-center justify-center text-xl active:scale-95 transition-transform"
+            >
+              🔔
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-white text-xs font-bold flex items-center justify-center font-rubik">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Notifications dropdown */}
+            {bellOpen && (
+              <div className="absolute left-0 top-12 w-72 bg-white rounded-2xl shadow-lg z-50 overflow-hidden border border-cream-200">
+                <div className="px-4 py-3 border-b border-cream-200">
+                  <p className="font-rubik font-semibold text-brown-800 text-sm">{t('notifications.title')}</p>
+                </div>
+                {notifications.length === 0 ? (
+                  <p className="text-center text-brown-400 font-rubik text-sm py-6">{t('notifications.noNotifications')}</p>
+                ) : (
+                  <>
+                    {notifications.slice(0, 3).map(n => (
+                      <div key={n.id} className="px-4 py-3 flex items-start gap-3 border-b border-cream-100 last:border-0">
+                        <span className="text-xl flex-shrink-0">{n.emoji}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-rubik text-sm text-brown-700 leading-tight">{n.message}</p>
+                          <p className="font-rubik text-xs text-brown-400 mt-0.5">{formatTime(n.timestamp)}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {notifications.length > 3 && (
+                      <button
+                        onClick={() => { setBellOpen(false); navigate('/history') }}
+                        className="w-full py-3 text-center font-rubik text-sm font-semibold text-brown-600 hover:bg-cream-100 transition-colors"
+                      >
+                        {t('notifications.showAll')} ›
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Avatar */}
+          <div className="w-12 h-12 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center flex-shrink-0 shadow-soft border-2 border-white">
+            {(identity.memberAvatarUrl || identity.googleAvatarUrl)
+              ? <img src={identity.memberAvatarUrl ?? identity.googleAvatarUrl} alt={identity.memberName} className="w-full h-full object-cover" />
+              : <span className="text-2xl">👤</span>
+            }
+          </div>
         </div>
       </div>
 
@@ -87,13 +156,13 @@ export function HomePage() {
         </button>
       )}
 
-      {/* Day navigator — RTL: first child on right = prev, last child on left = next */}
+      {/* Day navigator */}
       <div className="flex items-center justify-between bg-white rounded-2xl shadow-soft px-4 py-3 mb-4">
         <button
           onClick={() => setViewDate(d => subDays(d, 1))}
           className="w-9 h-9 rounded-full bg-cream-100 flex items-center justify-center text-brown-600 text-xl font-bold active:scale-95 transition-transform"
         >
-          ›
+          ‹
         </button>
 
         <button
@@ -111,7 +180,7 @@ export function HomePage() {
           disabled={isToday}
           className="w-9 h-9 rounded-full bg-cream-100 flex items-center justify-center text-brown-600 text-xl font-bold active:scale-95 transition-transform disabled:opacity-25"
         >
-          ‹
+          ›
         </button>
       </div>
 

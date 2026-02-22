@@ -4,6 +4,7 @@ export const TRACKER_TYPES = {
   VITAMIN_D: 'vitamin_d',
   DIAPER: 'diaper',
   DOSE: 'dose',    // generic configurable dose tracker (medicine, vitamins, etc.)
+  SLEEP: 'sleep',
   CUSTOM: 'custom',
 }
 
@@ -72,6 +73,16 @@ export const BUILTIN_TRACKERS = [
     display_order: 2,
     is_builtin: true,
     field_schema: [{ key: 'type', type: 'choice', label: 'סוג', options: ['wet', 'dirty', 'both'] }],
+    config: {},
+  },
+  {
+    name: 'שינה',
+    icon: '🌙',
+    color: '#7BA7E8',
+    tracker_type: TRACKER_TYPES.SLEEP,
+    display_order: 3,
+    is_builtin: true,
+    field_schema: [{ key: 'type', type: 'choice', label: 'סוג', options: ['start', 'end'] }],
     config: {},
   },
 ]

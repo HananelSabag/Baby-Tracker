@@ -12,6 +12,7 @@
   },
   "setup": {
     "addFirstChild": "הוסיפו את הילד/ה הראשון/ה",
+    "copyCode": "העתק קוד",
     "addChildSubtitle": "שם, תמונה — ואפשר להוסיף עוד בהמשך",
     "createOrJoin": "רוצה ליצור משפחה חדשה או להצטרף לקיימת?",
     "createFamily": "צור משפחה חדשה",
@@ -89,12 +90,30 @@
     "edit": "ערוך",
     "by": "על ידי"
   },
+  "sleep": {
+    "title": "שינה",
+    "asleep": "הלך לישון",
+    "wakeUp": "התעורר",
+    "totalToday": "סה\"כ היום",
+    "hoursAbbr": "שע'",
+    "minAbbr": "דק'",
+    "naps": "תנומות"
+  },
   "reports": {
     "title": "דוחות",
     "feedingTrend": "מגמת האכלות",
     "dailyAverage": "ממוצע יומי",
     "totalThisWeek": "סה\"כ השבוע",
-    "noData": "אין מספיק נתונים להצגה"
+    "noData": "אין מספיק נתונים להצגה",
+    "weekFeedings": "האכלות",
+    "weekDiapers": "חיתולים",
+    "mlPerDay": "מ\"ל ליום",
+    "diapersPerDay": "חיתולים ליום",
+    "vitaminDWeek": "ויטמין D — שבועי",
+    "noDataForWeek": "אין נתונים לשבוע זה",
+    "times": "פעמים",
+    "changes": "החלפות",
+    "sleepPerDay": "שינה ליום (שעות)"
   },
   "profile": {
     "title": "פרופיל",
@@ -110,7 +129,10 @@
     "signOutConfirm": "להתנתק?",
     "photoFromGallery": "בחר תמונה מהגלריה",
     "joined": "הצטרף",
-    "admin": "ניהול מערכת"
+    "admin": "ניהול מערכת",
+    "removeMember": "הסר מהמשפחה",
+    "removeMemberConfirm": "להסיר את {{name}} מהמשפחה?",
+    "memberRemoved": "החבר הוסר מהמשפחה"
   },
   "children": {
     "title": "ילדים",
@@ -129,7 +151,9 @@
     "title": "התראות בזמן אמת",
     "subtitle": "קבל התראה כשמישהו מוסיף אירוע",
     "added": "הוסיף/ה",
-    "for": "עבור"
+    "for": "עבור",
+    "noNotifications": "אין התראות עדיין",
+    "showAll": "הצג הכל"
   },
   "settings": {
     "title": "הגדרות",
@@ -148,7 +172,16 @@
     "customTrackers": "מעקבים מותאמים אישית",
     "configureVitaminD": "הגדר מינונים",
     "childrenSection": "ילדים",
-    "notificationsSection": "התראות"
+    "notificationsSection": "התראות",
+    "editTracker": "ערוך מעקב",
+    "hideTracker": "הסתר מדף הבית",
+    "showTracker": "הצג בדף הבית",
+    "dosesPerDay": "מינונים ביום",
+    "displayMode": "תצוגה בדף הבית",
+    "displayModeButtons": "כפתורי מינון",
+    "displayModeButtonsDesc": "לחצן לכל מינון — בוקר, ערב...",
+    "displayModeSimple": "אירוע פשוט",
+    "displayModeSimpleDesc": "כפתור + בלבד, ללא בחירת מינון"
   },
   "admin": {
     "title": "ניהול",
@@ -159,7 +192,10 @@
     "allFamilies": "כל המשפחות",
     "members": "חברים",
     "events": "אירועים",
-    "noFamilies": "אין משפחות רשומות"
+    "noFamilies": "אין משפחות רשומות",
+    "deleteFamily": "מחק משפחה",
+    "deleteFamilyConfirm": "למחוק את משפחת {{name}}? כל הנתונים יאבדו לצמיתות.",
+    "familyDeleted": "המשפחה נמחקה"
   },
   "tracker": {
     "addEvent": "הוסף",
@@ -169,7 +205,9 @@
     "loadFailed": "שגיאה בטעינת הנתונים",
     "saveFailed": "שגיאה בשמירה",
     "tryAgain": "נסה שוב",
-    "authFailed": "שגיאה בהתחברות — נסה שוב"
+    "authFailed": "שגיאה בהתחברות — נסה שוב",
+    "roleTaken": "התפקיד הזה כבר תפוס במשפחה — בחר תפקיד אחר",
+    "familyFull": "המשפחה מלאה — מקסימום 5 חברים"
   },
   "common": {
     "by": "על ידי",

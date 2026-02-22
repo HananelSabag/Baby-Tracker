@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 
-export function useRealtimeNotifications({ familyId, memberId, enabled, showToast }) {
+export function useRealtimeNotifications({ familyId, memberId, enabled, showToast, addNotification }) {
   // Keep maps up-to-date without re-subscribing
   const trackersMap = useRef({})
   const membersMap = useRef({})
@@ -46,10 +46,12 @@ export function useRealtimeNotifications({ familyId, memberId, enabled, showToas
         if (!tracker || !member) return
 
         const childPart = child ? ` עבור ${child.name}` : ''
-        showToast({
+        const notification = {
           emoji: tracker.icon ?? '📌',
           message: `${member.display_name} הוסיף/ה ${tracker.name}${childPart}`,
-        })
+        }
+        showToast(notification)
+        addNotification?.(notification)
       })
       .subscribe()
 

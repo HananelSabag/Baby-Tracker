@@ -12,7 +12,7 @@ import { cn } from '../lib/utils'
 import { supabase } from '../lib/supabase'
 
 // Wizard steps for creating a new tracker
-const WIZARD_STEPS = { ARCHETYPE: 'archetype', IDENTITY: 'identity', DOSE_CONFIG: 'dose_config', FIELDS: 'fields' }
+const WIZARD_STEPS = { ARCHETYPE: 'archetype', IDENTITY: 'identity', DOSE_CONFIG: 'dose_config', DISPLAY_MODE: 'display_mode', FIELDS: 'fields' }
 
 export function SettingsPage() {
   const { identity } = useApp()
@@ -20,7 +20,8 @@ export function SettingsPage() {
   const { children, updateChild } = useChildren(identity.familyId)
   const [addSheetOpen, setAddSheetOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
-  const [editTarget, setEditTarget] = useState(null)
+  const [editTarget, setEditTarget] = useState(null) // dose config
+  const [editTrackerTarget, setEditTrackerTarget] = useState(null) // name/icon/color edit
   const [addChildSheetOpen, setAddChildSheetOpen] = useState(false)
   const [editChildTarget, setEditChildTarget] = useState(null)
   const [notificationsOn, setNotificationsOn] = useState(
@@ -32,6 +33,10 @@ export function SettingsPage() {
   const builtins = trackers.filter(tr => tr.is_builtin)
   const customs = trackers.filter(tr => !tr.is_builtin)
   const isParent = PARENT_ROLES.includes(identity.memberName)
+
+  function toggleTrackerActive(tracker) {
+    updateTracker(tracker.id, { is_active: tracker.is_active === false ? true : false })
+  }
 
   function toggleNotifications() {
     const next = !notificationsOn
@@ -116,19 +121,25 @@ export function SettingsPage() {
         <p className="font-rubik font-semibold text-brown-500 text-xs uppercase tracking-wide mb-2">{t('settings.builtinTrackers')}</p>
         <div className="space-y-2">
           {builtins.map(tr => (
-            <div key={tr.id} className="bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center gap-3">
+            <div key={tr.id} className={`bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center gap-3 transition-opacity ${tr.is_active === false ? 'opacity-50' : ''}`}>
               <span className="text-xl">{tr.icon}</span>
               <span className="font-rubik font-medium text-brown-800 flex-1">{tr.name}</span>
-              {/* Dose config button for vitamin_d and dose types */}
               {(tr.tracker_type === 'vitamin_d' || tr.tracker_type === 'dose') && (
-                <button
-                  onClick={() => setEditTarget(tr)}
-                  className="text-xs font-rubik text-brown-500 bg-cream-200 px-3 py-1.5 rounded-full"
-                >
+                <button onClick={() => setEditTarget(tr)} className="text-xs font-rubik text-brown-500 bg-cream-200 px-3 py-1.5 rounded-full">
                   ⚙️ מינונים
                 </button>
               )}
               <div className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: tr.color }} />
+              {/* Active toggle */}
+              <button
+                onClick={() => toggleTrackerActive(tr)}
+                className="relative w-10 h-5 rounded-full transition-colors duration-200 flex-shrink-0"
+                style={{ backgroundColor: tr.is_active === false ? '#D6C4B0' : '#8B5E3C' }}
+                title={tr.is_active === false ? t('settings.showTracker') : t('settings.hideTracker')}
+              >
+                <span className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
+                  style={{ transform: tr.is_active === false ? 'translateX(2px)' : 'translateX(22px)' }} />
+              </button>
             </div>
           ))}
         </div>
@@ -156,18 +167,31 @@ export function SettingsPage() {
         ) : (
           <div className="space-y-2">
             {customs.map(tr => (
-              <div key={tr.id} className="bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center gap-3">
+              <div key={tr.id} className={`bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center gap-3 transition-opacity ${tr.is_active === false ? 'opacity-50' : ''}`}>
                 <span className="text-xl">{tr.icon}</span>
                 <span className="font-rubik font-medium text-brown-800 flex-1">{tr.name}</span>
-                {(tr.tracker_type === 'dose') && (
-                  <button
-                    onClick={() => setEditTarget(tr)}
-                    className="text-xs font-rubik text-brown-500 bg-cream-200 px-3 py-1.5 rounded-full"
-                  >
+                {tr.tracker_type === 'dose' && (
+                  <button onClick={() => setEditTarget(tr)} className="text-xs font-rubik text-brown-500 bg-cream-200 px-3 py-1.5 rounded-full">
                     ⚙️ מינונים
                   </button>
                 )}
                 <div className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: tr.color }} />
+                {/* Active toggle */}
+                <button
+                  onClick={() => toggleTrackerActive(tr)}
+                  className="relative w-10 h-5 rounded-full transition-colors duration-200 flex-shrink-0"
+                  style={{ backgroundColor: tr.is_active === false ? '#D6C4B0' : '#8B5E3C' }}
+                >
+                  <span className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
+                    style={{ transform: tr.is_active === false ? 'translateX(2px)' : 'translateX(22px)' }} />
+                </button>
+                {/* Edit */}
+                <button
+                  onClick={() => setEditTrackerTarget(tr)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-brown-300 hover:text-brown-600 transition-colors text-base"
+                >
+                  ✏️
+                </button>
                 <button
                   onClick={() => setDeleteTarget(tr.id)}
                   className="w-8 h-8 rounded-full flex items-center justify-center text-brown-200 hover:text-red-400 transition-colors text-lg"
@@ -196,6 +220,19 @@ export function SettingsPage() {
           onSave={async config => {
             await updateTracker(editTarget.id, { config })
             setEditTarget(null)
+          }}
+        />
+      )}
+
+      {/* Edit tracker identity sheet */}
+      {editTrackerTarget && (
+        <EditTrackerSheet
+          tracker={editTrackerTarget}
+          isOpen={Boolean(editTrackerTarget)}
+          onClose={() => setEditTrackerTarget(null)}
+          onSave={async updates => {
+            await updateTracker(editTrackerTarget.id, updates)
+            setEditTrackerTarget(null)
           }}
         />
       )}
@@ -266,7 +303,7 @@ function DoseConfigSheet({ tracker, isOpen, onClose, onSave }) {
   )
   const [saving, setSaving] = useState(false)
 
-  const DOSE_EMOJIS = ['🌅', '☀️', '🌤', '🌙', '⭐', '💫']
+  const DOSE_EMOJIS = ['☀️', '🌙', '🌅', '🌤', '⭐', '💫']
   const MAX_DOSES = 6
 
   function updateLabel(i, val) {
@@ -342,10 +379,11 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
   const [color, setColor] = useState(TRACKER_COLORS[3])
   const [doseCount, setDoseCount] = useState(2)
   const [doseLabels, setDoseLabels] = useState(['בוקר', 'ערב', 'צהריים', 'לילה', 'בוקר מאוחר', 'ערב מוקדם'])
+  const [displayMode, setDisplayMode] = useState('buttons') // 'buttons' | 'simple'
   const [fields, setFields] = useState([])
   const [saving, setSaving] = useState(false)
 
-  const DOSE_EMOJIS = ['🌅', '☀️', '🌤', '🌙', '⭐', '💫']
+  const DOSE_EMOJIS = ['☀️', '🌙', '🌅', '🌤', '⭐', '💫']
 
   function reset() {
     setStep(WIZARD_STEPS.ARCHETYPE)
@@ -355,6 +393,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
     setColor(TRACKER_COLORS[3])
     setDoseCount(2)
     setDoseLabels(['בוקר', 'ערב', 'צהריים', 'לילה', 'בוקר מאוחר', 'ערב מוקדם'])
+    setDisplayMode('buttons')
     setFields([])
   }
 
@@ -378,21 +417,27 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
   }
 
   function handleDoseNext() {
-    handleSave()
+    setStep(WIZARD_STEPS.DISPLAY_MODE)
   }
 
-  async function handleSave() {
+  async function handleSave(chosenDisplayMode) {
     if (!name.trim()) return
     setSaving(true)
     try {
       const isDose = archetype.id === 'dose'
+      const effectiveDisplayMode = chosenDisplayMode ?? displayMode
+      const doseConfig = {
+        daily_doses: doseCount,
+        dose_labels: doseLabels.slice(0, doseCount),
+        ...(effectiveDisplayMode === 'simple' ? { display_mode: 'simple' } : {}),
+      }
       const payload = {
         name: name.trim(),
         icon,
         color,
         tracker_type: archetype.tracker_type,
         field_schema: isDose ? [] : (archetype.preset_fields ?? fields),
-        config: isDose ? { daily_doses: doseCount, dose_labels: doseLabels.slice(0, doseCount) } : {},
+        config: isDose ? doseConfig : {},
       }
       await onAdd(payload)
       reset()
@@ -417,6 +462,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
     [WIZARD_STEPS.ARCHETYPE]: t('settings.addTracker'),
     [WIZARD_STEPS.IDENTITY]: 'שם ועיצוב',
     [WIZARD_STEPS.DOSE_CONFIG]: 'הגדרת מינונים',
+    [WIZARD_STEPS.DISPLAY_MODE]: t('settings.displayMode'),
     [WIZARD_STEPS.FIELDS]: 'שדות מותאמים',
   }[step]
 
@@ -538,15 +584,43 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
             </div>
 
             <div className="flex gap-3 pt-1">
-              <Button variant="secondary" className="flex-1" onClick={() => setStep(WIZARD_STEPS.IDENTITY)}>{t('common.cancel')}</Button>
-              <Button className="flex-1" onClick={handleDoseNext} disabled={saving}>
-                {saving ? t('app.loading') : t('common.save')}
+              <Button variant="secondary" className="flex-1" onClick={() => setStep(WIZARD_STEPS.IDENTITY)}>{t('common.back')}</Button>
+              <Button className="flex-1" onClick={handleDoseNext}>
+                הבא ←
               </Button>
             </div>
           </>
         )}
 
-        {/* Step 4: Free-text fields */}
+        {/* Step 4: Display mode choice */}
+        {step === WIZARD_STEPS.DISPLAY_MODE && (
+          <>
+            <p className="text-sm text-brown-400 font-rubik text-center mb-2">איך להציג את {name} בדף הבית?</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => handleSave('buttons')}
+                className="flex flex-col items-center gap-3 py-6 px-3 rounded-3xl border-2 border-cream-300 bg-white transition-all active:scale-95 hover:border-brown-400"
+              >
+                <span className="text-3xl">🟦🟦</span>
+                <span className="font-rubik font-bold text-brown-800 text-sm">{t('settings.displayModeButtons')}</span>
+                <span className="font-rubik text-brown-400 text-xs text-center leading-tight">{t('settings.displayModeButtonsDesc')}</span>
+              </button>
+              <button
+                onClick={() => handleSave('simple')}
+                className="flex flex-col items-center gap-3 py-6 px-3 rounded-3xl border-2 border-cream-300 bg-white transition-all active:scale-95 hover:border-brown-400"
+              >
+                <span className="text-3xl">➕</span>
+                <span className="font-rubik font-bold text-brown-800 text-sm">{t('settings.displayModeSimple')}</span>
+                <span className="font-rubik text-brown-400 text-xs text-center leading-tight">{t('settings.displayModeSimpleDesc')}</span>
+              </button>
+            </div>
+            <Button variant="secondary" className="w-full mt-1" onClick={() => setStep(WIZARD_STEPS.DOSE_CONFIG)}>
+              {t('common.back')}
+            </Button>
+          </>
+        )}
+
+        {/* Step 5: Free-text fields */}
         {step === WIZARD_STEPS.FIELDS && (
           <>
             <div className="flex items-center justify-between">
@@ -587,6 +661,66 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
             </div>
           </>
         )}
+      </div>
+    </BottomSheet>
+  )
+}
+
+// ─── Edit Tracker Sheet (name / icon / color only) ────────────────────────────
+
+function EditTrackerSheet({ tracker, isOpen, onClose, onSave }) {
+  const [name, setName] = useState(tracker.name)
+  const [icon, setIcon] = useState(tracker.icon)
+  const [color, setColor] = useState(tracker.color)
+  const [saving, setSaving] = useState(false)
+
+  async function handleSave() {
+    if (!name.trim()) return
+    setSaving(true)
+    await onSave({ name: name.trim(), icon, color })
+    setSaving(false)
+  }
+
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title={t('settings.editTracker')}>
+      <div className="space-y-4">
+        <div>
+          <p className="text-sm font-medium text-brown-600 mb-2">{t('settings.trackerName')}</p>
+          <input
+            type="text"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            className="w-full bg-cream-200 rounded-2xl px-4 py-3 font-rubik text-brown-800 outline-none text-base"
+            autoFocus
+          />
+        </div>
+        <div>
+          <p className="text-sm font-medium text-brown-600 mb-2">{t('settings.trackerIcon')}</p>
+          <div className="flex flex-wrap gap-2">
+            {TRACKER_ICONS.map(ic => (
+              <button key={ic} onClick={() => setIcon(ic)}
+                className={cn('w-11 h-11 rounded-2xl text-2xl flex items-center justify-center transition-all active:scale-95', icon === ic ? 'bg-brown-600 shadow-soft scale-110' : 'bg-cream-200')}>
+                {ic}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="text-sm font-medium text-brown-600 mb-2">{t('settings.trackerColor')}</p>
+          <div className="flex flex-wrap gap-2">
+            {TRACKER_COLORS.map(c => (
+              <button key={c} onClick={() => setColor(c)}
+                className={cn('w-9 h-9 rounded-full transition-all active:scale-95', color === c ? 'scale-125 ring-2 ring-brown-700 ring-offset-2' : '')}
+                style={{ backgroundColor: c }} />
+            ))}
+          </div>
+        </div>
+        <div className="flex gap-3 pt-1">
+          <Button variant="secondary" className="flex-1" onClick={onClose}>{t('common.cancel')}</Button>
+          <Button className="flex-1" onClick={handleSave} disabled={saving || !name.trim()}>
+            {saving ? t('app.loading') : t('common.save')}
+          </Button>
+        </div>
       </div>
     </BottomSheet>
   )

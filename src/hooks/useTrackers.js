@@ -23,7 +23,7 @@ export function useTrackers(familyId) {
       .from('trackers')
       .select()
       .eq('family_id', familyId)
-      .eq('is_active', true)
+      .neq('is_deleted', true)
       .order('display_order')
     setTrackers(data ?? [])
     setLoading(false)
@@ -35,7 +35,6 @@ export function useTrackers(familyId) {
       ...trackerData,
       family_id: familyId,
       display_order: maxOrder + 1,
-      tracker_type: 'custom',
     })
     if (error) throw error
   }
@@ -46,8 +45,7 @@ export function useTrackers(familyId) {
   }
 
   async function deleteTracker(id) {
-    // Soft delete by marking inactive
-    const { error } = await supabase.from('trackers').update({ is_active: false }).eq('id', id)
+    const { error } = await supabase.from('trackers').update({ is_deleted: true }).eq('id', id)
     if (error) throw error
   }
 

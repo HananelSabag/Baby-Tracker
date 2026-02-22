@@ -18,6 +18,20 @@ export function AppProvider({ children }) {
     () => localStorage.getItem(STORAGE_KEYS.CHILD_ID) ?? null
   )
 
+  // In-memory notification list (realtime events from other family members)
+  const [notifications, setNotifications] = useState([])
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  function addNotification({ emoji, message }) {
+    const n = { id: Date.now(), emoji, message, timestamp: new Date().toISOString() }
+    setNotifications(prev => [n, ...prev].slice(0, 50))
+    setUnreadCount(c => c + 1)
+  }
+
+  function markNotificationsRead() {
+    setUnreadCount(0)
+  }
+
   function setActiveChildId(id) {
     if (id) {
       localStorage.setItem(STORAGE_KEYS.CHILD_ID, id)
@@ -123,6 +137,10 @@ export function AppProvider({ children }) {
       saveIdentity,
       setActiveChildId,
       setMemberAvatarUrl,
+      notifications,
+      unreadCount,
+      addNotification,
+      markNotificationsRead,
     }}>
       {children}
     </AppContext.Provider>

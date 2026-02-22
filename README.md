@@ -9,12 +9,15 @@ Built with love for family use, with real-time sync between parents.
 
 - **Feedings** — log time + amount (ml) with quick presets; see last feeding at a glance
 - **Diapers** — wet / dirty / both; full daily breakdown with counts
+- **Sleep** — one-tap start/stop with live timer, session history, and daily total
 - **Vitamin D & Doses** — configurable daily doses with custom labels (morning / evening / etc.)
-- **Custom Trackers** — 4-step wizard to create any tracker you need
+- **Custom Trackers** — 5-step wizard to create any tracker you need (dose buttons or simple event)
+- **Weekly Reports** — bar charts for feeding, sleep, diapers, and dose trackers; Vitamin D compliance grid; week navigator
+- **Home Screen Control** — show/hide any tracker per your preference; full visibility toggle
 - **Day Navigator** — browse history day by day from the home screen
 - **Multi-child** — each child is a separate entity; events are tagged per child
 - **Real-time sync** — both parents see updates instantly via Supabase Realtime
-- **Toast notifications** — when the other parent logs an event, you get a live notification
+- **Notification bell** — live feed of the last 3 events by the other parent, with unread badge
 - **Hebrew RTL UI** — fully localized, Rubik font, cream & brown design system
 - **PWA** — installable on Android & iPhone, works offline-ready
 
@@ -65,7 +68,7 @@ src/
 ├── components/
 │   ├── layout/               # AppLayout, BottomNav
 │   ├── ui/                   # Button, Card, Toast, BottomSheet, ...
-│   └── trackers/             # FeedingCard, DiaperCard, VitaminDCard, CustomTrackerCard
+│   └── trackers/             # FeedingCard, DiaperCard, VitaminDCard, SleepCard, CustomTrackerCard
 └── pages/                    # Auth, Setup, Home, History, Reports, Settings, Profile, Admin
 ```
 
@@ -74,7 +77,7 @@ src/
 ## Author
 
 **Hananel Sabag**
-© 2025 Hananel Sabag. All rights reserved.
+© 2025–2026 Hananel Sabag. All rights reserved.
 
 This project was built as a personal tool for family use.
 Not open for redistribution without explicit permission.

@@ -4,8 +4,8 @@ import { useEvents } from '../../hooks/useEvents'
 import { Card } from '../ui/Card'
 import { cn } from '../../lib/utils'
 
-// Dose slot emojis by position
-const DOSE_EMOJIS = ['🌅', '☀️', '🌙', '⭐']
+// Dose slot emojis by position: morning, evening, midday, night
+const DOSE_EMOJIS = ['☀️', '🌙', '🌅', '⭐']
 
 export function VitaminDCard({ tracker, familyId, memberId, childId, viewDate }) {
   const { events, addEvent } = useEvents(familyId, { trackerId: tracker.id, date: viewDate, childId })
