@@ -126,7 +126,12 @@ export function HomePage() {
           {/* Avatar */}
           <div className="w-12 h-12 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center flex-shrink-0 shadow-soft border-2 border-white">
             {(identity.memberAvatarUrl || identity.googleAvatarUrl)
-              ? <img src={identity.memberAvatarUrl ?? identity.googleAvatarUrl} alt={identity.memberName} className="w-full h-full object-cover" />
+              ? <img
+                  src={identity.memberAvatarUrl ?? identity.googleAvatarUrl}
+                  alt={identity.memberName}
+                  className="w-full h-full object-cover"
+                  onError={(e) => { e.target.style.display = 'none' }}
+                />
               : <span className="text-2xl">👤</span>
             }
           </div>

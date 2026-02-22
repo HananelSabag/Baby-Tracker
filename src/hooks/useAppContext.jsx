@@ -62,15 +62,20 @@ export function AppProvider({ children }) {
     setFamilyLoading(true)
     getMemberByAuthUser(user.id).then(memberRecord => {
       if (memberRecord) {
+        // Only treat as custom avatar if it's a Supabase Storage URL (not Google)
+        const customAvatar = memberRecord.avatar_url && !memberRecord.avatar_url.includes('googleusercontent.com')
+          ? memberRecord.avatar_url
+          : null
         const resolved = {
           familyId: memberRecord.family_id,
           memberId: memberRecord.id,
           memberName: memberRecord.display_name,
-          memberAvatarUrl: memberRecord.avatar_url ?? null,
+          memberAvatarUrl: customAvatar,
         }
         saveIdentity(resolved)
         setFamilyData(resolved)
-        if (memberRecord.avatar_url) localStorage.setItem(AVATAR_KEY, memberRecord.avatar_url)
+        if (customAvatar) localStorage.setItem(AVATAR_KEY, customAvatar)
+        else localStorage.removeItem(AVATAR_KEY)
       }
       setFamilyLoading(false)
     })

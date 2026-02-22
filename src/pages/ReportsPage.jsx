@@ -188,10 +188,10 @@ export function ReportsPage() {
             <Card className="mb-4">
               <p className="font-rubik font-semibold text-brown-800 mb-3">🍼 {t('reports.mlPerDay')}</p>
               <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={feedingData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                <BarChart data={feedingData} margin={{ top: 4, right: 4, left: 5, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F5E6D3" vertical={false} />
                   <XAxis dataKey="day" {...axisProps} />
-                  <YAxis {...axisProps} />
+                  <YAxis {...axisProps} width={38} />
                   <Tooltip {...chartTooltipStyle} formatter={v => [`${v} מ"ל`, 'כמות']} />
                   <Bar dataKey="ml" fill="#6B9E8C" radius={[8, 8, 0, 0]} maxBarSize={36} />
                 </BarChart>

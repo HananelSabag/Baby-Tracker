@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { useFamilyMembers, updateMember, updateFamily, removeMember } from '../hooks/useFamily'
+import { generateFamilyCode } from '../lib/utils'
 import { ROLES, ADMIN_EMAIL, PARENT_ROLES } from '../lib/constants'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -23,7 +24,9 @@ export function ProfilePage() {
   const [saved, setSaved] = useState(false)
   const [signOutConfirm, setSignOutConfirm] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [refreshingCode, setRefreshingCode] = useState(false)
   const [removingMember, setRemovingMember] = useState(null) // { id, display_name }
+  const [failedAvatars, setFailedAvatars] = useState(new Set())
 
   const isParent = PARENT_ROLES.includes(identity.memberName)
   const fileInputRef = useRef(null)
@@ -72,6 +75,18 @@ export function ProfilePage() {
       navigator.clipboard.writeText(family.code)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  async function handleRefreshCode() {
+    if (!isParent || refreshingCode) return
+    setRefreshingCode(true)
+    try {
+      const newCode = generateFamilyCode()
+      await updateFamily(identity.familyId, { code: newCode })
+      setFamily(prev => ({ ...prev, code: newCode }))
+    } finally {
+      setRefreshingCode(false)
     }
   }
 
@@ -147,12 +162,24 @@ export function ProfilePage() {
         <p className="text-sm font-medium text-brown-500 font-rubik mb-1">{t('profile.familyCode')}</p>
         <div className="flex items-center justify-between">
           <p className="font-rubik font-bold text-3xl tracking-widest text-brown-800">{family?.code ?? '...'}</p>
-          <button
-            onClick={handleCopyCode}
-            className="text-sm font-rubik text-brown-600 bg-cream-200 px-4 py-2 rounded-full active:scale-95 transition-transform"
-          >
-            {copied ? t('common.copied') : t('common.copy')}
-          </button>
+          <div className="flex items-center gap-2">
+            {isParent && (
+              <button
+                onClick={handleRefreshCode}
+                disabled={refreshingCode}
+                className="w-9 h-9 rounded-full bg-cream-200 flex items-center justify-center text-brown-500 active:scale-95 transition-transform disabled:opacity-40"
+                title={t('profile.refreshCode')}
+              >
+                {refreshingCode ? '⏳' : '🔄'}
+              </button>
+            )}
+            <button
+              onClick={handleCopyCode}
+              className="text-sm font-rubik text-brown-600 bg-cream-200 px-4 py-2 rounded-full active:scale-95 transition-transform"
+            >
+              {copied ? t('common.copied') : t('common.copy')}
+            </button>
+          </div>
         </div>
         <p className="text-xs text-brown-400 font-rubik mt-1">{t('profile.familyCodeHint')}</p>
       </Card>
@@ -164,8 +191,13 @@ export function ProfilePage() {
           {members.map(m => (
             <div key={m.id} className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center text-lg flex-shrink-0">
-                {m.avatar_url
-                  ? <img src={m.avatar_url} alt={m.display_name} className="w-full h-full object-cover" />
+                {m.avatar_url && !failedAvatars.has(m.id)
+                  ? <img
+                      src={m.avatar_url}
+                      alt={m.display_name}
+                      className="w-full h-full object-cover"
+                      onError={() => setFailedAvatars(prev => new Set([...prev, m.id]))}
+                    />
                   : <span>{ROLES.find(r => r.value === m.role)?.emoji ?? '👤'}</span>
                 }
               </div>

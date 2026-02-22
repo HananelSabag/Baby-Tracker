@@ -132,7 +132,8 @@
     "admin": "ניהול מערכת",
     "removeMember": "הסר מהמשפחה",
     "removeMemberConfirm": "להסיר את {{name}} מהמשפחה?",
-    "memberRemoved": "החבר הוסר מהמשפחה"
+    "memberRemoved": "החבר הוסר מהמשפחה",
+    "refreshCode": "צור קוד חדש"
   },
   "children": {
     "title": "ילדים",
