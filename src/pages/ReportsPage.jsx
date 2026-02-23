@@ -200,10 +200,10 @@ export function ReportsPage() {
           {feedingTracker && feedingData.some(d => d.ml > 0) && (
             <SectionCard icon={feedingTracker.icon} title={t('reports.mlPerDay')} color={feedingTracker.color}>
               <ResponsiveContainer width="100%" height={170}>
-                <BarChart data={feedingData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                <BarChart data={feedingData} margin={{ top: 4, right: 4, left: 8, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F5E6D3" vertical={false} />
                   <XAxis dataKey="day" {...AXIS} />
-                  <YAxis {...AXIS} width={35} />
+                  <YAxis {...AXIS} width={44} />
                   <Tooltip {...CHART_TOOLTIP} formatter={v => [`${v} מ"ל`, '']} />
                   <Bar dataKey="ml" fill={feedingTracker.color} radius={[6, 6, 0, 0]} maxBarSize={32} />
                 </BarChart>
