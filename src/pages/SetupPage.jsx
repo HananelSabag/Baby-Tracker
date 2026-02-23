@@ -160,13 +160,41 @@ export function SetupPage() {
             <div className="text-center mb-6">
               <div className="text-5xl mb-3">🍼</div>
               <h1 className="font-rubik font-bold text-2xl text-brown-800">{t('setup.createOrJoin')}</h1>
+              <p className="font-rubik text-brown-400 text-sm mt-1">ברוך הבא! איך נתחיל?</p>
             </div>
-            <button onClick={() => handleChoose('create')} className="w-full py-5 rounded-3xl bg-white shadow-card font-rubik font-semibold text-brown-800 text-lg active:scale-95 transition-transform">
-              ✨ {t('setup.createFamily')}
+
+            {/* Create family card */}
+            <button
+              onClick={() => handleChoose('create')}
+              className="w-full rounded-3xl bg-white shadow-card overflow-hidden active:scale-[0.98] transition-transform text-right"
+            >
+              <div className="h-1.5 bg-gradient-to-r from-amber-400 to-amber-600" />
+              <div className="p-5 flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center text-3xl flex-shrink-0">✨</div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-rubik font-bold text-brown-800 text-lg">{t('setup.createFamily')}</p>
+                  <p className="font-rubik text-brown-400 text-sm mt-0.5">התחל מסע חדש עם המשפחה שלך</p>
+                </div>
+                <span className="text-brown-300 text-2xl flex-shrink-0">›</span>
+              </div>
             </button>
-            <button onClick={() => handleChoose('join')} className="w-full py-5 rounded-3xl bg-cream-200 font-rubik font-medium text-brown-700 text-lg active:scale-95 transition-transform">
-              🔗 {t('setup.joinFamily')}
+
+            {/* Join family card */}
+            <button
+              onClick={() => handleChoose('join')}
+              className="w-full rounded-3xl bg-white shadow-soft overflow-hidden active:scale-[0.98] transition-transform text-right"
+            >
+              <div className="h-1.5 bg-gradient-to-r from-brown-400 to-brown-600" />
+              <div className="p-5 flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-cream-200 flex items-center justify-center text-3xl flex-shrink-0">🔗</div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-rubik font-bold text-brown-800 text-lg">{t('setup.joinFamily')}</p>
+                  <p className="font-rubik text-brown-400 text-sm mt-0.5">הצטרף לתא משפחתי קיים עם קוד</p>
+                </div>
+                <span className="text-brown-300 text-2xl flex-shrink-0">›</span>
+              </div>
             </button>
+
             <button
               onClick={() => supabase.auth.signOut()}
               className="mt-4 self-center text-sm font-rubik text-brown-400 hover:text-brown-600 transition-colors"
@@ -187,11 +215,12 @@ export function SetupPage() {
                 onClick={() => { setRole(r.value); setError('') }}
                 className={cn(
                   'w-full flex items-center gap-4 py-4 px-5 rounded-2xl font-rubik font-medium text-lg transition-all active:scale-95',
-                  role === r.value ? 'bg-brown-600 text-white shadow-soft' : 'bg-white shadow-card text-brown-800'
+                  role === r.value ? 'bg-amber-500 text-white shadow-soft' : 'bg-white shadow-card text-brown-800'
                 )}
               >
                 <span className="text-2xl">{r.emoji}</span>
-                {r.label}
+                <span className="flex-1 text-right">{r.label}</span>
+                {role === r.value && <span className="text-white font-bold text-xl">✓</span>}
               </button>
             ))}
             {role === 'אחר' && (
@@ -220,7 +249,7 @@ export function SetupPage() {
               value={familyName}
               onChange={e => { setFamilyName(e.target.value); setError('') }}
               placeholder={t('setup.familyNamePlaceholder')}
-              className="w-full bg-white rounded-2xl shadow-soft px-5 py-4 font-rubik text-brown-800 text-lg outline-none"
+              className="w-full bg-white rounded-2xl shadow-soft px-5 py-4 font-rubik text-brown-800 text-lg outline-none focus:ring-2 focus:ring-amber-400"
               autoFocus
             />
             {error && <p className="text-red-500 text-sm text-center font-rubik">{error}</p>}
@@ -240,7 +269,7 @@ export function SetupPage() {
               value={code}
               onChange={e => { setCode(e.target.value.toUpperCase()); setError('') }}
               placeholder={t('setup.codePlaceholder')}
-              className="w-full bg-white text-center text-3xl font-bold font-rubik tracking-[0.5em] rounded-2xl py-5 shadow-soft outline-none text-brown-800 uppercase"
+              className="w-full bg-white text-center text-3xl font-bold font-rubik tracking-[0.5em] rounded-2xl py-5 shadow-soft outline-none text-brown-800 uppercase focus:ring-2 focus:ring-amber-400"
               autoFocus
             />
             {error && <p className="text-red-500 text-sm text-center font-rubik">{error}</p>}
@@ -280,7 +309,7 @@ export function SetupPage() {
               value={childName}
               onChange={e => { setChildName(e.target.value); setError('') }}
               placeholder={t('children.childNamePlaceholder')}
-              className="w-full bg-white rounded-2xl shadow-soft px-5 py-4 font-rubik text-brown-800 text-xl text-center outline-none"
+              className="w-full bg-white rounded-2xl shadow-soft px-5 py-4 font-rubik text-brown-800 text-xl text-center outline-none focus:ring-2 focus:ring-amber-400"
               autoFocus
             />
 
@@ -299,18 +328,20 @@ export function SetupPage() {
             <h2 className="font-rubik font-bold text-2xl text-brown-800">{t('setup.familyCode')}</h2>
             {createdCode && (
               <>
-                <div className="bg-white rounded-3xl shadow-card py-8 px-4 relative">
-                  <p className="font-rubik font-bold text-5xl tracking-[0.4em] text-brown-800">{createdCode}</p>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(createdCode)
-                      setCodeCopied(true)
-                      setTimeout(() => setCodeCopied(false), 2000)
-                    }}
-                    className="mt-4 text-sm font-rubik text-brown-600 bg-cream-100 px-5 py-2 rounded-full active:scale-95 transition-transform"
-                  >
-                    {codeCopied ? t('common.copied') : t('setup.copyCode')}
-                  </button>
+                <div className="rounded-3xl shadow-card overflow-hidden">
+                  <div className="bg-gradient-to-br from-amber-50 to-cream-100 py-8 px-4 text-center">
+                    <p className="font-rubik font-bold text-5xl tracking-[0.4em] text-brown-800">{createdCode}</p>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(createdCode)
+                        setCodeCopied(true)
+                        setTimeout(() => setCodeCopied(false), 2000)
+                      }}
+                      className="mt-4 text-sm font-rubik text-amber-700 bg-white px-5 py-2 rounded-full active:scale-95 transition-transform shadow-soft"
+                    >
+                      {codeCopied ? t('common.copied') : t('setup.copyCode')}
+                    </button>
+                  </div>
                 </div>
                 <p className="text-sm text-brown-400 font-rubik">{t('setup.shareCode')}</p>
               </>

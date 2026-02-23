@@ -113,7 +113,7 @@ export function SettingsPage() {
           {isParent && (
             <button
               onClick={() => setAddChildSheetOpen(true)}
-              className="text-sm font-rubik font-semibold text-white bg-brown-600 px-4 py-1.5 rounded-full active:scale-95 transition-transform shadow-soft"
+              className="text-sm font-rubik font-semibold text-white bg-amber-600 px-4 py-1.5 rounded-full active:scale-95 transition-transform shadow-soft"
             >
               + {t('children.addChild')}
             </button>
@@ -165,7 +165,7 @@ export function SettingsPage() {
         <button
           onClick={toggleNotifications}
           className="relative w-12 h-6 rounded-full transition-colors duration-200"
-          style={{ backgroundColor: notificationsOn ? '#8B5E3C' : '#D6C4B0' }}
+          style={{ backgroundColor: notificationsOn ? '#22C55E' : '#D6C4B0' }}
         >
           <span
             className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
@@ -183,7 +183,7 @@ export function SettingsPage() {
           </div>
           <button
             onClick={() => setAddSheetOpen(true)}
-            className="text-sm font-rubik font-semibold text-white bg-brown-600 px-4 py-1.5 rounded-full active:scale-95 transition-transform shadow-soft"
+            className="text-sm font-rubik font-semibold text-white bg-amber-600 px-4 py-1.5 rounded-full active:scale-95 transition-transform shadow-soft"
           >
             + {t('settings.addTracker')}
           </button>
@@ -243,7 +243,7 @@ export function SettingsPage() {
               <button
                 onClick={() => toggleTrackerActive(tr)}
                 className="relative w-10 h-5 rounded-full transition-colors duration-200 flex-shrink-0"
-                style={{ backgroundColor: tr.is_active === false ? '#D6C4B0' : '#8B5E3C' }}
+                style={{ backgroundColor: tr.is_active === false ? '#D6C4B0' : '#22C55E' }}
                 title={tr.is_active === false ? t('settings.showTracker') : t('settings.hideTracker')}
               >
                 <span className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
