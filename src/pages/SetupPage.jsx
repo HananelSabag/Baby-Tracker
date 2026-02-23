@@ -132,6 +132,18 @@ export function SetupPage() {
 
   const showBack = step !== STEPS.CHOOSE && step !== STEPS.DONE
 
+  // Step progress dots: which step index + total for current path
+  function getStepProgress() {
+    if (step === STEPS.CHOOSE || step === STEPS.DONE) return null
+    const steps = action === 'create'
+      ? [STEPS.ROLE, STEPS.FAMILY_NAME, STEPS.CHILD]
+      : [STEPS.ROLE, STEPS.CODE]
+    const idx = steps.indexOf(step)
+    if (idx === -1) return null
+    return { current: idx, total: steps.length }
+  }
+  const stepProgress = getStepProgress()
+
   return (
     <div className="min-h-screen bg-cream-100 flex justify-center">
       <div className="w-full max-w-[480px] min-h-screen flex flex-col px-6 py-10">
@@ -146,11 +158,30 @@ export function SetupPage() {
           </button>
         )}
 
-        {/* User greeting */}
-        {avatarUrl && (
-          <div className="flex items-center gap-3 mb-8">
-            <img src={avatarUrl} alt={googleName} className="w-10 h-10 rounded-full object-cover" />
+        {/* User greeting — always shown when we know the name */}
+        {googleName && (
+          <div className="flex items-center gap-3 mb-6">
+            {avatarUrl
+              ? <img src={avatarUrl} alt={googleName} className="w-10 h-10 rounded-full object-cover" />
+              : <div className="w-10 h-10 rounded-full bg-cream-200 flex items-center justify-center text-xl">👤</div>
+            }
             <p className="font-rubik text-brown-600 text-sm">שלום, {googleName} 👋</p>
+          </div>
+        )}
+
+        {/* Step progress dots */}
+        {stepProgress && (
+          <div className="flex justify-center gap-2 mb-6">
+            {Array.from({ length: stepProgress.total }, (_, i) => (
+              <div
+                key={i}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  i === stepProgress.current ? 'w-6 bg-amber-500' :
+                  i < stepProgress.current  ? 'w-3 bg-amber-300' :
+                                              'w-3 bg-cream-300'
+                }`}
+              />
+            ))}
           </div>
         )}
 
@@ -344,6 +375,7 @@ export function SetupPage() {
                   </div>
                 </div>
                 <p className="text-sm text-brown-400 font-rubik">{t('setup.shareCode')}</p>
+                <p className="text-xs text-brown-300 font-rubik -mt-2">ניתן למצוא את הקוד תמיד בפרופיל שלך</p>
               </>
             )}
             <Button
