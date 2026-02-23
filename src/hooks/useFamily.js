@@ -48,11 +48,7 @@ export async function createFamily({ familyName, role, customRole, authUserId, a
     .single()
   if (familyErr) throw familyErr
 
-  // Seed built-in trackers for this family
-  await supabase.from('trackers').insert(
-    BUILTIN_TRACKERS.map(t => ({ ...t, family_id: family.id }))
-  )
-
+  // Register member first so RLS (get_my_family_id) resolves before seeding trackers
   const { data: member, error: memberErr } = await supabase
     .from('family_members')
     .insert({
@@ -65,6 +61,11 @@ export async function createFamily({ familyName, role, customRole, authUserId, a
     .select()
     .single()
   if (memberErr) throw memberErr
+
+  // Seed built-in trackers for this family
+  await supabase.from('trackers').insert(
+    BUILTIN_TRACKERS.map(t => ({ ...t, family_id: family.id }))
+  )
 
   return { family, member }
 }

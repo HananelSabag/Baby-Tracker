@@ -88,7 +88,7 @@ export function SleepCard({ tracker, familyId, memberId, childId, viewDate }) {
   return (
     <Card>
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <span className="text-2xl">{tracker.icon}</span>
           <span className="font-rubik font-semibold text-brown-800">{tracker.name}</span>
@@ -103,11 +103,14 @@ export function SleepCard({ tracker, familyId, memberId, childId, viewDate }) {
         )}
       </div>
 
-      {/* Main toggle button */}
+      {/* Main toggle button — compact row when idle, expanded when sleeping */}
       <button
         onClick={handleToggle}
         disabled={saving}
-        className="w-full rounded-2xl py-5 flex flex-col items-center gap-1 transition-all active:scale-[0.98]"
+        className={isSleeping
+          ? 'w-full rounded-2xl py-4 flex flex-col items-center gap-1 transition-all active:scale-[0.98]'
+          : 'w-full rounded-2xl py-3 flex items-center justify-center gap-3 transition-all active:scale-[0.98]'
+        }
         style={{ backgroundColor: isSleeping ? tracker.color : `${tracker.color}22` }}
       >
         {isSleeping ? (
@@ -120,9 +123,9 @@ export function SleepCard({ tracker, familyId, memberId, childId, viewDate }) {
           </>
         ) : (
           <>
-            <span className="text-3xl">🌙</span>
+            <span className="text-xl">🌙</span>
             <span
-              className="font-rubik font-bold text-lg"
+              className="font-rubik font-bold text-base"
               style={{ color: tracker.color }}
             >
               {saving ? '...' : t('sleep.asleep')}
