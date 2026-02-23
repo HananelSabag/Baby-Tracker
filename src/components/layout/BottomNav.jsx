@@ -21,10 +21,10 @@ export function BottomNav() {
       <div className="w-full max-w-[480px] bg-white border-t border-cream-200 pb-safe">
         <div className="flex items-stretch">
           {NAV_ITEMS.map(({ to, label, icon }) => (
-            <NavLink key={to} to={to} end={to === '/'}>
+            <NavLink key={to} to={to} end={to === '/'} className="flex-1">
               {({ isActive }) => (
                 <div className={cn(
-                  'flex flex-1 flex-col items-center justify-center gap-0.5 py-2 min-h-[56px] w-full relative transition-colors font-rubik',
+                  'flex flex-col items-center justify-center gap-0.5 py-2 min-h-[56px] w-full relative transition-colors font-rubik',
                   isActive ? 'text-amber-600' : 'text-brown-400'
                 )}>
                   <span className="text-xl leading-none">{icon}</span>
