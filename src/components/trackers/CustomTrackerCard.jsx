@@ -32,7 +32,7 @@ export function CustomTrackerCard({ tracker, familyId, memberId, childId, viewDa
             <div>
               <p className="font-rubik font-semibold text-brown-800">{tracker.name}</p>
               <p className="text-xs text-brown-400 font-rubik">
-                {loading ? '...' : `${events.length} ${t('tracker.noEventsToday').replace('אין ', '').replace(' היום', '')}`}
+                {loading ? '...' : `${events.length} ${t('tracker.events')}`}
                 {lastEvent ? ` · ${formatTime(lastEvent.occurred_at)}` : ''}
               </p>
             </div>

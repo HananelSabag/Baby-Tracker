@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
@@ -30,9 +30,67 @@ export function SettingsPage() {
       : localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS) === 'true'
   )
 
-  const builtins = trackers.filter(tr => tr.is_builtin)
-  const customs = trackers.filter(tr => !tr.is_builtin)
   const isParent = PARENT_ROLES.includes(identity.memberName)
+
+  // ── Reorder state ──────────────────────────────────────────────────────────
+  const [localTrackers, setLocalTrackers] = useState([])
+  const [dragId, setDragId] = useState(null)
+  const [overId, setOverId] = useState(null)
+  const touchRef = useRef({ active: false, id: null })
+
+  useEffect(() => {
+    // Don't overwrite local order while a drag is in progress
+    if (dragId) return
+    setLocalTrackers([...trackers].sort((a, b) => a.display_order - b.display_order))
+  }, [trackers, dragId])
+
+  function moveItem(fromId, toId) {
+    if (!fromId || !toId || fromId === toId) return
+    setLocalTrackers(prev => {
+      const arr = [...prev]
+      const fromIdx = arr.findIndex(t => t.id === fromId)
+      const toIdx = arr.findIndex(t => t.id === toId)
+      if (fromIdx === -1 || toIdx === -1) return prev
+      const [item] = arr.splice(fromIdx, 1)
+      arr.splice(toIdx, 0, item)
+      // Persist new display_order to DB (fire and forget)
+      arr.forEach((tr, i) => {
+        if (tr.display_order !== i) updateTracker(tr.id, { display_order: i })
+      })
+      return arr
+    })
+  }
+
+  // HTML5 drag (desktop)
+  function onDragStart(e, id) { setDragId(id); e.dataTransfer.effectAllowed = 'move' }
+  function onDragOver(e, id) { e.preventDefault(); if (id !== dragId) setOverId(id) }
+  function onDrop(id) { moveItem(dragId, id); setDragId(null); setOverId(null) }
+  function onDragEnd() { setDragId(null); setOverId(null) }
+
+  // Touch drag (mobile)
+  function onHandleTouchStart(e, id) {
+    e.preventDefault()
+    touchRef.current = { active: true, id }
+    setDragId(id)
+  }
+  function onListTouchMove(e) {
+    if (!touchRef.current.active) return
+    e.preventDefault()
+    const touch = e.touches[0]
+    const el = document.elementFromPoint(touch.clientX, touch.clientY)
+    const row = el?.closest('[data-tid]')
+    const tid = row?.getAttribute('data-tid')
+    if (tid && tid !== touchRef.current.id) setOverId(tid)
+  }
+  function onListTouchEnd() {
+    if (touchRef.current.active) {
+      moveItem(touchRef.current.id, overId)
+      touchRef.current = { active: false, id: null }
+      setDragId(null)
+      setOverId(null)
+    }
+  }
+  // ────────────────────────────────────────────────────────────────────────────
 
   function toggleTrackerActive(tracker) {
     updateTracker(tracker.id, { is_active: tracker.is_active === false ? true : false })
@@ -116,20 +174,71 @@ export function SettingsPage() {
         </button>
       </div>
 
-      {/* Built-in trackers */}
+      {/* Unified tracker list — draggable to reorder */}
       <div className="mb-5">
-        <p className="font-rubik font-semibold text-brown-500 text-xs uppercase tracking-wide mb-2">{t('settings.builtinTrackers')}</p>
-        <div className="space-y-2">
-          {builtins.map(tr => (
-            <div key={tr.id} className={`bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center gap-3 transition-opacity ${tr.is_active === false ? 'opacity-50' : ''}`}>
-              <span className="text-xl">{tr.icon}</span>
-              <span className="font-rubik font-medium text-brown-800 flex-1">{tr.name}</span>
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <p className="font-rubik font-semibold text-brown-500 text-xs uppercase tracking-wide">מסך הבית</p>
+            <p className="font-rubik text-brown-400 text-xs mt-0.5">☰ גרור לשינוי סדר</p>
+          </div>
+          <button
+            onClick={() => setAddSheetOpen(true)}
+            className="text-sm font-rubik font-semibold text-white bg-brown-600 px-4 py-1.5 rounded-full active:scale-95 transition-transform shadow-soft"
+          >
+            + {t('settings.addTracker')}
+          </button>
+        </div>
+
+        <div
+          className="space-y-2"
+          onTouchMove={onListTouchMove}
+          onTouchEnd={onListTouchEnd}
+        >
+          {localTrackers.map(tr => (
+            <div
+              key={tr.id}
+              data-tid={tr.id}
+              draggable
+              onDragStart={e => onDragStart(e, tr.id)}
+              onDragOver={e => onDragOver(e, tr.id)}
+              onDrop={() => onDrop(tr.id)}
+              onDragEnd={onDragEnd}
+              className={cn(
+                'bg-white rounded-2xl shadow-soft px-3 py-3 flex items-center gap-2 transition-all select-none',
+                tr.is_active === false ? 'opacity-50' : '',
+                dragId === tr.id ? 'opacity-40 scale-[0.98]' : '',
+                overId === tr.id && dragId !== tr.id ? 'ring-2 ring-brown-400 ring-offset-1' : ''
+              )}
+            >
+              {/* Drag handle */}
+              <div
+                className="text-brown-300 hover:text-brown-500 flex-shrink-0 px-1 text-base cursor-grab active:cursor-grabbing touch-none"
+                onTouchStart={e => onHandleTouchStart(e, tr.id)}
+                title="גרור לשינוי סדר"
+              >
+                ☰
+              </div>
+
+              <span className="text-xl flex-shrink-0">{tr.icon}</span>
+              <span className="font-rubik font-medium text-brown-800 flex-1 text-sm">{tr.name}</span>
+
+              {/* Built-in tag */}
+              {tr.is_builtin && (
+                <span className="text-xs font-rubik text-brown-400 bg-cream-100 px-2 py-0.5 rounded-full flex-shrink-0">
+                  מובנה
+                </span>
+              )}
+
+              {/* Dose config */}
               {(tr.tracker_type === 'vitamin_d' || tr.tracker_type === 'dose') && (
-                <button onClick={() => setEditTarget(tr)} className="text-xs font-rubik text-brown-500 bg-cream-200 px-3 py-1.5 rounded-full">
-                  ⚙️ מינונים
+                <button onClick={() => setEditTarget(tr)} className="text-xs font-rubik text-brown-500 bg-cream-200 px-2.5 py-1 rounded-full flex-shrink-0">
+                  ⚙️
                 </button>
               )}
-              <div className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: tr.color }} />
+
+              {/* Color dot */}
+              <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: tr.color }} />
+
               {/* Active toggle */}
               <button
                 onClick={() => toggleTrackerActive(tr)}
@@ -140,68 +249,34 @@ export function SettingsPage() {
                 <span className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
                   style={{ transform: tr.is_active === false ? 'translateX(2px)' : 'translateX(22px)' }} />
               </button>
+
+              {/* Edit / Delete — custom trackers only */}
+              {!tr.is_builtin && (
+                <>
+                  <button
+                    onClick={() => setEditTrackerTarget(tr)}
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-brown-300 hover:text-brown-600 transition-colors text-sm flex-shrink-0"
+                  >✏️</button>
+                  <button
+                    onClick={() => setDeleteTarget(tr.id)}
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-brown-200 hover:text-red-400 transition-colors text-base flex-shrink-0"
+                  >🗑</button>
+                </>
+              )}
             </div>
           ))}
-        </div>
-      </div>
 
-      {/* Custom trackers */}
-      <div className="mb-5">
-        <div className="flex items-center justify-between mb-2">
-          <p className="font-rubik font-semibold text-brown-500 text-xs uppercase tracking-wide">{t('settings.customTrackers')}</p>
-          <button
-            onClick={() => setAddSheetOpen(true)}
-            className="text-sm font-rubik font-semibold text-white bg-brown-600 px-4 py-1.5 rounded-full active:scale-95 transition-transform shadow-soft"
-          >
-            + {t('settings.addTracker')}
-          </button>
+          {/* Empty state */}
+          {localTrackers.length === 0 && (
+            <button
+              onClick={() => setAddSheetOpen(true)}
+              className="w-full py-8 rounded-3xl border-2 border-dashed border-cream-300 text-brown-400 font-rubik text-sm active:scale-95 transition-transform"
+            >
+              <div className="text-3xl mb-1">➕</div>
+              הוסף מעקב מותאם אישית
+            </button>
+          )}
         </div>
-        {customs.length === 0 ? (
-          <button
-            onClick={() => setAddSheetOpen(true)}
-            className="w-full py-8 rounded-3xl border-2 border-dashed border-cream-300 text-brown-400 font-rubik text-sm active:scale-95 transition-transform"
-          >
-            <div className="text-3xl mb-1">➕</div>
-            הוסף מעקב מותאם אישית
-          </button>
-        ) : (
-          <div className="space-y-2">
-            {customs.map(tr => (
-              <div key={tr.id} className={`bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center gap-3 transition-opacity ${tr.is_active === false ? 'opacity-50' : ''}`}>
-                <span className="text-xl">{tr.icon}</span>
-                <span className="font-rubik font-medium text-brown-800 flex-1">{tr.name}</span>
-                {tr.tracker_type === 'dose' && (
-                  <button onClick={() => setEditTarget(tr)} className="text-xs font-rubik text-brown-500 bg-cream-200 px-3 py-1.5 rounded-full">
-                    ⚙️ מינונים
-                  </button>
-                )}
-                <div className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: tr.color }} />
-                {/* Active toggle */}
-                <button
-                  onClick={() => toggleTrackerActive(tr)}
-                  className="relative w-10 h-5 rounded-full transition-colors duration-200 flex-shrink-0"
-                  style={{ backgroundColor: tr.is_active === false ? '#D6C4B0' : '#8B5E3C' }}
-                >
-                  <span className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
-                    style={{ transform: tr.is_active === false ? 'translateX(2px)' : 'translateX(22px)' }} />
-                </button>
-                {/* Edit */}
-                <button
-                  onClick={() => setEditTrackerTarget(tr)}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-brown-300 hover:text-brown-600 transition-colors text-base"
-                >
-                  ✏️
-                </button>
-                <button
-                  onClick={() => setDeleteTarget(tr.id)}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-brown-200 hover:text-red-400 transition-colors text-lg"
-                >
-                  🗑
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Add tracker wizard */}

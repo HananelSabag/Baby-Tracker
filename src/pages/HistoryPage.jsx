@@ -1,11 +1,11 @@
-import { useState } from 'react'
-import { format, addDays, subDays, isSameDay } from 'date-fns'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import { format, subDays, startOfDay, endOfDay, isSameDay, differenceInCalendarDays } from 'date-fns'
 import { he } from 'date-fns/locale'
 import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
 import { useEvents } from '../hooks/useEvents'
-import { formatTime } from '../lib/utils'
+import { formatTime, formatDateLabel } from '../lib/utils'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { Button } from '../components/ui/Button'
@@ -15,31 +15,101 @@ import { AddDiaperForm } from '../components/forms/AddDiaperForm'
 import { AddCustomEventForm } from '../components/forms/AddCustomEventForm'
 import { TRACKER_TYPES } from '../lib/constants'
 
+const DAYS_PER_PAGE = 14
+const MAX_DAYS = 90
+
 export function HistoryPage() {
   const { identity } = useApp()
   const { trackers } = useTrackers(identity.familyId)
-  const [viewDate, setViewDate] = useState(() => new Date())
   const [filterTrackerId, setFilterTrackerId] = useState(null)
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [jumpDate, setJumpDate] = useState('')
+  const [daysBack, setDaysBack] = useState(DAYS_PER_PAGE)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
   const [editSaving, setEditSaving] = useState(false)
 
-  const isToday = isSameDay(viewDate, new Date())
-  const dateLabel = isToday
-    ? 'היום'
-    : format(viewDate, 'EEEE, d בMMMM', { locale: he })
+  const now = useRef(new Date()).current
+  const todayStr = format(now, 'yyyy-MM-dd')
+
+  const startDate = useMemo(
+    () => startOfDay(subDays(now, daysBack - 1)),
+    [daysBack]
+  )
+  const endDate = useMemo(() => endOfDay(now), [])
 
   const { events, loading, deleteEvent, updateEvent, refetch } = useEvents(
     identity.familyId,
-    { date: viewDate, childId: identity.activeChildId }
+    { startDate, endDate, childId: identity.activeChildId }
   )
 
-  const filtered = filterTrackerId
-    ? events.filter(e => e.tracker_id === filterTrackerId)
-    : events
+  // Clear loadingMore whenever events array updates (any fetch completion)
+  useEffect(() => { setLoadingMore(false) }, [events])
 
-  // Sorted newest-first within the day
-  const sorted = [...filtered].sort((a, b) => new Date(b.occurred_at) - new Date(a.occurred_at))
+  // Filter by tracker type client-side
+  const filtered = useMemo(
+    () => filterTrackerId ? events.filter(e => e.tracker_id === filterTrackerId) : events,
+    [events, filterTrackerId]
+  )
+
+  // Group by local date key (yyyy-MM-dd), sorted newest first
+  const grouped = useMemo(() => {
+    const map = new Map()
+    filtered.forEach(event => {
+      const key = format(new Date(event.occurred_at), 'yyyy-MM-dd')
+      if (!map.has(key)) map.set(key, [])
+      map.get(key).push(event)
+    })
+    // Sort each day's events newest first
+    map.forEach((dayEvents, key) => {
+      map.set(key, [...dayEvents].sort((a, b) => new Date(b.occurred_at) - new Date(a.occurred_at)))
+    })
+    // Sort days newest first
+    return new Map([...map.entries()].sort((a, b) => b[0].localeCompare(a[0])))
+  }, [filtered])
+
+  // When jumpDate is set, show only that day (if loaded)
+  const displayedGroups = useMemo(() => {
+    if (!jumpDate) return grouped
+    const single = new Map()
+    if (grouped.has(jumpDate)) single.set(jumpDate, grouped.get(jumpDate))
+    return single
+  }, [grouped, jumpDate])
+
+  const canLoadMore = daysBack < MAX_DAYS
+
+  function loadMore() {
+    setLoadingMore(true)
+    setDaysBack(d => Math.min(d + DAYS_PER_PAGE, MAX_DAYS))
+  }
+
+  function handleJumpDate(dateStr) {
+    setJumpDate(dateStr)
+    setFilterOpen(false)
+    if (!dateStr) return
+
+    // If the target date is beyond the loaded range, extend it
+    const target = new Date(dateStr + 'T12:00:00')
+    const daysDiff = differenceInCalendarDays(now, target)
+    if (daysDiff >= daysBack) {
+      setLoadingMore(true)
+      setDaysBack(Math.min(daysDiff + 1, MAX_DAYS))
+    }
+
+    // Scroll to the day header after render
+    setTimeout(() => {
+      const el = document.getElementById(`day-${dateStr}`)
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 400)
+  }
+
+  function clearFilters() {
+    setFilterTrackerId(null)
+    setJumpDate('')
+  }
+
+  const hasActiveFilter = filterTrackerId || jumpDate
 
   async function handleDelete() {
     if (!deleteTarget) return
@@ -78,15 +148,12 @@ export function HistoryPage() {
     const type = editTarget.tracker?.tracker_type
     const initialTime = format(new Date(editTarget.occurred_at), 'HH:mm')
 
-    if (type === TRACKER_TYPES.FEEDING) {
+    if (type === TRACKER_TYPES.FEEDING)
       return <AddFeedingForm initialData={editTarget.data} initialTime={initialTime} onSave={handleEditSave} onCancel={() => setEditTarget(null)} loading={editSaving} />
-    }
-    if (type === TRACKER_TYPES.DIAPER) {
+    if (type === TRACKER_TYPES.DIAPER)
       return <AddDiaperForm initialData={editTarget.data} initialTime={initialTime} onSave={handleEditSave} onCancel={() => setEditTarget(null)} loading={editSaving} />
-    }
-    if (type === TRACKER_TYPES.VITAMIN_D || type === TRACKER_TYPES.DOSE) {
+    if (type === TRACKER_TYPES.VITAMIN_D || type === TRACKER_TYPES.DOSE)
       return <TimeOnlyForm initialTime={initialTime} onSave={handleTimeOnlySave} onCancel={() => setEditTarget(null)} loading={editSaving} />
-    }
     return <AddCustomEventForm tracker={editTarget.tracker} initialData={editTarget.data} initialTime={initialTime} onSave={handleEditSave} onCancel={() => setEditTarget(null)} loading={editSaving} />
   }
 
@@ -99,99 +166,191 @@ export function HistoryPage() {
       const map = { wet: t('diaper.wet'), dirty: t('diaper.dirty'), both: t('diaper.both') }
       return map[data.type] ?? ''
     }
-    if (type === 'sleep') {
-      return data.type === 'start' ? '💤 הלך לישון' : '☀️ התעורר'
-    }
+    if (type === 'sleep') return data.type === 'start' ? '💤 הלך לישון' : '☀️ התעורר'
     return Object.values(data).filter(Boolean).join(', ')
   }
 
+  // Active filter label for the filter row
+  const activeFilterLabel = useMemo(() => {
+    if (filterTrackerId) {
+      const tr = trackers.find(t => t.id === filterTrackerId)
+      return tr ? `${tr.icon} ${tr.name}` : 'מסנן פעיל'
+    }
+    if (jumpDate) {
+      const d = new Date(jumpDate + 'T12:00:00')
+      return format(d, 'EEEE, d בMMMM', { locale: he })
+    }
+    return 'כל האירועים'
+  }, [filterTrackerId, jumpDate, trackers])
+
   return (
-    <div className="px-4 pt-6 pb-4">
+    <div className="px-4 pt-6 pb-6">
       <h1 className="font-rubik font-bold text-2xl text-brown-800 mb-4">{t('history.title')}</h1>
 
-      {/* Day navigator */}
-      <div className="flex items-center justify-between bg-white rounded-2xl shadow-soft px-4 py-3 mb-4">
-        <button
-          onClick={() => setViewDate(d => subDays(d, 1))}
-          className="w-9 h-9 rounded-full bg-cream-100 flex items-center justify-center text-brown-600 text-xl font-bold active:scale-95 transition-transform"
-        >
-          ‹
-        </button>
-
-        <button
-          className="text-center flex-1 mx-2"
-          onClick={() => !isToday && setViewDate(new Date())}
-        >
-          <p className="font-rubik font-semibold text-brown-800 text-sm">{dateLabel}</p>
-          {!isToday && (
-            <p className="text-xs text-brown-400 font-rubik">לחץ לחזרה להיום</p>
+      {/* Filter toggle row */}
+      <button
+        onClick={() => setFilterOpen(prev => !prev)}
+        className="w-full flex items-center justify-between bg-white rounded-2xl shadow-soft px-4 py-3 mb-2 transition-all active:scale-[0.99]"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-base flex-shrink-0">🔍</span>
+          <span className="font-rubik font-medium text-brown-700 text-sm truncate">{activeFilterLabel}</span>
+          {hasActiveFilter && (
+            <button
+              onClick={e => { e.stopPropagation(); clearFilters() }}
+              className="flex-shrink-0 text-xs bg-cream-200 text-brown-500 rounded-full px-2 py-0.5 font-rubik hover:bg-red-50 hover:text-red-400 transition-colors"
+            >
+              ✕ נקה
+            </button>
           )}
-        </button>
+        </div>
+        <span className="text-brown-400 text-sm flex-shrink-0 mr-2">{filterOpen ? '▲' : '▼'}</span>
+      </button>
 
-        <button
-          onClick={() => setViewDate(d => addDays(d, 1))}
-          disabled={isToday}
-          className="w-9 h-9 rounded-full bg-cream-100 flex items-center justify-center text-brown-600 text-xl font-bold active:scale-95 transition-transform disabled:opacity-25"
-        >
-          ›
-        </button>
-      </div>
+      {/* Collapsible filter panel */}
+      {filterOpen && (
+        <div className="bg-white rounded-2xl shadow-soft px-4 py-4 mb-3 space-y-4">
+          {/* Date picker */}
+          <div>
+            <p className="text-xs font-rubik font-semibold text-brown-500 mb-2">קפוץ לתאריך</p>
+            <input
+              type="date"
+              value={jumpDate}
+              max={todayStr}
+              onChange={e => handleJumpDate(e.target.value)}
+              className="w-full bg-cream-200 rounded-2xl px-4 py-2.5 text-brown-800 font-rubik outline-none text-sm"
+            />
+          </div>
 
-      {/* Filter chips — all trackers (built-in + custom) */}
-      <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide">
-        <FilterChip label={t('history.filterAll')} active={!filterTrackerId} onClick={() => setFilterTrackerId(null)} />
-        {trackers.filter(tr => tr.is_active !== false).map(tr => (
-          <FilterChip
-            key={tr.id}
-            label={`${tr.icon} ${tr.name}`}
-            active={filterTrackerId === tr.id}
-            color={tr.color}
-            onClick={() => setFilterTrackerId(filterTrackerId === tr.id ? null : tr.id)}
-          />
-        ))}
-      </div>
+          {/* Tracker chips */}
+          <div>
+            <p className="text-xs font-rubik font-semibold text-brown-500 mb-2">סנן לפי מעקב</p>
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              <FilterChip
+                label={t('history.filterAll')}
+                active={!filterTrackerId}
+                onClick={() => { setFilterTrackerId(null); setFilterOpen(false) }}
+              />
+              {trackers.filter(tr => tr.is_active !== false).map(tr => (
+                <FilterChip
+                  key={tr.id}
+                  label={`${tr.icon} ${tr.name}`}
+                  active={filterTrackerId === tr.id}
+                  color={tr.color}
+                  onClick={() => {
+                    setFilterTrackerId(filterTrackerId === tr.id ? null : tr.id)
+                    setFilterOpen(false)
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* Events list */}
-      {loading ? (
-        <div className="flex justify-center py-12"><Spinner size="lg" /></div>
-      ) : sorted.length === 0 ? (
-        <div className="text-center py-12 text-brown-400 font-rubik">
-          <p className="text-3xl mb-2">📭</p>
-          <p>{t('history.noEvents')}</p>
+      {/* Content */}
+      {loading && displayedGroups.size === 0 ? (
+        <div className="flex justify-center py-16"><Spinner size="lg" /></div>
+      ) : displayedGroups.size === 0 ? (
+        <div className="text-center py-16 text-brown-400 font-rubik">
+          <p className="text-4xl mb-3">📭</p>
+          <p className="text-sm">{jumpDate ? 'אין אירועים בתאריך זה' : t('history.noEvents')}</p>
+          {hasActiveFilter && (
+            <button
+              onClick={clearFilters}
+              className="mt-3 text-sm text-brown-600 underline font-rubik"
+            >
+              הצג הכל
+            </button>
+          )}
         </div>
       ) : (
-        <div className="space-y-2 pb-4">
-          <p className="font-rubik text-xs text-brown-400 mb-1">{sorted.length} אירועים</p>
-          {sorted.map(event => (
-            <div key={event.id} className="bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center gap-3">
-              <div
-                className="w-9 h-9 rounded-full flex items-center justify-center text-lg flex-shrink-0"
-                style={{ backgroundColor: `${event.tracker?.color ?? '#D6C4B0'}22` }}
-              >
-                {event.tracker?.icon}
+        <div className="space-y-1 pb-2">
+          {[...displayedGroups.entries()].map(([dateKey, dayEvents]) => {
+            const dateObj = new Date(dateKey + 'T12:00:00')
+            const isToday = dateKey === todayStr
+            const isYesterday = isSameDay(dateObj, subDays(now, 1))
+            const dayLabel = formatDateLabel(dateObj)
+
+            return (
+              <div key={dateKey} id={`day-${dateKey}`}>
+                {/* Day header */}
+                <div className="flex items-center gap-3 pt-4 pb-2">
+                  <span
+                    className="font-rubik font-bold text-xs px-3 py-1 rounded-full flex-shrink-0"
+                    style={
+                      isToday
+                        ? { backgroundColor: '#5C3D2E', color: 'white' }
+                        : isYesterday
+                          ? { backgroundColor: '#D6C4B0', color: '#5C3D2E' }
+                          : { backgroundColor: '#F0E6D9', color: '#8B7355' }
+                    }
+                  >
+                    {dayLabel}
+                  </span>
+                  <div className="flex-1 h-px bg-cream-300" />
+                  <span className="text-xs text-brown-400 font-rubik flex-shrink-0">
+                    {dayEvents.length} אירועים
+                  </span>
+                </div>
+
+                {/* Events for this day */}
+                <div className="space-y-2">
+                  {dayEvents.map(event => (
+                    <div
+                      key={event.id}
+                      className="bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center gap-3"
+                    >
+                      <div
+                        className="w-9 h-9 rounded-full flex items-center justify-center text-lg flex-shrink-0"
+                        style={{ backgroundColor: `${event.tracker?.color ?? '#D6C4B0'}22` }}
+                      >
+                        {event.tracker?.icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-rubik font-semibold text-brown-800 text-sm">{event.tracker?.name}</p>
+                        <p className="font-rubik text-brown-500 text-xs leading-tight">
+                          {formatTime(event.occurred_at)}
+                          {formatEventSummary(event) ? ` · ${formatEventSummary(event)}` : ''}
+                          {event.member ? ` · ${event.member.display_name}` : ''}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setEditTarget(event)}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-brown-300 hover:text-blue-400 hover:bg-blue-50 transition-colors"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => setDeleteTarget(event.id)}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-brown-300 hover:text-red-400 hover:bg-red-50 transition-colors"
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-rubik font-semibold text-brown-800 text-sm">{event.tracker?.name}</p>
-                <p className="font-rubik text-brown-500 text-xs leading-tight">
-                  {formatTime(event.occurred_at)}
-                  {formatEventSummary(event) ? ` · ${formatEventSummary(event)}` : ''}
-                  {event.member ? ` · ${event.member.display_name}` : ''}
-                </p>
-              </div>
-              <button
-                onClick={() => setEditTarget(event)}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-brown-300 hover:text-blue-400 hover:bg-blue-50 transition-colors"
-              >
-                ✏️
-              </button>
-              <button
-                onClick={() => setDeleteTarget(event.id)}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-brown-300 hover:text-red-400 hover:bg-red-50 transition-colors"
-              >
-                🗑
-              </button>
+            )
+          })}
+
+          {/* Load more / end indicator */}
+          {!jumpDate && (
+            <div className="pt-5 pb-2 text-center">
+              {loadingMore ? (
+                <Spinner size="md" />
+              ) : canLoadMore ? (
+                <button
+                  onClick={loadMore}
+                  className="w-full py-3 rounded-2xl bg-white shadow-soft text-brown-600 font-rubik font-medium text-sm active:scale-[0.99] transition-all"
+                >
+                  טען עוד ימים
+                </button>
+              ) : (
+                <p className="text-brown-400 font-rubik text-xs">הגעת להתחלה 🎉</p>
+              )}
             </div>
-          ))}
+          )}
         </div>
       )}
 
@@ -218,11 +377,12 @@ function FilterChip({ label, active, color, onClick }) {
     <button
       onClick={onClick}
       className="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-rubik font-medium transition-all active:scale-95"
-      style={active && color
-        ? { backgroundColor: color, color: 'white' }
-        : active
-          ? { backgroundColor: '#8B5E3C', color: 'white' }
-          : { backgroundColor: '#F5EDE0', color: '#7A5035' }
+      style={
+        active && color
+          ? { backgroundColor: color, color: 'white' }
+          : active
+            ? { backgroundColor: '#8B5E3C', color: 'white' }
+            : { backgroundColor: '#F5EDE0', color: '#7A5035' }
       }
     >
       {label}

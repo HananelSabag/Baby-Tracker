@@ -14,7 +14,7 @@ import { BottomSheet } from '../components/ui/BottomSheet'
 import { Spinner } from '../components/ui/Spinner'
 import { format, addDays, subDays, isSameDay } from 'date-fns'
 import { he } from 'date-fns/locale'
-import { formatTime } from '../lib/utils'
+import { formatTime, cn } from '../lib/utils'
 
 export function HomePage() {
   const { identity, setActiveChildId, notifications, unreadCount, markNotificationsRead } = useApp()
@@ -25,6 +25,7 @@ export function HomePage() {
   const [childPickerOpen, setChildPickerOpen] = useState(false)
   const [viewDate, setViewDate] = useState(() => new Date())
   const [bellOpen, setBellOpen] = useState(false)
+  const [showDateNav, setShowDateNav] = useState(false)
 
   function handleBellClick() {
     markNotificationsRead()
@@ -138,55 +139,73 @@ export function HomePage() {
         </div>
       </div>
 
-      {/* Child selector */}
-      {activeChild && (
-        <button
-          onClick={() => children.length > 1 && setChildPickerOpen(true)}
-          className="flex items-center gap-3 bg-white rounded-2xl shadow-soft px-4 py-3 mb-4 w-full text-right transition-transform"
-          style={{ cursor: children.length > 1 ? 'pointer' : 'default' }}
-        >
-          <div className="w-10 h-10 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center flex-shrink-0">
-            {activeChild.avatar_url
-              ? <img src={activeChild.avatar_url} alt={activeChild.name} className="w-full h-full object-cover" />
-              : <span className="text-xl">👶</span>
-            }
-          </div>
-          <div className="flex-1 text-right">
-            <p className="font-rubik font-semibold text-brown-800 text-base leading-tight">{activeChild.name}</p>
-            <p className="font-rubik text-brown-400 text-xs">מעקב עבור</p>
-          </div>
-          {children.length > 1 && (
-            <span className="text-brown-400 text-sm">החלף ›</span>
+      {/* Compact child + date bar */}
+      <div className="flex items-center gap-2 bg-white rounded-2xl shadow-soft px-3 py-2.5 mb-4">
+        {/* Child avatar + name */}
+        {activeChild ? (
+          <button
+            className="flex items-center gap-2 flex-1 min-w-0 text-right active:opacity-70 transition-opacity"
+            onClick={() => children.length > 1 && setChildPickerOpen(true)}
+            style={{ cursor: children.length > 1 ? 'pointer' : 'default' }}
+          >
+            <div className="w-8 h-8 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center flex-shrink-0">
+              {activeChild.avatar_url
+                ? <img src={activeChild.avatar_url} alt={activeChild.name} className="w-full h-full object-cover" />
+                : <span className="text-sm">👶</span>
+              }
+            </div>
+            <div className="min-w-0">
+              <p className="font-rubik font-semibold text-brown-800 text-sm leading-tight truncate">{activeChild.name}</p>
+              <p className="font-rubik text-brown-400 text-xs leading-tight">מעקב עבור{children.length > 1 ? ' · החלף ›' : ''}</p>
+            </div>
+          </button>
+        ) : (
+          <div className="flex-1" />
+        )}
+
+        {/* "Back to today" pill — only when browsing past */}
+        {!isToday && (
+          <button
+            onClick={() => { setViewDate(new Date()); setShowDateNav(false) }}
+            className="font-rubik text-xs text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full flex-shrink-0 active:scale-95 transition-transform"
+          >
+            ↩ היום
+          </button>
+        )}
+
+        {/* Calendar icon — tap to open mini date nav popover */}
+        <div className="relative flex-shrink-0">
+          <button
+            onClick={() => setShowDateNav(prev => !prev)}
+            className={cn(
+              'w-8 h-8 rounded-full flex items-center justify-center text-sm active:scale-95 transition-all',
+              !isToday ? 'bg-amber-100 text-amber-600' : 'bg-cream-100 text-brown-400'
+            )}
+            title="ניווט תאריך"
+          >
+            📅
+          </button>
+
+          {showDateNav && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowDateNav(false)} />
+              <div className="absolute left-0 top-10 bg-white rounded-2xl shadow-lg px-3 py-2.5 z-50 flex items-center gap-2">
+                <button
+                  onClick={() => setViewDate(d => subDays(d, 1))}
+                  className="w-8 h-8 rounded-full bg-cream-100 text-brown-600 font-bold text-xl flex items-center justify-center active:scale-95 transition-transform"
+                >‹</button>
+                <span className="font-rubik font-medium text-brown-800 text-sm whitespace-nowrap min-w-[90px] text-center">
+                  {dateLabel}
+                </span>
+                <button
+                  onClick={() => setViewDate(d => addDays(d, 1))}
+                  disabled={isToday}
+                  className="w-8 h-8 rounded-full bg-cream-100 text-brown-600 font-bold text-xl flex items-center justify-center active:scale-95 transition-transform disabled:opacity-25"
+                >›</button>
+              </div>
+            </>
           )}
-        </button>
-      )}
-
-      {/* Day navigator */}
-      <div className="flex items-center justify-between bg-white rounded-2xl shadow-soft px-4 py-3 mb-4">
-        <button
-          onClick={() => setViewDate(d => subDays(d, 1))}
-          className="w-9 h-9 rounded-full bg-cream-100 flex items-center justify-center text-brown-600 text-xl font-bold active:scale-95 transition-transform"
-        >
-          ‹
-        </button>
-
-        <button
-          className="text-center flex-1 mx-2"
-          onClick={() => !isToday && setViewDate(new Date())}
-        >
-          <p className="font-rubik font-semibold text-brown-800 text-sm">{dateLabel}</p>
-          {!isToday && (
-            <p className="text-xs text-brown-400 font-rubik">לחץ לחזרה להיום</p>
-          )}
-        </button>
-
-        <button
-          onClick={() => setViewDate(d => addDays(d, 1))}
-          disabled={isToday}
-          className="w-9 h-9 rounded-full bg-cream-100 flex items-center justify-center text-brown-600 text-xl font-bold active:scale-95 transition-transform disabled:opacity-25"
-        >
-          ›
-        </button>
+        </div>
       </div>
 
       {/* Trackers */}
