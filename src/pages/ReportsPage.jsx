@@ -200,10 +200,10 @@ export function ReportsPage() {
           {feedingTracker && feedingData.some(d => d.ml > 0) && (
             <SectionCard icon={feedingTracker.icon} title={t('reports.mlPerDay')} color={feedingTracker.color}>
               <ResponsiveContainer width="100%" height={170}>
-                <BarChart data={feedingData} margin={{ top: 4, right: 4, left: 8, bottom: 0 }}>
+                <BarChart data={[...feedingData].reverse()} margin={{ top: 4, right: 0, left: 4, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F5E6D3" vertical={false} />
                   <XAxis dataKey="day" {...AXIS} />
-                  <YAxis {...AXIS} width={44} />
+                  <YAxis {...AXIS} width={44} orientation="right" />
                   <Tooltip {...CHART_TOOLTIP} formatter={v => [`${v} מ"ל`, '']} />
                   <Bar dataKey="ml" fill={feedingTracker.color} radius={[6, 6, 0, 0]} maxBarSize={32} />
                 </BarChart>
@@ -243,10 +243,10 @@ export function ReportsPage() {
           {diaperTracker && diaperData.some(d => d.count > 0) && (
             <SectionCard icon={diaperTracker.icon} title={t('reports.diapersPerDay')} color={diaperTracker.color}>
               <ResponsiveContainer width="100%" height={140}>
-                <BarChart data={diaperData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                <BarChart data={[...diaperData].reverse()} margin={{ top: 4, right: 0, left: 4, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F5E6D3" vertical={false} />
                   <XAxis dataKey="day" {...AXIS} />
-                  <YAxis {...AXIS} width={25} allowDecimals={false} />
+                  <YAxis {...AXIS} width={25} orientation="right" allowDecimals={false} />
                   <Tooltip {...CHART_TOOLTIP} formatter={v => [v, '']} />
                   <Bar dataKey="count" fill={diaperTracker.color} radius={[6, 6, 0, 0]} maxBarSize={32} />
                 </BarChart>
@@ -258,10 +258,10 @@ export function ReportsPage() {
           {sleepTracker && sleepData.some(d => d.hours > 0) && (
             <SectionCard icon={sleepTracker.icon} title={t('reports.sleepPerDay')} color={sleepTracker.color}>
               <ResponsiveContainer width="100%" height={140}>
-                <BarChart data={sleepData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                <BarChart data={[...sleepData].reverse()} margin={{ top: 4, right: 0, left: 4, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F5E6D3" vertical={false} />
                   <XAxis dataKey="day" {...AXIS} />
-                  <YAxis {...AXIS} width={25} allowDecimals={false} />
+                  <YAxis {...AXIS} width={25} orientation="right" allowDecimals={false} />
                   <Tooltip {...CHART_TOOLTIP} formatter={v => [`${v} שע'`, '']} />
                   <Bar dataKey="hours" fill={sleepTracker.color} radius={[6, 6, 0, 0]} maxBarSize={32} />
                 </BarChart>
@@ -280,10 +280,10 @@ export function ReportsPage() {
             return (
               <SectionCard key={tracker.id} icon={tracker.icon} title={tracker.name} color={tracker.color}>
                 <ResponsiveContainer width="100%" height={140}>
-                  <BarChart data={doseData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                  <BarChart data={[...doseData].reverse()} margin={{ top: 4, right: 0, left: 4, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#F5E6D3" vertical={false} />
                     <XAxis dataKey="day" {...AXIS} />
-                    <YAxis {...AXIS} width={25} allowDecimals={false} />
+                    <YAxis {...AXIS} width={25} orientation="right" allowDecimals={false} />
                     <Tooltip {...CHART_TOOLTIP} formatter={v => [v, '']} />
                     <Bar dataKey="count" fill={tracker.color} radius={[6, 6, 0, 0]} maxBarSize={32} />
                   </BarChart>
