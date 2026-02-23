@@ -23,6 +23,8 @@ export function AddFeedingForm({ onSave, onCancel, loading, initialData, initial
     const [h, m] = time.split(':').map(Number)
     const occurredAt = new Date()
     occurredAt.setHours(h, m, 0, 0)
+    // Midnight guard: if the chosen time is in the future, the user meant yesterday
+    if (occurredAt > new Date()) occurredAt.setDate(occurredAt.getDate() - 1)
     onSave({ amount_ml: finalAmount }, occurredAt)
   }
 

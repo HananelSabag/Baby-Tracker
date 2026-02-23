@@ -4,12 +4,14 @@ import { useEvents } from '../../hooks/useEvents'
 import { Card } from '../ui/Card'
 import { cn } from '../../lib/utils'
 
-// Dose slot emojis by position: morning, evening, midday, night
-const DOSE_EMOJIS = ['☀️', '🌙', '🌅', '⭐']
+// Dose slot emojis: morning, noon, evening, night
+const DOSE_EMOJIS = ['☀️', '🌅', '🌙', '⭐']
 
 export function VitaminDCard({ tracker, familyId, memberId, childId, viewDate }) {
   const { events, addEvent } = useEvents(familyId, { trackerId: tracker.id, date: viewDate, childId })
-  const [saving, setSaving] = useState(null)
+  // pendingKeys: optimistic update — marks a dose as "done" instantly on tap,
+  // before the DB round-trip + realtime update arrives. Prevents double-tapping.
+  const [pendingKeys, setPendingKeys] = useState(new Set())
 
   // Read dose config from tracker, fallback to defaults
   const config = tracker.config ?? {}
@@ -23,12 +25,15 @@ export function VitaminDCard({ tracker, familyId, memberId, childId, viewDate })
     emoji: DOSE_EMOJIS[i] ?? '💊',
   }))
 
-  // Which doses were already given today (by slot index)
-  const givenKeys = new Set(events.map(e => String(e.data?.dose_index ?? e.data?.dose)))
+  // Which doses are confirmed from DB
+  const confirmedKeys = new Set(events.map(e => String(e.data?.dose_index ?? e.data?.dose)))
+  // Combined: confirmed + optimistic pending — used for all UI decisions
+  const givenKeys = new Set([...confirmedKeys, ...pendingKeys])
 
   async function handleDose(doseKey, doseLabel) {
-    if (givenKeys.has(doseKey) || saving) return
-    setSaving(doseKey)
+    if (givenKeys.has(doseKey)) return // already done (confirmed or pending)
+    // Mark as done immediately (optimistic) to block any rapid re-taps
+    setPendingKeys(prev => new Set([...prev, doseKey]))
     try {
       await addEvent({
         trackerId: tracker.id,
@@ -37,8 +42,9 @@ export function VitaminDCard({ tracker, familyId, memberId, childId, viewDate })
         data: { dose_index: doseKey, dose_label: doseLabel },
         occurredAt: new Date().toISOString(),
       })
-    } finally {
-      setSaving(null)
+    } catch {
+      // Rollback optimistic update on failure
+      setPendingKeys(prev => { const n = new Set(prev); n.delete(doseKey); return n })
     }
   }
 
@@ -61,12 +67,12 @@ export function VitaminDCard({ tracker, familyId, memberId, childId, viewDate })
       <div className={cn('grid gap-2', doses.length === 1 ? 'grid-cols-1' : doses.length === 2 ? 'grid-cols-2' : doses.length === 3 ? 'grid-cols-3' : 'grid-cols-2')}>
         {doses.map(dose => {
           const done = givenKeys.has(dose.key)
-          const isSaving = saving === dose.key
+          const isPending = pendingKeys.has(dose.key) && !confirmedKeys.has(dose.key)
           return (
             <button
               key={dose.key}
               onClick={() => handleDose(dose.key, dose.label)}
-              disabled={done || isSaving}
+              disabled={done}
               className={cn(
                 'flex flex-col items-center gap-2 py-4 rounded-2xl transition-all active:scale-95',
                 done ? 'opacity-100' : 'opacity-60 hover:opacity-80',
@@ -78,7 +84,7 @@ export function VitaminDCard({ tracker, familyId, memberId, childId, viewDate })
                 {dose.label}
               </span>
               <span className={cn('text-xs font-rubik', done ? 'text-white/80' : 'text-brown-400')}>
-                {isSaving ? '...' : done ? t('vitaminD.done') : t('vitaminD.notDone')}
+                {isPending ? '...' : done ? t('vitaminD.done') : t('vitaminD.notDone')}
               </span>
             </button>
           )
