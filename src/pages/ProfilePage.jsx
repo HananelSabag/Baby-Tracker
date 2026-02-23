@@ -22,6 +22,7 @@ export function ProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState(identity.memberAvatarUrl ?? identity.googleAvatarUrl ?? null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [uploadStatus, setUploadStatus] = useState(null) // null | 'uploading' | 'success' | 'error'
   const [signOutConfirm, setSignOutConfirm] = useState(false)
   const [copied, setCopied] = useState(false)
   const [refreshingCode, setRefreshingCode] = useState(false)
@@ -59,14 +60,23 @@ export function ProfilePage() {
   async function handleAvatarChange(e) {
     const file = e.target.files?.[0]
     if (!file) return
-    // Upload to Supabase Storage
-    const ext = file.name.split('.').pop()
-    const path = `members/${identity.memberId}.${ext}`
-    const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
-    if (!error) {
+    setUploadStatus('uploading')
+    try {
+      const ext = file.name.split('.').pop()
+      const path = `members/${identity.memberId}.${ext}`
+      const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
+      if (error) throw error
       const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-      setAvatarUrl(data.publicUrl)
-      setMemberAvatarUrl(data.publicUrl)
+      const url = data.publicUrl
+      setAvatarUrl(url)
+      setMemberAvatarUrl(url)
+      // Save to DB immediately so it survives across sessions / devices
+      await updateMember(identity.memberId, { avatar_url: url })
+      setUploadStatus('success')
+      setTimeout(() => setUploadStatus(null), 2500)
+    } catch {
+      setUploadStatus('error')
+      setTimeout(() => setUploadStatus(null), 3000)
     }
   }
 
@@ -107,12 +117,22 @@ export function ProfilePage() {
           </div>
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="absolute bottom-0 left-0 w-8 h-8 bg-brown-600 rounded-full flex items-center justify-center text-white shadow-soft"
+            disabled={uploadStatus === 'uploading'}
+            className="absolute bottom-0 left-0 w-8 h-8 bg-brown-600 rounded-full flex items-center justify-center text-white shadow-soft disabled:opacity-60"
           >
-            📷
+            {uploadStatus === 'uploading' ? '⏳' : '📷'}
           </button>
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
         </div>
+        {uploadStatus === 'success' && (
+          <p className="text-xs text-green-600 font-rubik font-medium mt-2">✓ התמונה הועלתה בהצלחה</p>
+        )}
+        {uploadStatus === 'error' && (
+          <p className="text-xs text-red-500 font-rubik font-medium mt-2">✗ העלאת התמונה נכשלה</p>
+        )}
+        {uploadStatus === 'uploading' && (
+          <p className="text-xs text-brown-400 font-rubik mt-2">מעלה תמונה...</p>
+        )}
         <p className="font-rubik font-semibold text-brown-800 text-lg mt-2">{user?.user_metadata?.full_name}</p>
         <p className="font-rubik text-brown-400 text-sm">{user?.email}</p>
       </div>
