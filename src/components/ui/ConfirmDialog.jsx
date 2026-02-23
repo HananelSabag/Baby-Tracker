@@ -1,7 +1,7 @@
 import { t } from '../../lib/strings'
 import { Button } from './Button'
 
-export function ConfirmDialog({ isOpen, message, onConfirm, onCancel }) {
+export function ConfirmDialog({ isOpen, message, onConfirm, onCancel, confirmLabel, confirmVariant = 'danger' }) {
   if (!isOpen) return null
 
   return (
@@ -13,8 +13,8 @@ export function ConfirmDialog({ isOpen, message, onConfirm, onCancel }) {
           <Button variant="secondary" className="flex-1" onClick={onCancel}>
             {t('common.cancel')}
           </Button>
-          <Button variant="danger" className="flex-1" onClick={onConfirm}>
-            {t('common.delete')}
+          <Button variant={confirmVariant} className="flex-1" onClick={onConfirm}>
+            {confirmLabel ?? t('common.delete')}
           </Button>
         </div>
       </div>

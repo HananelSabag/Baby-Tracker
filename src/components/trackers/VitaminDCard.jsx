@@ -52,7 +52,7 @@ export function VitaminDCard({ tracker, familyId, memberId, childId, viewDate })
 
   return (
     <Card>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <span className="text-2xl">{tracker.icon}</span>
           <span className="font-rubik font-semibold text-brown-800">{tracker.name}</span>
@@ -74,17 +74,14 @@ export function VitaminDCard({ tracker, familyId, memberId, childId, viewDate })
               onClick={() => handleDose(dose.key, dose.label)}
               disabled={done}
               className={cn(
-                'flex flex-col items-center gap-2 py-4 rounded-2xl transition-all active:scale-95',
+                'flex flex-col items-center gap-1 py-2.5 rounded-2xl transition-all active:scale-95',
                 done ? 'opacity-100' : 'opacity-60 hover:opacity-80',
               )}
               style={{ backgroundColor: done ? tracker.color : `${tracker.color}22` }}
             >
-              <span className="text-2xl">{dose.emoji}</span>
+              <span className="text-xl">{isPending ? '⏳' : dose.emoji}</span>
               <span className={cn('text-sm font-rubik font-semibold', done ? 'text-white' : 'text-brown-700')}>
                 {dose.label}
-              </span>
-              <span className={cn('text-xs font-rubik', done ? 'text-white/80' : 'text-brown-400')}>
-                {isPending ? '...' : done ? t('vitaminD.done') : t('vitaminD.notDone')}
               </span>
             </button>
           )

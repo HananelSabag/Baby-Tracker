@@ -26,11 +26,13 @@ export function HistoryPage() {
   const [jumpDate, setJumpDate] = useState('')
   const [daysBack, setDaysBack] = useState(DAYS_PER_PAGE)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [hasReachedStart, setHasReachedStart] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
   const [editSaving, setEditSaving] = useState(false)
 
   const now = useRef(new Date()).current
+  const prevEventsLengthRef = useRef(null)
   const todayStr = format(now, 'yyyy-MM-dd')
 
   const startDate = useMemo(
@@ -44,8 +46,14 @@ export function HistoryPage() {
     { startDate, endDate, childId: identity.activeChildId }
   )
 
-  // Clear loadingMore whenever events array updates (any fetch completion)
-  useEffect(() => { setLoadingMore(false) }, [events])
+  // Clear loadingMore; detect when load-more produced no new events
+  useEffect(() => {
+    if (prevEventsLengthRef.current !== null) {
+      if (events.length === prevEventsLengthRef.current) setHasReachedStart(true)
+      prevEventsLengthRef.current = null
+    }
+    setLoadingMore(false)
+  }, [events])
 
   // Filter by tracker type client-side
   const filtered = useMemo(
@@ -80,6 +88,7 @@ export function HistoryPage() {
   const canLoadMore = daysBack < MAX_DAYS
 
   function loadMore() {
+    prevEventsLengthRef.current = events.length
     setLoadingMore(true)
     setDaysBack(d => Math.min(d + DAYS_PER_PAGE, MAX_DAYS))
   }
@@ -339,7 +348,7 @@ export function HistoryPage() {
             <div className="pt-5 pb-2 text-center">
               {loadingMore ? (
                 <Spinner size="md" />
-              ) : canLoadMore ? (
+              ) : canLoadMore && !hasReachedStart ? (
                 <button
                   onClick={loadMore}
                   className="w-full py-3 rounded-2xl bg-white shadow-soft text-brown-600 font-rubik font-medium text-sm active:scale-[0.99] transition-all"
@@ -347,7 +356,10 @@ export function HistoryPage() {
                   טען עוד ימים
                 </button>
               ) : (
-                <p className="text-brown-400 font-rubik text-xs">הגעת להתחלה 🎉</p>
+                <div className="flex flex-col items-center gap-1 py-2">
+                  <span className="text-2xl">🎉</span>
+                  <p className="text-brown-400 font-rubik text-xs">הגעת להתחלה</p>
+                </div>
               )}
             </div>
           )}

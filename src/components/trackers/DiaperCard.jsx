@@ -42,12 +42,12 @@ export function DiaperCard({ tracker, familyId, memberId, childId, viewDate }) {
           </div>
         </div>
 
-        <div className="rounded-2xl px-4 py-3" style={{ backgroundColor: `${tracker.color}18` }}>
+        <div className="rounded-2xl px-4 py-2" style={{ backgroundColor: `${tracker.color}18` }}>
           {/* Total + last change */}
           <div className="flex items-center justify-between mb-2">
             <div>
               <p className="text-xs text-brown-500 font-rubik">{t('diaper.todayTotal')}</p>
-              <p className="font-rubik font-bold text-brown-800 text-2xl leading-tight">
+              <p className="font-rubik font-bold text-brown-800 text-xl leading-tight">
                 {loading ? '...' : events.length}
               </p>
             </div>

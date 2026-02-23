@@ -262,6 +262,8 @@ export function ProfilePage() {
         message={t('profile.signOutConfirm')}
         onConfirm={signOut}
         onCancel={() => setSignOutConfirm(false)}
+        confirmLabel={t('auth.signOut')}
+        confirmVariant="secondary"
       />
 
       <ConfirmDialog

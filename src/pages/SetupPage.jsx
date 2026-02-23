@@ -167,6 +167,12 @@ export function SetupPage() {
             <button onClick={() => handleChoose('join')} className="w-full py-5 rounded-3xl bg-cream-200 font-rubik font-medium text-brown-700 text-lg active:scale-95 transition-transform">
               🔗 {t('setup.joinFamily')}
             </button>
+            <button
+              onClick={() => supabase.auth.signOut()}
+              className="mt-4 self-center text-sm font-rubik text-brown-400 hover:text-brown-600 transition-colors"
+            >
+              {t('auth.signOut')}
+            </button>
           </div>
         )}
 

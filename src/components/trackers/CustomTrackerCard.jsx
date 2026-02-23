@@ -6,7 +6,7 @@ import { BottomSheet } from '../ui/BottomSheet'
 import { AddCustomEventForm } from '../forms/AddCustomEventForm'
 import { Card } from '../ui/Card'
 
-export function CustomTrackerCard({ tracker, familyId, memberId, childId, viewDate }) {
+export function CustomTrackerCard({ tracker, familyId, memberId, childId, viewDate, compact = false }) {
   const { events, loading, addEvent } = useEvents(familyId, { trackerId: tracker.id, date: viewDate, childId })
   const [sheetOpen, setSheetOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -25,20 +25,20 @@ export function CustomTrackerCard({ tracker, familyId, memberId, childId, viewDa
 
   return (
     <>
-      <Card className="cursor-pointer" onClick={() => setSheetOpen(true)}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">{tracker.icon}</span>
-            <div>
-              <p className="font-rubik font-semibold text-brown-800">{tracker.name}</p>
-              <p className="text-xs text-brown-400 font-rubik">
+      <Card compact={compact} className="cursor-pointer" onClick={() => setSheetOpen(true)}>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <span className="text-2xl flex-shrink-0">{tracker.icon}</span>
+            <div className="min-w-0 flex-1">
+              <p className="font-rubik font-semibold text-brown-800 truncate">{tracker.name}</p>
+              <p className="text-xs text-brown-400 font-rubik truncate">
                 {loading ? '...' : `${events.length} ${t('tracker.events')}`}
                 {lastEvent ? ` · ${formatTime(lastEvent.occurred_at)}` : ''}
               </p>
             </div>
           </div>
           <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-soft"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-soft flex-shrink-0"
             style={{ backgroundColor: tracker.color }}
           >
             +

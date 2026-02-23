@@ -40,7 +40,33 @@ export function HomePage() {
     ? 'היום'
     : format(viewDate, 'EEEE, d בMMMM', { locale: he })
 
-  function renderTracker(tracker) {
+  // Trackers that render as a compact single-row card (eligible for 2-col grid)
+  function isCompactTracker(tracker) {
+    return (
+      tracker.tracker_type === TRACKER_TYPES.CUSTOM ||
+      (tracker.tracker_type === TRACKER_TYPES.DOSE && tracker.config?.display_mode === 'simple')
+    )
+  }
+
+  // Group consecutive compact trackers into pairs for 2-col grid layout
+  function groupTrackers(list) {
+    const groups = []
+    let i = 0
+    while (i < list.length) {
+      const current = list[i]
+      const next = list[i + 1]
+      if (isCompactTracker(current) && next && isCompactTracker(next)) {
+        groups.push({ type: 'pair', items: [current, next] })
+        i += 2
+      } else {
+        groups.push({ type: 'single', item: current })
+        i += 1
+      }
+    }
+    return groups
+  }
+
+  function renderTracker(tracker, compact = false) {
     const props = {
       key: tracker.id,
       tracker,
@@ -55,9 +81,9 @@ export function HomePage() {
       case TRACKER_TYPES.DIAPER:    return <DiaperCard {...props} />
       case TRACKER_TYPES.SLEEP:     return <SleepCard {...props} />
       case TRACKER_TYPES.DOSE:      return tracker.config?.display_mode === 'simple'
-                                      ? <CustomTrackerCard {...props} />
+                                      ? <CustomTrackerCard {...props} compact={compact} />
                                       : <VitaminDCard {...props} />
-      default:                      return <CustomTrackerCard {...props} />
+      default:                      return <CustomTrackerCard {...props} compact={compact} />
     }
   }
 
@@ -215,7 +241,15 @@ export function HomePage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {trackers.map(renderTracker)}
+          {groupTrackers(trackers).map((group, idx) =>
+            group.type === 'pair' ? (
+              <div key={`pair-${group.items[0].id}`} className="grid grid-cols-2 gap-3">
+                {group.items.map(tr => renderTracker(tr, true))}
+              </div>
+            ) : (
+              renderTracker(group.item)
+            )
+          )}
         </div>
       )}
 
