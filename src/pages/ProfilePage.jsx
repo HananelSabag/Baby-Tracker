@@ -147,7 +147,7 @@ export function ProfilePage() {
               onClick={() => setRole(r.value)}
               className={cn(
                 'flex flex-col items-center gap-1 py-3 rounded-2xl font-rubik text-sm font-medium transition-all active:scale-95',
-                role === r.value ? 'bg-brown-600 text-white' : 'bg-cream-100 text-brown-700'
+                role === r.value ? 'bg-amber-500 text-white' : 'bg-cream-100 text-brown-700'
               )}
             >
               <span className="text-xl">{r.emoji}</span>

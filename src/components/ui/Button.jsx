@@ -4,7 +4,7 @@ export function Button({ children, variant = 'primary', size = 'md', className, 
   const base = 'font-rubik font-medium rounded-2xl transition-all active:scale-95 focus:outline-none select-none'
 
   const variants = {
-    primary: 'bg-brown-600 text-cream-50 shadow-soft hover:bg-brown-700 active:bg-brown-700',
+    primary: 'bg-amber-600 text-white shadow-soft hover:bg-amber-700 active:bg-amber-700',
     secondary: 'bg-cream-200 text-brown-700 hover:bg-cream-300',
     ghost: 'text-brown-600 hover:bg-cream-200',
     danger: 'bg-red-500 text-white hover:bg-red-600',
