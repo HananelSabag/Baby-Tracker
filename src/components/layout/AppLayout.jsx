@@ -44,7 +44,7 @@ export function AppLayout({ children }) {
         <ToastContainer toasts={toasts} onDismiss={dismissToast} />
         {isWife && (
           <LovePopup
-            avatarUrl={identity.googleAvatarUrl ?? identity.memberAvatarUrl}
+            avatarUrl={identity.memberAvatarUrl ?? identity.googleAvatarUrl}
             name={identity.memberName}
           />
         )}

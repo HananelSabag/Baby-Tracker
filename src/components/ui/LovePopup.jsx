@@ -2,6 +2,13 @@ import { useState, useEffect } from 'react'
 
 const AUTO_CLOSE_MS = 3000
 
+// Bump Google avatar URL to a higher resolution (default s96 → s300)
+function hiResAvatar(url) {
+  if (!url) return url
+  if (url.includes('googleusercontent.com')) return url.replace(/=s\d+-c/, '=s300-c')
+  return url
+}
+
 export function LovePopup({ avatarUrl, name }) {
   const [visible, setVisible] = useState(false)
   const [progress, setProgress] = useState(100)
@@ -53,7 +60,7 @@ export function LovePopup({ avatarUrl, name }) {
         {/* Profile picture */}
         <div className="w-28 h-28 rounded-full overflow-hidden mx-auto mb-4 mt-2 ring-4 ring-pink-200 shadow-lg">
           {avatarUrl
-            ? <img src={avatarUrl} alt={name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            ? <img src={hiResAvatar(avatarUrl)} alt={name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             : <span className="text-6xl flex items-center justify-center w-full h-full bg-pink-50">👩</span>
           }
         </div>
