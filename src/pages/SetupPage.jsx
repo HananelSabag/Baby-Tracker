@@ -97,25 +97,49 @@ export function SetupPage() {
     setLoading(true)
     setError('')
     try {
+      // Step 1: upload child avatar
       let uploadedUrl = null
       if (childAvatarFile) {
         const ext = childAvatarFile.name.split('.').pop()
         const path = `children/${Date.now()}.${ext}`
         const { error: uploadErr } = await supabase.storage.from('avatars').upload(path, childAvatarFile)
-        if (!uploadErr) {
-          const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
-          uploadedUrl = urlData.publicUrl
+        if (uploadErr) {
+          console.error('[Setup] avatar upload error:', uploadErr)
+          setError(`שגיאת העלאת תמונה: ${uploadErr.message}`)
+          setLoading(false)
+          return
         }
+        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
+        uploadedUrl = urlData.publicUrl
       }
 
-      const { family, member } = await createFamily({
-        familyName: familyName.trim(),
-        role,
-        customRole,
-        authUserId: user.id,
-        avatarUrl,
-      })
-      const child = await addChild({ familyId: family.id, name: childName.trim(), avatarUrl: uploadedUrl })
+      // Step 2: create family + member
+      let family, member
+      try {
+        ;({ family, member } = await createFamily({
+          familyName: familyName.trim(),
+          role,
+          customRole,
+          authUserId: user.id,
+          avatarUrl,
+        }))
+      } catch (e) {
+        console.error('[Setup] createFamily error:', e)
+        setError(`שגיאת יצירת משפחה: ${e?.message ?? JSON.stringify(e)}`)
+        setLoading(false)
+        return
+      }
+
+      // Step 3: add child
+      let child
+      try {
+        child = await addChild({ familyId: family.id, name: childName.trim(), avatarUrl: uploadedUrl })
+      } catch (e) {
+        console.error('[Setup] addChild error:', e)
+        setError(`שגיאת הוספת ילד: ${e?.message ?? JSON.stringify(e)}`)
+        setLoading(false)
+        return
+      }
 
       // Store for DONE step — don't call onFamilyJoined yet so DONE step stays visible
       setCreatedCode(family.code)
@@ -123,8 +147,9 @@ export function SetupPage() {
       setPendingMember(member)
       setPendingChildId(child.id)
       setStep(STEPS.DONE)
-    } catch {
-      setError(t('errors.saveFailed'))
+    } catch (e) {
+      console.error('[Setup] unexpected error:', e)
+      setError(`שגיאה לא צפויה: ${e?.message ?? JSON.stringify(e)}`)
     } finally {
       setLoading(false)
     }
