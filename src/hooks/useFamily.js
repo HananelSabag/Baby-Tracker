@@ -41,6 +41,16 @@ export async function createFamily({ familyName, role, customRole, authUserId, a
   const code = generateFamilyCode()
   const displayName = role === 'אחר' ? (customRole || 'אחר') : role
 
+  // Debug: verify session is active before any DB call
+  const { data: { session } } = await supabase.auth.getSession()
+  console.log('[createFamily] session check — access_token exists:', !!session?.access_token, 'user:', session?.user?.id ?? 'NONE')
+  if (!session?.access_token) {
+    // Try to refresh the session first
+    const { data: refreshed } = await supabase.auth.refreshSession()
+    console.log('[createFamily] refreshed session:', !!refreshed?.session?.access_token)
+    if (!refreshed?.session?.access_token) throw new Error('no-session: user not authenticated')
+  }
+
   console.log('[createFamily] step 1 — insert family, code:', code, 'name:', familyName, 'authUserId:', authUserId)
   const { data: family, error: familyErr } = await supabase
     .from('families')
