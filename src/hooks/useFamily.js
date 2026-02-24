@@ -41,14 +41,20 @@ export async function createFamily({ familyName, role, customRole, authUserId, a
   const code = generateFamilyCode()
   const displayName = role === 'אחר' ? (customRole || 'אחר') : role
 
+  console.log('[createFamily] step 1 — insert family, code:', code, 'name:', familyName, 'authUserId:', authUserId)
   const { data: family, error: familyErr } = await supabase
     .from('families')
     .insert({ code, name: familyName || 'המשפחה שלנו' })
     .select()
     .single()
-  if (familyErr) throw familyErr
+  if (familyErr) {
+    console.error('[createFamily] families insert failed:', familyErr)
+    throw new Error(`families: ${familyErr.message} (${familyErr.code})`)
+  }
+  console.log('[createFamily] step 1 OK — family.id:', family.id)
 
   // Register member first so RLS (get_my_family_id) resolves before seeding trackers
+  console.log('[createFamily] step 2 — insert member, role:', displayName)
   const { data: member, error: memberErr } = await supabase
     .from('family_members')
     .insert({
@@ -60,12 +66,19 @@ export async function createFamily({ familyName, role, customRole, authUserId, a
     })
     .select()
     .single()
-  if (memberErr) throw memberErr
+  if (memberErr) {
+    console.error('[createFamily] family_members insert failed:', memberErr)
+    throw new Error(`members: ${memberErr.message} (${memberErr.code})`)
+  }
+  console.log('[createFamily] step 2 OK — member.id:', member.id)
 
   // Seed built-in trackers for this family
-  await supabase.from('trackers').insert(
+  console.log('[createFamily] step 3 — seed trackers')
+  const { error: trackersErr } = await supabase.from('trackers').insert(
     BUILTIN_TRACKERS.map(t => ({ ...t, family_id: family.id }))
   )
+  if (trackersErr) console.warn('[createFamily] trackers seed failed (non-fatal):', trackersErr)
+  else console.log('[createFamily] step 3 OK')
 
   return { family, member }
 }
