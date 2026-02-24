@@ -10,6 +10,7 @@ import { VitaminDCard } from '../components/trackers/VitaminDCard'
 import { DiaperCard } from '../components/trackers/DiaperCard'
 import { SleepCard } from '../components/trackers/SleepCard'
 import { CustomTrackerCard } from '../components/trackers/CustomTrackerCard'
+import { GrowthCard } from '../components/trackers/GrowthCard'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { Spinner } from '../components/ui/Spinner'
 import { format, addDays, subDays, isSameDay } from 'date-fns'
@@ -68,7 +69,6 @@ export function HomePage() {
 
   function renderTracker(tracker, compact = false) {
     const props = {
-      key: tracker.id,
       tracker,
       familyId: identity.familyId,
       memberId: identity.memberId,
@@ -76,14 +76,15 @@ export function HomePage() {
       viewDate,
     }
     switch (tracker.tracker_type) {
-      case TRACKER_TYPES.FEEDING:   return <FeedingCard {...props} />
-      case TRACKER_TYPES.VITAMIN_D: return <VitaminDCard {...props} />
-      case TRACKER_TYPES.DIAPER:    return <DiaperCard {...props} />
-      case TRACKER_TYPES.SLEEP:     return <SleepCard {...props} />
+      case TRACKER_TYPES.FEEDING:   return <FeedingCard key={tracker.id} {...props} />
+      case TRACKER_TYPES.VITAMIN_D: return <VitaminDCard key={tracker.id} {...props} />
+      case TRACKER_TYPES.DIAPER:    return <DiaperCard key={tracker.id} {...props} />
+      case TRACKER_TYPES.SLEEP:     return <SleepCard key={tracker.id} {...props} />
       case TRACKER_TYPES.DOSE:      return tracker.config?.display_mode === 'simple'
-                                      ? <CustomTrackerCard {...props} compact={compact} />
-                                      : <VitaminDCard {...props} />
-      default:                      return <CustomTrackerCard {...props} compact={compact} />
+                                      ? <CustomTrackerCard key={tracker.id} {...props} compact={compact} />
+                                      : <VitaminDCard key={tracker.id} {...props} />
+      case TRACKER_TYPES.GROWTH:    return <GrowthCard key={tracker.id} {...props} child={activeChild} />
+      default:                      return <CustomTrackerCard key={tracker.id} {...props} compact={compact} />
     }
   }
 

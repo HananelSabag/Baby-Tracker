@@ -2,35 +2,25 @@ import { useState, useRef, useEffect } from 'react'
 import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
-import { useChildren, addChild } from '../hooks/useChildren'
-import { TRACKER_COLORS, TRACKER_ICONS, FIELD_TYPES, TRACKER_ARCHETYPES, STORAGE_KEYS, PARENT_ROLES } from '../lib/constants'
-import { Card } from '../components/ui/Card'
+import { TRACKER_COLORS, TRACKER_ICONS, FIELD_TYPES, TRACKER_ARCHETYPES } from '../lib/constants'
 import { Button } from '../components/ui/Button'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
+import { ToastContainer } from '../components/ui/Toast'
+import { useToast } from '../hooks/useToast'
 import { cn } from '../lib/utils'
-import { supabase } from '../lib/supabase'
 
 // Wizard steps for creating a new tracker
 const WIZARD_STEPS = { ARCHETYPE: 'archetype', IDENTITY: 'identity', DOSE_CONFIG: 'dose_config', DISPLAY_MODE: 'display_mode', FIELDS: 'fields' }
 
 export function SettingsPage() {
   const { identity } = useApp()
+  const { toasts, showToast, dismissToast } = useToast()
   const { trackers, addTracker, updateTracker, deleteTracker } = useTrackers(identity.familyId)
-  const { children, updateChild } = useChildren(identity.familyId)
   const [addSheetOpen, setAddSheetOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [editTarget, setEditTarget] = useState(null) // dose config
   const [editTrackerTarget, setEditTrackerTarget] = useState(null) // name/icon/color edit
-  const [addChildSheetOpen, setAddChildSheetOpen] = useState(false)
-  const [editChildTarget, setEditChildTarget] = useState(null)
-  const [notificationsOn, setNotificationsOn] = useState(
-    () => localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS) === null
-      ? true
-      : localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS) === 'true'
-  )
-
-  const isParent = PARENT_ROLES.includes(identity.memberName)
 
   // ── Reorder state ──────────────────────────────────────────────────────────
   const [localTrackers, setLocalTrackers] = useState([])
@@ -96,89 +86,23 @@ export function SettingsPage() {
     updateTracker(tracker.id, { is_active: tracker.is_active === false ? true : false })
   }
 
-  function toggleNotifications() {
-    const next = !notificationsOn
-    setNotificationsOn(next)
-    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, String(next))
-  }
-
   return (
     <div className="px-4 pt-6 pb-4">
-      <h1 className="font-rubik font-bold text-2xl text-brown-800 mb-5">{t('settings.title')}</h1>
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-      {/* Children section */}
+      {/* Header */}
       <div className="mb-5">
-        <div className="flex items-center justify-between mb-2">
-          <p className="font-rubik font-semibold text-brown-500 text-xs uppercase tracking-wide">{t('settings.childrenSection')}</p>
-          {isParent && (
-            <button
-              onClick={() => setAddChildSheetOpen(true)}
-              className="text-sm font-rubik font-semibold text-white bg-amber-600 px-4 py-1.5 rounded-full active:scale-95 transition-transform shadow-soft"
-            >
-              + {t('children.addChild')}
-            </button>
-          )}
-        </div>
-        {children.length === 0 ? (
-          isParent ? (
-            <button onClick={() => setAddChildSheetOpen(true)} className="w-full py-6 rounded-3xl border-2 border-dashed border-cream-300 text-brown-400 font-rubik text-sm active:scale-95 transition-transform">
-              <div className="text-3xl mb-1">👶</div>
-              {t('children.noChildren')}
-            </button>
-          ) : (
-            <div className="w-full py-6 rounded-3xl bg-cream-100 text-brown-400 font-rubik text-sm text-center">
-              <div className="text-3xl mb-1">👶</div>
-              {t('children.noChildren')}
-            </div>
-          )
-        ) : (
-          <div className="space-y-2">
-            {children.map(child => (
-              <div key={child.id} className="bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center flex-shrink-0">
-                  {child.avatar_url
-                    ? <img src={child.avatar_url} alt={child.name} className="w-full h-full object-cover" />
-                    : <span className="text-xl">👶</span>
-                  }
-                </div>
-                <span className="font-rubik font-medium text-brown-800 flex-1">{child.name}</span>
-                {isParent && (
-                  <button
-                    onClick={() => setEditChildTarget(child)}
-                    className="text-xs font-rubik text-brown-500 bg-cream-200 px-3 py-1.5 rounded-full"
-                  >
-                    ✏️ ערוך
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Notifications toggle */}
-      <div className="mb-5 bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center justify-between">
-        <div>
-          <p className="font-rubik font-medium text-brown-800">{t('notifications.title')}</p>
-          <p className="font-rubik text-brown-400 text-xs">{t('notifications.subtitle')}</p>
-        </div>
-        <button
-          onClick={toggleNotifications}
-          className="relative w-12 h-6 rounded-full transition-colors duration-200"
-          style={{ backgroundColor: notificationsOn ? '#22C55E' : '#D6C4B0' }}
-        >
-          <span
-            className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
-            style={{ transform: notificationsOn ? 'translateX(26px)' : 'translateX(2px)' }}
-          />
-        </button>
+        <h1 className="font-rubik font-bold text-2xl text-brown-800 leading-tight">מרכז שליטה</h1>
+        <p className="font-rubik text-brown-400 text-sm mt-1">
+          הפעל / כבה מעקבים, ערוך, מחק ושנה סדר תצוגה במסך הבית
+        </p>
       </div>
 
       {/* Unified tracker list — draggable to reorder */}
       <div className="mb-5">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-3">
           <div>
-            <p className="font-rubik font-semibold text-brown-500 text-xs uppercase tracking-wide">מסך הבית</p>
+            <p className="font-rubik font-semibold text-brown-500 text-xs uppercase tracking-wide">המעקבים שלי</p>
             <p className="font-rubik text-brown-400 text-xs mt-0.5">☰ גרור לשינוי סדר</p>
           </div>
           <button
@@ -194,77 +118,92 @@ export function SettingsPage() {
           onTouchMove={onListTouchMove}
           onTouchEnd={onListTouchEnd}
         >
-          {localTrackers.map(tr => (
-            <div
-              key={tr.id}
-              data-tid={tr.id}
-              draggable
-              onDragStart={e => onDragStart(e, tr.id)}
-              onDragOver={e => onDragOver(e, tr.id)}
-              onDrop={() => onDrop(tr.id)}
-              onDragEnd={onDragEnd}
-              className={cn(
-                'bg-white rounded-2xl shadow-soft px-3 py-3 flex items-center gap-2 transition-all select-none',
-                tr.is_active === false ? 'opacity-50' : '',
-                dragId === tr.id ? 'opacity-40 scale-[0.98]' : '',
-                overId === tr.id && dragId !== tr.id ? 'ring-2 ring-brown-400 ring-offset-1' : ''
-              )}
-            >
-              {/* Drag handle */}
+          {localTrackers.map(tr => {
+            const isDose = tr.tracker_type === 'vitamin_d' || tr.tracker_type === 'dose'
+            const hasActions = isDose || !tr.is_builtin
+            return (
               <div
-                className="text-brown-300 hover:text-brown-500 flex-shrink-0 px-1 text-base cursor-grab active:cursor-grabbing touch-none"
-                onTouchStart={e => onHandleTouchStart(e, tr.id)}
-                title="גרור לשינוי סדר"
+                key={tr.id}
+                data-tid={tr.id}
+                draggable
+                onDragStart={e => onDragStart(e, tr.id)}
+                onDragOver={e => onDragOver(e, tr.id)}
+                onDrop={() => onDrop(tr.id)}
+                onDragEnd={onDragEnd}
+                className={cn(
+                  'bg-white rounded-2xl shadow-soft overflow-hidden transition-all select-none',
+                  tr.is_active === false ? 'opacity-50' : '',
+                  dragId === tr.id ? 'opacity-40 scale-[0.98]' : '',
+                  overId === tr.id && dragId !== tr.id ? 'ring-2 ring-brown-400 ring-offset-1' : ''
+                )}
               >
-                ☰
+                {/* Color accent strip */}
+                <div className="h-1 w-full" style={{ backgroundColor: tr.color }} />
+
+                {/* Main row */}
+                <div className="px-3 py-3 flex items-center gap-3">
+                  {/* Drag handle */}
+                  <div
+                    className="text-brown-300 hover:text-brown-500 flex-shrink-0 px-1 text-base cursor-grab active:cursor-grabbing touch-none"
+                    onTouchStart={e => onHandleTouchStart(e, tr.id)}
+                    title="גרור לשינוי סדר"
+                  >
+                    ☰
+                  </div>
+
+                  <span className="text-2xl flex-shrink-0">{tr.icon}</span>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="font-rubik font-medium text-brown-800 truncate">{tr.name}</p>
+                    {tr.is_builtin && (
+                      <span className="text-xs font-rubik text-brown-400">מובנה</span>
+                    )}
+                  </div>
+
+                  {/* Active toggle — bigger */}
+                  <button
+                    onClick={() => toggleTrackerActive(tr)}
+                    className="relative w-14 h-7 rounded-full transition-colors duration-200 flex-shrink-0"
+                    style={{ backgroundColor: tr.is_active === false ? '#D6C4B0' : '#22C55E' }}
+                    title={tr.is_active === false ? t('settings.showTracker') : t('settings.hideTracker')}
+                  >
+                    <span className="absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform duration-200"
+                      style={{ transform: tr.is_active === false ? 'translateX(2px)' : 'translateX(28px)' }} />
+                  </button>
+                </div>
+
+                {/* Actions row — only when needed */}
+                {hasActions && (
+                  <div className="px-3 pb-3 flex items-center gap-2 border-t border-cream-100 pt-2">
+                    {isDose && (
+                      <button
+                        onClick={() => setEditTarget(tr)}
+                        className="flex items-center gap-1 text-xs font-rubik text-brown-500 bg-cream-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
+                      >
+                        ⚙️ מינונים
+                      </button>
+                    )}
+                    {!tr.is_builtin && (
+                      <>
+                        <button
+                          onClick={() => setEditTrackerTarget(tr)}
+                          className="flex items-center gap-1 text-xs font-rubik text-brown-500 bg-cream-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
+                        >
+                          ✏️ ערוך
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget(tr.id)}
+                          className="flex items-center gap-1 text-xs font-rubik text-red-400 bg-red-50 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
+                        >
+                          🗑 מחק
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
-
-              <span className="text-xl flex-shrink-0">{tr.icon}</span>
-              <span className="font-rubik font-medium text-brown-800 flex-1 text-sm">{tr.name}</span>
-
-              {/* Built-in tag */}
-              {tr.is_builtin && (
-                <span className="text-xs font-rubik text-brown-400 bg-cream-100 px-2 py-0.5 rounded-full flex-shrink-0">
-                  מובנה
-                </span>
-              )}
-
-              {/* Dose config */}
-              {(tr.tracker_type === 'vitamin_d' || tr.tracker_type === 'dose') && (
-                <button onClick={() => setEditTarget(tr)} className="text-xs font-rubik text-brown-500 bg-cream-200 px-2.5 py-1 rounded-full flex-shrink-0">
-                  ⚙️
-                </button>
-              )}
-
-              {/* Color dot */}
-              <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: tr.color }} />
-
-              {/* Active toggle */}
-              <button
-                onClick={() => toggleTrackerActive(tr)}
-                className="relative w-10 h-5 rounded-full transition-colors duration-200 flex-shrink-0"
-                style={{ backgroundColor: tr.is_active === false ? '#D6C4B0' : '#22C55E' }}
-                title={tr.is_active === false ? t('settings.showTracker') : t('settings.hideTracker')}
-              >
-                <span className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
-                  style={{ transform: tr.is_active === false ? 'translateX(2px)' : 'translateX(22px)' }} />
-              </button>
-
-              {/* Edit / Delete — custom trackers only */}
-              {!tr.is_builtin && (
-                <>
-                  <button
-                    onClick={() => setEditTrackerTarget(tr)}
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-brown-300 hover:text-brown-600 transition-colors text-sm flex-shrink-0"
-                  >✏️</button>
-                  <button
-                    onClick={() => setDeleteTarget(tr.id)}
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-brown-200 hover:text-red-400 transition-colors text-base flex-shrink-0"
-                  >🗑</button>
-                </>
-              )}
-            </div>
-          ))}
+            )
+          })}
 
           {/* Empty state */}
           {localTrackers.length === 0 && (
@@ -295,6 +234,7 @@ export function SettingsPage() {
           onSave={async config => {
             await updateTracker(editTarget.id, { config })
             setEditTarget(null)
+            showToast({ message: 'המינונים נשמרו', emoji: '💊' })
           }}
         />
       )}
@@ -308,6 +248,7 @@ export function SettingsPage() {
           onSave={async updates => {
             await updateTracker(editTrackerTarget.id, updates)
             setEditTrackerTarget(null)
+            showToast({ message: `${updates.name || editTrackerTarget.name} עודכן`, emoji: '✅' })
           }}
         />
       )}
@@ -319,51 +260,6 @@ export function SettingsPage() {
         onCancel={() => setDeleteTarget(null)}
       />
 
-      {/* Add child sheet */}
-      <ChildFormSheet
-        isOpen={addChildSheetOpen}
-        onClose={() => setAddChildSheetOpen(false)}
-        title={t('children.addChild')}
-        onSave={async ({ name, avatarFile }) => {
-          let uploadedUrl = null
-          if (avatarFile) {
-            const ext = avatarFile.name.split('.').pop()
-            const path = `children/${Date.now()}.${ext}`
-            const { error } = await supabase.storage.from('avatars').upload(path, avatarFile)
-            if (!error) {
-              const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-              uploadedUrl = data.publicUrl
-            }
-          }
-          await addChild({ familyId: identity.familyId, name, avatarUrl: uploadedUrl })
-          setAddChildSheetOpen(false)
-        }}
-      />
-
-      {/* Edit child sheet */}
-      {editChildTarget && (
-        <ChildFormSheet
-          isOpen={Boolean(editChildTarget)}
-          onClose={() => setEditChildTarget(null)}
-          title={t('children.editChild')}
-          initialName={editChildTarget.name}
-          initialAvatar={editChildTarget.avatar_url}
-          onSave={async ({ name, avatarFile }) => {
-            let uploadedUrl = editChildTarget.avatar_url
-            if (avatarFile) {
-              const ext = avatarFile.name.split('.').pop()
-              const path = `children/${Date.now()}.${ext}`
-              const { error } = await supabase.storage.from('avatars').upload(path, avatarFile)
-              if (!error) {
-                const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-                uploadedUrl = data.publicUrl
-              }
-            }
-            await updateChild(editChildTarget.id, { name, avatar_url: uploadedUrl })
-            setEditChildTarget(null)
-          }}
-        />
-      )}
     </div>
   )
 }
@@ -511,7 +407,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
         icon,
         color,
         tracker_type: archetype.tracker_type,
-        field_schema: isDose ? [] : (archetype.preset_fields ?? fields),
+        field_schema: isDose ? [] : (archetype.preset_fields?.length ? archetype.preset_fields : fields),
         config: isDose ? doseConfig : {},
       }
       await onAdd(payload)
@@ -619,7 +515,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
             <div className="flex gap-3 pt-1">
               <Button variant="secondary" className="flex-1" onClick={() => setStep(WIZARD_STEPS.ARCHETYPE)}>{t('common.cancel')}</Button>
               <Button className="flex-1" onClick={handleIdentityNext} disabled={!name.trim() || saving}>
-                {archetype.id === 'dose' ? 'הבא ←' : saving ? t('app.loading') : t('common.save')}
+                {(archetype.id === 'dose' || archetype.id === 'freetext') ? 'הבא ←' : saving ? t('app.loading') : t('common.save')}
               </Button>
             </div>
           </>
@@ -717,11 +613,23 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
                   </div>
                   <select
                     value={field.type}
-                    onChange={e => updateField(idx, { type: e.target.value })}
+                    onChange={e => updateField(idx, { type: e.target.value, options: e.target.value === 'choice' ? (field.options ?? []) : undefined })}
                     className="w-full bg-white rounded-xl px-3 py-2 font-rubik text-sm text-brown-700 outline-none"
                   >
                     {FIELD_TYPES.map(ft => <option key={ft.value} value={ft.value}>{ft.label}</option>)}
                   </select>
+                  {field.type === 'choice' && (
+                    <div>
+                      <p className="text-xs text-brown-400 mb-1">אפשרויות (אחת בכל שורה)</p>
+                      <textarea
+                        rows={3}
+                        value={(field.options ?? []).join('\n')}
+                        onChange={e => updateField(idx, { options: e.target.value.split('\n').map(o => o.trim()).filter(Boolean) })}
+                        placeholder={'אפשרות 1\nאפשרות 2\nאפשרות 3'}
+                        className="w-full bg-white rounded-xl px-3 py-2 font-rubik text-sm text-brown-800 outline-none resize-none"
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
               {fields.length === 0 && (
@@ -793,82 +701,6 @@ function EditTrackerSheet({ tracker, isOpen, onClose, onSave }) {
         <div className="flex gap-3 pt-1">
           <Button variant="secondary" className="flex-1" onClick={onClose}>{t('common.cancel')}</Button>
           <Button className="flex-1" onClick={handleSave} disabled={saving || !name.trim()}>
-            {saving ? t('app.loading') : t('common.save')}
-          </Button>
-        </div>
-      </div>
-    </BottomSheet>
-  )
-}
-
-// ─── Child Form Sheet (add / edit child) ──────────────────────────────────────
-
-function ChildFormSheet({ isOpen, onClose, title, initialName = '', initialAvatar = null, onSave }) {
-  const [name, setName] = useState(initialName)
-  const [avatarPreview, setAvatarPreview] = useState(initialAvatar)
-  const [avatarFile, setAvatarFile] = useState(null)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  const fileRef = useRef(null)
-
-  function handleFileChange(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setAvatarFile(file)
-    const reader = new FileReader()
-    reader.onload = ev => setAvatarPreview(ev.target.result)
-    reader.readAsDataURL(file)
-  }
-
-  async function handleSave() {
-    if (!name.trim()) { setError(t('children.nameRequired')); return }
-    setSaving(true)
-    try {
-      await onSave({ name: name.trim(), avatarFile })
-    } catch {
-      setError(t('errors.saveFailed'))
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title={title}>
-      <div className="space-y-5">
-        {/* Avatar */}
-        <div className="flex flex-col items-center gap-3">
-          <button
-            onClick={() => fileRef.current?.click()}
-            className="w-20 h-20 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center active:scale-95 transition-transform border-4 border-white shadow-soft"
-          >
-            {avatarPreview
-              ? <img src={avatarPreview} alt="avatar" className="w-full h-full object-cover" />
-              : <span className="text-4xl">👶</span>
-            }
-          </button>
-          <button onClick={() => fileRef.current?.click()} className="text-xs font-rubik text-brown-500 bg-cream-200 px-3 py-1.5 rounded-full">
-            {t('children.addPhoto')}
-          </button>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-        </div>
-
-        {/* Name */}
-        <div>
-          <p className="text-sm font-medium text-brown-600 mb-2">{t('children.childName')}</p>
-          <input
-            type="text"
-            value={name}
-            onChange={e => { setName(e.target.value); setError('') }}
-            placeholder={t('children.childNamePlaceholder')}
-            className="w-full bg-cream-200 rounded-2xl px-4 py-3 font-rubik text-brown-800 text-base outline-none"
-            autoFocus
-          />
-          {error && <p className="text-red-500 text-xs mt-1 font-rubik">{error}</p>}
-        </div>
-
-        <div className="flex gap-3 pt-1">
-          <Button variant="secondary" className="flex-1" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button className="flex-1" onClick={handleSave} disabled={saving}>
             {saving ? t('app.loading') : t('common.save')}
           </Button>
         </div>

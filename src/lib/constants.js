@@ -5,6 +5,7 @@ export const TRACKER_TYPES = {
   DIAPER: 'diaper',
   DOSE: 'dose',    // generic configurable dose tracker (medicine, vitamins, etc.)
   SLEEP: 'sleep',
+  GROWTH: 'growth', // weight + height tracking with WHO growth curve comparison
   CUSTOM: 'custom',
 }
 
@@ -83,6 +84,19 @@ export const BUILTIN_TRACKERS = [
     display_order: 3,
     is_builtin: true,
     field_schema: [{ key: 'type', type: 'choice', label: 'סוג', options: ['start', 'end'] }],
+    config: {},
+  },
+  {
+    name: 'גדילה',
+    icon: '⚖️',
+    color: '#5BAD6F',
+    tracker_type: TRACKER_TYPES.GROWTH,
+    display_order: 4,
+    is_builtin: true,
+    field_schema: [
+      { key: 'weight_kg', type: 'number', label: 'משקל (ק"ג)' },
+      { key: 'height_cm', type: 'number', label: 'גובה (ס"מ)' },
+    ],
     config: {},
   },
 ]

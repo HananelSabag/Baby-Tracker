@@ -40,7 +40,7 @@ export function AdminPage() {
         .eq('family_id', fam.id)
         .order('occurred_at', { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle()
       return { ...fam, lastEvent: lastEvent?.occurred_at ?? null }
     }))
 
@@ -63,7 +63,7 @@ export function AdminPage() {
 
   async function loadUsers() {
     setUsersLoading(true)
-    const { data, error } = await supabase.functions.invoke('admin-users')
+    const { data, error } = await supabase.functions.invoke('admin-users', { method: 'GET' })
     if (!error && Array.isArray(data)) {
       // Sort newest first
       setUsers(data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)))
