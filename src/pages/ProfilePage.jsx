@@ -195,7 +195,7 @@ export function ProfilePage() {
             {isAdmin && (
               <button
                 onClick={() => navigate('/admin')}
-                className="mt-1.5 inline-flex items-center gap-1 text-xs font-rubik font-semibold text-brown-600 bg-brown-100 px-2.5 py-1 rounded-full active:scale-95 transition-transform"
+                className="mt-1.5 inline-flex items-center gap-1 text-xs font-rubik font-semibold text-brown-600 bg-brown-100 border border-brown-400 px-2.5 py-1 rounded-full active:scale-95 transition-transform"
               >
                 🔐 ניהול מערכת
               </button>
@@ -552,18 +552,20 @@ function ChildFormSheet({ isOpen, onClose, title, initialName = '', initialAvata
           </div>
           <div>
             <p className="text-sm font-medium text-brown-600 mb-2">מין</p>
-            <div className="flex gap-2">
-              {[{ value: 'male', label: '👦' }, { value: 'female', label: '👧' }].map(opt => (
+            <div className="grid grid-cols-2 gap-3">
+              {[{ value: 'male', emoji: '👦', label: 'ילד' }, { value: 'female', emoji: '👧', label: 'ילדה' }].map(opt => (
                 <button
                   key={opt.value}
+                  type="button"
                   onClick={() => setGender(g => g === opt.value ? '' : opt.value)}
                   className={cn(
-                    'flex-1 py-3 rounded-2xl font-rubik font-medium text-lg transition-all active:scale-95',
+                    'flex flex-col items-center justify-center gap-1 py-3 rounded-2xl font-rubik font-medium text-sm transition-all active:scale-95',
                     gender === opt.value ? 'text-white' : 'bg-cream-200 text-brown-600'
                   )}
                   style={gender === opt.value ? { backgroundColor: '#5BAD6F' } : {}}
                 >
-                  {opt.label}
+                  <span className="text-2xl">{opt.emoji}</span>
+                  <span>{opt.label}</span>
                 </button>
               ))}
             </div>
