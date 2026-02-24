@@ -7,11 +7,14 @@ import { useApp } from '../hooks/useAppContext'
 import { Button } from '../components/ui/Button'
 import { cn } from '../lib/utils'
 import { supabase } from '../lib/supabase'
+import { useToast } from '../hooks/useToast'
+import { ToastContainer } from '../components/ui/Toast'
 
 const STEPS = { CHOOSE: 'choose', ROLE: 'role', FAMILY_NAME: 'family_name', CODE: 'code', CHILD: 'child', DONE: 'done' }
 
 export function SetupPage() {
   const { user, onFamilyJoined, setActiveChildId } = useApp()
+  const { toasts, showToast, dismissToast } = useToast()
   const [codeCopied, setCodeCopied] = useState(false)
   const [step, setStep] = useState(STEPS.CHOOSE)
   const [action, setAction] = useState(null)
@@ -146,6 +149,7 @@ export function SetupPage() {
       setPendingFamily(family)
       setPendingMember(member)
       setPendingChildId(child.id)
+      showToast({ message: `${childName.trim()} נוסף בהצלחה!`, emoji: '👶' })
       setStep(STEPS.DONE)
     } catch (e) {
       console.error('[Setup] unexpected error:', e)
@@ -171,6 +175,7 @@ export function SetupPage() {
 
   return (
     <div className="min-h-screen bg-cream-100 flex justify-center">
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       <div className="w-full max-w-[480px] min-h-screen flex flex-col px-6 py-10">
 
         {/* Back button */}

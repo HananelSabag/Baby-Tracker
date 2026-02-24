@@ -2,10 +2,16 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
 // Standalone function — callable outside hook context (e.g. SetupPage)
-export async function addChild({ familyId, name, avatarUrl }) {
+export async function addChild({ familyId, name, avatarUrl, birthDate, gender }) {
   const { data, error } = await supabase
     .from('children')
-    .insert({ family_id: familyId, name, avatar_url: avatarUrl ?? null })
+    .insert({
+      family_id: familyId,
+      name,
+      avatar_url: avatarUrl ?? null,
+      birth_date: birthDate ?? null,
+      gender: gender ?? null,
+    })
     .select()
     .single()
   if (error) throw error
@@ -44,5 +50,13 @@ export function useChildren(familyId) {
     if (error) throw error
   }
 
-  return { children, loading, addChild, updateChild }
+  async function deleteChild(id) {
+    const { error } = await supabase
+      .from('children')
+      .delete()
+      .eq('id', id)
+    if (error) throw error
+  }
+
+  return { children, loading, addChild, updateChild, deleteChild }
 }

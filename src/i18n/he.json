@@ -37,7 +37,7 @@
     "history": "היסטוריה",
     "reports": "דוחות",
     "profile": "פרופיל",
-    "settings": "הגדרות"
+    "settings": "מעקבים"
   },
   "home": {
     "today": "היום",
@@ -104,7 +104,7 @@
     "feedingTrend": "מגמת האכלות",
     "dailyAverage": "ממוצע יומי",
     "totalThisWeek": "סה\"כ השבוע",
-    "noData": "אין מספיק נתונים להצגה",
+    "noData": "אין מעקבים פעילים",
     "weekFeedings": "האכלות",
     "weekDiapers": "חיתולים",
     "mlPerDay": "מ\"ל ליום",
@@ -114,6 +114,19 @@
     "times": "פעמים",
     "changes": "החלפות",
     "sleepPerDay": "שינה ליום (שעות)"
+  },
+  "growth": {
+    "title": "גדילה",
+    "weight": "משקל",
+    "height": "גובה",
+    "weightKg": "משקל (ק\"ג)",
+    "heightCm": "גובה (ס\"מ)",
+    "addMeasurement": "הוסף מדידה",
+    "noBirthDate": "הוסף תאריך לידה בהגדרות הילד/ה כדי לראות גרף גדילה עם עקומות WHO",
+    "growthChart": "גרף גדילה לפי גיל בחודשים — עקומות WHO (P3, P50, P97)",
+    "measurements": "מדידות",
+    "ageMonths": "גיל: {{m}} חודשים",
+    "firstMeasurement": "הוסף מדידה ראשונה"
   },
   "profile": {
     "title": "פרופיל",
@@ -200,7 +213,8 @@
   },
   "tracker": {
     "addEvent": "הוסף",
-    "noEventsToday": "אין אירועים היום"
+    "noEventsToday": "אין אירועים היום",
+    "events": "אירועים"
   },
   "errors": {
     "loadFailed": "שגיאה בטעינת הנתונים",
