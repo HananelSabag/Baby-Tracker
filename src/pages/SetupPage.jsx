@@ -13,7 +13,7 @@ import { ToastContainer } from '../components/ui/Toast'
 const STEPS = { CHOOSE: 'choose', ROLE: 'role', FAMILY_NAME: 'family_name', CODE: 'code', CHILD: 'child', DONE: 'done' }
 
 export function SetupPage() {
-  const { user, onFamilyJoined, setActiveChildId } = useApp()
+  const { user, onFamilyJoined } = useApp()
   const { toasts, showToast, dismissToast } = useToast()
   const [codeCopied, setCodeCopied] = useState(false)
   const [step, setStep] = useState(STEPS.CHOOSE)
@@ -30,6 +30,8 @@ export function SetupPage() {
   const [childName, setChildName] = useState('')
   const [childAvatar, setChildAvatar] = useState(null)
   const [childAvatarFile, setChildAvatarFile] = useState(null)
+  const [childBirthDate, setChildBirthDate] = useState('')
+  const [childGender, setChildGender] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const fileRef = useRef(null)
@@ -136,7 +138,7 @@ export function SetupPage() {
       // Step 3: add child
       let child
       try {
-        child = await addChild({ familyId: family.id, name: childName.trim(), avatarUrl: uploadedUrl })
+        child = await addChild({ familyId: family.id, name: childName.trim(), avatarUrl: uploadedUrl, birthDate: childBirthDate || null, gender: childGender || null })
       } catch (e) {
         console.error('[Setup] addChild error:', e)
         setError(`שגיאת הוספת ילד: ${e?.message ?? JSON.stringify(e)}`)
@@ -373,6 +375,40 @@ export function SetupPage() {
               className="w-full bg-white rounded-2xl shadow-soft px-5 py-4 font-rubik text-brown-800 text-xl text-center outline-none focus:ring-2 focus:ring-amber-400"
               autoFocus
             />
+
+            {/* Birth date + gender — optional, needed for growth chart */}
+            <div className="bg-white rounded-2xl shadow-soft px-5 py-4 space-y-4">
+              <p className="font-rubik text-xs text-brown-400 text-center">
+                לא חובה — נדרש לגרף גדילה לפי עקומות WHO ⚖️
+              </p>
+              <div>
+                <p className="text-sm font-medium text-brown-600 mb-2">תאריך לידה</p>
+                <input
+                  type="date"
+                  value={childBirthDate}
+                  max={new Date().toISOString().split('T')[0]}
+                  onChange={e => setChildBirthDate(e.target.value)}
+                  className="w-full bg-cream-100 rounded-xl px-4 py-3 font-rubik text-brown-800 outline-none"
+                />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-brown-600 mb-2">מין</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[{ value: 'male', emoji: '👦', label: 'ילד' }, { value: 'female', emoji: '👧', label: 'ילדה' }].map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setChildGender(g => g === opt.value ? '' : opt.value)}
+                      className={`flex flex-col items-center justify-center gap-1 py-3 rounded-2xl font-rubik font-medium text-sm transition-all active:scale-95 ${childGender === opt.value ? 'text-white' : 'bg-cream-100 text-brown-600'}`}
+                      style={childGender === opt.value ? { backgroundColor: '#5BAD6F' } : {}}
+                    >
+                      <span className="text-2xl">{opt.emoji}</span>
+                      <span>{opt.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
 
             {error && <p className="text-red-500 text-sm text-center font-rubik">{error}</p>}
 
