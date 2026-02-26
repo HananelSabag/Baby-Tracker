@@ -54,7 +54,7 @@ export function ProfilePage() {
     const next = !notificationsOn
     setNotificationsOn(next)
     localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, String(next))
-    showToast({ message: next ? 'התראות הופעלו' : 'התראות כובו', emoji: next ? '🔔' : '🔕' })
+    showToast({ message: next ? t('profile.notificationsOn') : t('profile.notificationsOff'), emoji: next ? '🔔' : '🔕' })
   }
 
   // ── Dialogs ───────────────────────────────────────────────────────────────
@@ -84,7 +84,7 @@ export function ProfilePage() {
       }
       saveIdentity({ familyId: identity.familyId, memberId: identity.memberId, memberName: displayName })
       setMemberAvatarUrl(avatarUrl)
-      showToast({ message: 'הפרופיל נשמר', emoji: '✅' })
+      showToast({ message: t('profile.profileSaved'), emoji: '✅' })
     } finally {
       setSaving(false)
     }
@@ -146,11 +146,11 @@ export function ProfilePage() {
     if (isEdit) {
       await updateChild(editChildTarget.id, { name, avatar_url: uploadedUrl, birth_date: birthDate || null, gender: gender || null })
       setEditChildTarget(null)
-      showToast({ message: 'פרטי הילד עודכנו', emoji: '✅' })
+      showToast({ message: t('profile.childUpdated'), emoji: '✅' })
     } else {
       await addChild({ familyId: identity.familyId, name, avatarUrl: uploadedUrl, birthDate, gender })
       setAddChildOpen(false)
-      showToast({ message: `${name} נוסף`, emoji: '👶' })
+      showToast({ message: t('profile.childAdded', { name }), emoji: '👶' })
     }
   }
 
@@ -158,7 +158,7 @@ export function ProfilePage() {
     if (!deleteChildTarget) return
     try {
       await deleteChild(deleteChildTarget.id)
-      showToast({ message: `${deleteChildTarget.name} הוסר`, emoji: '🗑' })
+      showToast({ message: t('profile.childRemoved', { name: deleteChildTarget.name }), emoji: '🗑' })
     } catch { /* ignore */ }
     setDeleteChildTarget(null)
   }
@@ -167,14 +167,14 @@ export function ProfilePage() {
     <div className="px-4 pt-6 pb-8 space-y-4">
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-      {/* ── כרטיס פרופיל ── */}
+      {/* Profile card */}
       <Card>
-        {/* שורת avatar + פרטים */}
+        {/* Avatar row + details */}
         <div className="flex items-center gap-3 mb-4">
           <div className="relative flex-shrink-0">
             <div className="w-16 h-16 rounded-full overflow-hidden bg-cream-200 shadow-soft">
               {avatarUrl
-                ? <img src={avatarUrl} alt="אווטר" className="w-full h-full object-cover" />
+                ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
                 : <div className="w-full h-full flex items-center justify-center text-3xl">{selectedRole?.emoji ?? '👤'}</div>
               }
             </div>
@@ -190,20 +190,20 @@ export function ProfilePage() {
           <div className="flex-1 min-w-0">
             <p className="font-rubik font-bold text-brown-800 text-base leading-tight truncate">{user?.user_metadata?.full_name}</p>
             <p className="font-rubik text-brown-400 text-xs truncate">{user?.email}</p>
-            {uploadStatus === 'success' && <p className="text-xs text-green-600 font-rubik font-medium mt-0.5">✓ התמונה הועלתה</p>}
-            {uploadStatus === 'error' && <p className="text-xs text-red-500 font-rubik font-medium mt-0.5">✗ שגיאה בהעלאה</p>}
+            {uploadStatus === 'success' && <p className="text-xs text-green-600 font-rubik font-medium mt-0.5">{t('profile.photoUploaded')}</p>}
+            {uploadStatus === 'error' && <p className="text-xs text-red-500 font-rubik font-medium mt-0.5">{t('profile.photoError')}</p>}
             {isAdmin && (
               <button
                 onClick={() => navigate('/admin')}
                 className="mt-1.5 inline-flex items-center gap-1 text-xs font-rubik font-semibold text-brown-600 bg-brown-100 border border-brown-400 px-2.5 py-1 rounded-full active:scale-95 transition-transform"
               >
-                🔐 ניהול מערכת
+                🔐 {t('profile.admin')}
               </button>
             )}
           </div>
         </div>
 
-        {/* בחירת תפקיד — pills אופקיים */}
+        {/* Role selector — horizontal pills */}
         <p className="text-xs font-medium text-brown-400 font-rubik mb-2">{t('profile.myRole')}</p>
         <div className="flex flex-wrap gap-2 mb-4">
           {ROLES.map(r => (
@@ -231,7 +231,7 @@ export function ProfilePage() {
           />
         )}
 
-        {/* שם המשפחה — inline */}
+        {/* Family name — inline edit */}
         <div className="flex items-center gap-3">
           <p className="text-sm font-medium text-brown-500 font-rubik whitespace-nowrap flex-shrink-0">{t('profile.familyName')}</p>
           <input
@@ -242,7 +242,7 @@ export function ProfilePage() {
           />
         </div>
 
-        {/* כפתור שמירה — רק כשיש שינוי */}
+        {/* Save button — only when dirty */}
         {isDirty && (
           <Button className="w-full mt-3" onClick={handleSave} disabled={saving}>
             {saving ? t('app.loading') : t('profile.saveChanges')}
@@ -250,16 +250,16 @@ export function ProfilePage() {
         )}
       </Card>
 
-      {/* ── ילדים ── */}
+      {/* Children section */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <p className="font-rubik font-semibold text-brown-400 text-xs uppercase tracking-wider">ילדים 👶</p>
+          <p className="font-rubik font-semibold text-brown-400 text-xs uppercase tracking-wider">{t('profile.childrenSection')}</p>
           {isParent && (
             <button
               onClick={() => setAddChildOpen(true)}
               className="text-sm font-rubik font-semibold text-white bg-amber-600 px-3 py-1 rounded-full active:scale-95 transition-transform shadow-soft"
             >
-              + הוסף
+              {t('profile.addChildButton')}
             </button>
           )}
         </div>
@@ -276,7 +276,7 @@ export function ProfilePage() {
           <div className={cn('gap-2', children.length === 1 ? 'flex flex-col' : 'grid grid-cols-2')}>
             {children.map(child => (
               children.length === 1 ? (
-                /* ילד יחיד — שורה מלאה עם layout אופקי */
+                /* Single child — full-width horizontal layout */
                 <div key={child.id} className="bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center gap-3">
                   <div className="w-12 h-12 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center flex-shrink-0">
                     {child.avatar_url
@@ -306,7 +306,7 @@ export function ProfilePage() {
                   )}
                 </div>
               ) : (
-                /* מרובים — כרטיס ריבועי */
+                /* Multiple children — square card */
                 <div key={child.id} className="bg-white rounded-2xl shadow-soft p-3 flex flex-col items-center text-center">
                   <div className="w-12 h-12 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center mb-2 flex-shrink-0">
                     {child.avatar_url
@@ -339,9 +339,9 @@ export function ProfilePage() {
         )}
       </div>
 
-      {/* ── קוד משפחה + חברים ── */}
+      {/* Family code + members */}
       <Card>
-        {/* קוד */}
+        {/* Code */}
         <div className="flex items-center justify-between mb-1">
           <div>
             <p className="text-xs font-medium text-brown-400 font-rubik mb-0.5">{t('profile.familyCode')}</p>
@@ -367,7 +367,7 @@ export function ProfilePage() {
         </div>
         <p className="text-xs text-brown-400 font-rubik mb-4">{t('profile.familyCodeHint')}</p>
 
-        {/* חברי משפחה */}
+        {/* Family members */}
         <div className="border-t border-cream-200 pt-3">
           <p className="text-xs font-medium text-brown-400 font-rubik mb-3">{t('profile.members')}</p>
           <div className="flex flex-wrap gap-4">
@@ -382,7 +382,7 @@ export function ProfilePage() {
                 </div>
                 <p className="font-rubik text-brown-700 text-xs">{m.display_name}</p>
                 {m.id === identity.memberId && (
-                  <span className="text-[10px] text-amber-500 font-rubik font-semibold -mt-0.5">אתה</span>
+                  <span className="text-[10px] text-amber-500 font-rubik font-semibold -mt-0.5">{t('profile.you')}</span>
                 )}
                 {isParent && m.id !== identity.memberId && (
                   <button
@@ -396,11 +396,11 @@ export function ProfilePage() {
         </div>
       </Card>
 
-      {/* ── התראות + התנתקות ── */}
+      {/* Notifications + sign out */}
       <div className="bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center justify-between">
         <div>
-          <p className="font-rubik font-medium text-brown-800 text-sm">🔔 התראות בזמן אמת</p>
-          <p className="font-rubik text-brown-400 text-xs mt-0.5">קבל התראה כשמישהו מוסיף אירוע</p>
+          <p className="font-rubik font-medium text-brown-800 text-sm">🔔 {t('notifications.title')}</p>
+          <p className="font-rubik text-brown-400 text-xs mt-0.5">{t('notifications.subtitle')}</p>
         </div>
         <button
           onClick={toggleNotifications}
@@ -440,7 +440,7 @@ export function ProfilePage() {
       />
       <ConfirmDialog
         isOpen={!!deleteChildTarget}
-        message={`למחוק את ${deleteChildTarget?.name}?`}
+        message={t('profile.deleteChildConfirm', { name: deleteChildTarget?.name ?? '' })}
         onConfirm={handleDeleteChild}
         onCancel={() => setDeleteChildTarget(null)}
         confirmVariant="danger"
@@ -541,7 +541,7 @@ function ChildFormSheet({ isOpen, onClose, title, initialName = '', initialAvata
         {/* Birth date + Gender — same row */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="text-sm font-medium text-brown-600 mb-2">תאריך לידה</p>
+            <p className="text-sm font-medium text-brown-600 mb-2">{t('children.birthDate')}</p>
             <input
               type="date"
               value={birthDate}
@@ -551,9 +551,9 @@ function ChildFormSheet({ isOpen, onClose, title, initialName = '', initialAvata
             />
           </div>
           <div>
-            <p className="text-sm font-medium text-brown-600 mb-2">מין</p>
+            <p className="text-sm font-medium text-brown-600 mb-2">{t('children.gender')}</p>
             <div className="grid grid-cols-2 gap-3">
-              {[{ value: 'male', emoji: '👦', label: 'ילד' }, { value: 'female', emoji: '👧', label: 'ילדה' }].map(opt => (
+              {[{ value: 'male', emoji: '👦', label: t('children.male') }, { value: 'female', emoji: '👧', label: t('children.female') }].map(opt => (
                 <button
                   key={opt.value}
                   type="button"

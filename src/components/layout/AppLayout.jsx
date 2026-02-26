@@ -6,6 +6,7 @@ import { ToastContainer } from '../ui/Toast'
 import { LovePopup } from '../ui/LovePopup'
 import { BottomNav } from './BottomNav'
 import { STORAGE_KEYS } from '../../lib/constants'
+import { t } from '../../lib/strings'
 
 const WIFE_EMAIL = 'nofarromi1998@gmail.com'
 
@@ -23,7 +24,7 @@ export function AppLayout({ children }) {
   useEffect(() => {
     if (!identity.memberName) return
     if (!sessionStorage.getItem('bt_welcome')) {
-      showToast({ message: `שלום, ${identity.memberName}! 👋`, emoji: '🏠' })
+      showToast({ message: t('app.welcome', { name: identity.memberName }), emoji: '🏠' })
       sessionStorage.setItem('bt_welcome', '1')
     }
   }, [])

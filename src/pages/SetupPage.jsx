@@ -151,7 +151,7 @@ export function SetupPage() {
       setPendingFamily(family)
       setPendingMember(member)
       setPendingChildId(child.id)
-      showToast({ message: `${childName.trim()} נוסף בהצלחה!`, emoji: '👶' })
+      showToast({ message: t('setup.childAdded', { name: childName.trim() }), emoji: '👶' })
       setStep(STEPS.DONE)
     } catch (e) {
       console.error('[Setup] unexpected error:', e)
@@ -197,7 +197,7 @@ export function SetupPage() {
               ? <img src={avatarUrl} alt={googleName} className="w-10 h-10 rounded-full object-cover" />
               : <div className="w-10 h-10 rounded-full bg-cream-200 flex items-center justify-center text-xl">👤</div>
             }
-            <p className="font-rubik text-brown-600 text-sm">שלום, {googleName} 👋</p>
+            <p className="font-rubik text-brown-600 text-sm">{t('setup.helloUser', { name: googleName })}</p>
           </div>
         )}
 
@@ -223,7 +223,7 @@ export function SetupPage() {
             <div className="text-center mb-6">
               <div className="text-5xl mb-3">🍼</div>
               <h1 className="font-rubik font-bold text-2xl text-brown-800">{t('setup.createOrJoin')}</h1>
-              <p className="font-rubik text-brown-400 text-sm mt-1">ברוך הבא! איך נתחיל?</p>
+              <p className="font-rubik text-brown-400 text-sm mt-1">{t('setup.welcomeSubtitle')}</p>
             </div>
 
             {/* Create family card */}
@@ -236,7 +236,7 @@ export function SetupPage() {
                 <div className="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center text-3xl flex-shrink-0">✨</div>
                 <div className="flex-1 min-w-0">
                   <p className="font-rubik font-bold text-brown-800 text-lg">{t('setup.createFamily')}</p>
-                  <p className="font-rubik text-brown-400 text-sm mt-0.5">התחל מסע חדש עם המשפחה שלך</p>
+                  <p className="font-rubik text-brown-400 text-sm mt-0.5">{t('setup.createFamilyDesc')}</p>
                 </div>
                 <span className="text-brown-300 text-2xl flex-shrink-0">›</span>
               </div>
@@ -252,7 +252,7 @@ export function SetupPage() {
                 <div className="w-14 h-14 rounded-2xl bg-cream-200 flex items-center justify-center text-3xl flex-shrink-0">🔗</div>
                 <div className="flex-1 min-w-0">
                   <p className="font-rubik font-bold text-brown-800 text-lg">{t('setup.joinFamily')}</p>
-                  <p className="font-rubik text-brown-400 text-sm mt-0.5">הצטרף לתא משפחתי קיים עם קוד</p>
+                  <p className="font-rubik text-brown-400 text-sm mt-0.5">{t('setup.joinFamilyDesc')}</p>
                 </div>
                 <span className="text-brown-300 text-2xl flex-shrink-0">›</span>
               </div>
@@ -379,10 +379,10 @@ export function SetupPage() {
             {/* Birth date + gender — optional, needed for growth chart */}
             <div className="bg-white rounded-2xl shadow-soft px-5 py-4 space-y-4">
               <p className="font-rubik text-xs text-brown-400 text-center">
-                לא חובה — נדרש לגרף גדילה לפי עקומות WHO ⚖️
+                {t('setup.growthOptional')}
               </p>
               <div>
-                <p className="text-sm font-medium text-brown-600 mb-2">תאריך לידה</p>
+                <p className="text-sm font-medium text-brown-600 mb-2">{t('children.birthDate')}</p>
                 <input
                   type="date"
                   value={childBirthDate}
@@ -392,9 +392,9 @@ export function SetupPage() {
                 />
               </div>
               <div>
-                <p className="text-sm font-medium text-brown-600 mb-2">מין</p>
+                <p className="text-sm font-medium text-brown-600 mb-2">{t('children.gender')}</p>
                 <div className="grid grid-cols-2 gap-3">
-                  {[{ value: 'male', emoji: '👦', label: 'ילד' }, { value: 'female', emoji: '👧', label: 'ילדה' }].map(opt => (
+                  {[{ value: 'male', emoji: '👦', label: t('children.male') }, { value: 'female', emoji: '👧', label: t('children.female') }].map(opt => (
                     <button
                       key={opt.value}
                       type="button"
@@ -441,7 +441,7 @@ export function SetupPage() {
                   </div>
                 </div>
                 <p className="text-sm text-brown-400 font-rubik">{t('setup.shareCode')}</p>
-                <p className="text-xs text-brown-300 font-rubik -mt-2">ניתן למצוא את הקוד תמיד בפרופיל שלך</p>
+                <p className="text-xs text-brown-300 font-rubik -mt-2">{t('setup.codeHint')}</p>
               </>
             )}
             <Button

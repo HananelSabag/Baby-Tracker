@@ -36,6 +36,8 @@ Built with love for family use, with real-time sync between parents.
 | Hosting | Vercel (auto-deploy from GitHub `main`) |
 | PWA | vite-plugin-pwa |
 | Font | Rubik |
+| Testing | Vitest + @testing-library/react |
+| CI/CD | GitHub Actions (test + build on every push) |
 
 ---
 
@@ -52,9 +54,32 @@ VITE_SUPABASE_ANON_KEY=your_anon_key
 # Run locally
 npm run dev
 
+# Run tests (watch mode)
+npm test
+
+# Run tests once (used in CI)
+npm run test:run
+
 # Production build
 npm run build
 ```
+
+---
+
+## Testing
+
+33 unit tests across 4 test files, run with Vitest:
+
+| File | What it tests |
+|------|--------------|
+| `utils.test.js` | `generateFamilyCode`, `generateDeviceToken`, `formatMl`, `cn`, `formatDateLabel`, `groupEventsByDay` |
+| `strings.test.js` | `t()` i18n accessor — correct translations, fallback to key path |
+| `whoGrowthData.test.js` | WHO growth curves — interpolation, `ageInMonths`, weight/height percentile labels |
+| `useToast.test.jsx` | `showToast`, auto-dismiss after 4s, `dismissToast` |
+
+Time-dependent tests (`formatDateLabel`, `groupEventsByDay`, `useToast`) use `vi.useFakeTimers()` to freeze the clock and produce deterministic results.
+
+GitHub Actions runs all tests + a production build on every push to `main`. Vercel only deploys if the CI pipeline passes.
 
 ---
 
@@ -69,7 +94,7 @@ src/
 │   ├── layout/               # AppLayout, BottomNav
 │   ├── ui/                   # Button, Card, Toast, BottomSheet, ...
 │   └── trackers/             # FeedingCard, DiaperCard, VitaminDCard, SleepCard, CustomTrackerCard
-└── pages/                    # Auth, Setup, Home, History, Reports, Settings, Profile, Admin
+└── pages/                    # Auth, Setup, Home, History, Reports, Trackers, Profile, Admin
 ```
 
 ---
