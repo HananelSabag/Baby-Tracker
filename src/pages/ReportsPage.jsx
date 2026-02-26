@@ -644,7 +644,7 @@ function DryEvents({ events, tracker }) {
 
   return (
     <div>
-      <p className="font-rubik font-semibold text-brown-600 text-xs uppercase tracking-wide mb-2">אחרונות</p>
+      <p className="font-rubik font-semibold text-brown-600 text-xs uppercase tracking-wide mb-2">{t('reports.recent')}</p>
       <div className="space-y-1.5">
         {sorted.map(e => {
           const summary = summarise(e)

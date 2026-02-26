@@ -98,15 +98,15 @@ export function AdminPage() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3 mb-5">
         <Card>
-          <p className="text-xs text-brown-400 font-rubik">משפחות</p>
+          <p className="text-xs text-brown-400 font-rubik">{t('admin.families')}</p>
           <p className="font-rubik font-bold text-3xl text-brown-800">{families.length}</p>
         </Card>
         <Card>
-          <p className="text-xs text-brown-400 font-rubik">חברים</p>
+          <p className="text-xs text-brown-400 font-rubik">{t('admin.members')}</p>
           <p className="font-rubik font-bold text-3xl text-brown-800">{totalMembers}</p>
         </Card>
         <Card>
-          <p className="text-xs text-brown-400 font-rubik">אירועים</p>
+          <p className="text-xs text-brown-400 font-rubik">{t('admin.events')}</p>
           <p className="font-rubik font-bold text-3xl text-brown-800">{totalEvents}</p>
         </Card>
       </div>
@@ -117,13 +117,13 @@ export function AdminPage() {
           onClick={() => setTab('families')}
           className={`flex-1 py-2 rounded-xl font-rubik font-medium text-sm transition-all ${tab === 'families' ? 'bg-white shadow-soft text-brown-800' : 'text-brown-500'}`}
         >
-          🏠 משפחות
+          {t('admin.familiesTab')}
         </button>
         <button
           onClick={() => setTab('users')}
           className={`flex-1 py-2 rounded-xl font-rubik font-medium text-sm transition-all ${tab === 'users' ? 'bg-white shadow-soft text-brown-800' : 'text-brown-500'}`}
         >
-          👤 משתמשים
+          {t('admin.usersTab')}
         </button>
       </div>
 
@@ -186,10 +186,10 @@ export function AdminPage() {
         usersLoading ? (
           <div className="flex justify-center py-12"><Spinner size="lg" /></div>
         ) : users.length === 0 ? (
-          <p className="text-center text-brown-400 font-rubik py-8">אין משתמשים</p>
+          <p className="text-center text-brown-400 font-rubik py-8">{t('admin.noUsers')}</p>
         ) : (
           <div className="space-y-3">
-            <p className="text-xs text-brown-400 font-rubik">{users.length} משתמשים רשומים</p>
+            <p className="text-xs text-brown-400 font-rubik">{t('admin.usersCount', { count: users.length })}</p>
             {users.map(u => (
               <Card key={u.id}>
                 <div className="flex items-start justify-between gap-2">
@@ -204,17 +204,17 @@ export function AdminPage() {
                         <span className="font-bold text-brown-400"> ({u.member.family?.code})</span>
                       </p>
                     ) : (
-                      <p className="font-rubik text-xs text-red-400 mt-0.5">⚠️ ללא משפחה</p>
+                      <p className="font-rubik text-xs text-red-400 mt-0.5">{t('admin.withoutFamily')}</p>
                     )}
 
                     {/* Dates */}
                     <div className="flex gap-3 mt-1">
                       <p className="font-rubik text-xs text-brown-400">
-                        נרשם: {formatDateLabel(u.created_at)}
+                        {t('admin.registeredAt')} {formatDateLabel(u.created_at)}
                       </p>
                       {u.last_sign_in && (
                         <p className="font-rubik text-xs text-brown-400">
-                          כניסה אחרונה: {formatDateLabel(u.last_sign_in)}
+                          {t('admin.lastSignIn')} {formatDateLabel(u.last_sign_in)}
                         </p>
                       )}
                     </div>
@@ -224,7 +224,7 @@ export function AdminPage() {
                   <button
                     onClick={() => setDeletingUser(u)}
                     className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center text-red-400 hover:bg-red-100 hover:text-red-600 transition-colors active:scale-95 flex-shrink-0"
-                    title="מחק משתמש"
+                    title={t('admin.deleteUser')}
                   >
                     🗑
                   </button>
@@ -246,7 +246,7 @@ export function AdminPage() {
       {/* Confirm: delete user */}
       <ConfirmDialog
         isOpen={!!deletingUser}
-        message={`למחוק את ${deletingUser?.email}?\n\nאם הוא היחיד במשפחה — המשפחה תימחק גם כן.`}
+        message={t('admin.deleteUserConfirm', { email: deletingUser?.email ?? '' })}
         onConfirm={handleDeleteUser}
         onCancel={() => setDeletingUser(null)}
       />

@@ -1,7 +1,8 @@
 {
   "app": {
     "title": "BabyTracker",
-    "loading": "טוען..."
+    "loading": "טוען...",
+    "welcome": "שלום, {{name}}! 👋"
   },
   "auth": {
     "welcome": "ברוכים הבאים",
@@ -30,7 +31,14 @@
     "codeError": "קוד לא תקין — בדוק שוב",
     "roleRequired": "בחר תפקיד לפני שממשיכים",
     "nameRequired": "הכנס שם משפחה",
-    "goToDashboard": "כניסה לאפליקציה"
+    "goToDashboard": "כניסה לאפליקציה",
+    "helloUser": "שלום, {{name}} 👋",
+    "welcomeSubtitle": "ברוך הבא! איך נתחיל?",
+    "createFamilyDesc": "התחל מסע חדש עם המשפחה שלך",
+    "joinFamilyDesc": "הצטרף לתא משפחתי קיים עם קוד",
+    "childAdded": "{{name}} נוסף בהצלחה!",
+    "growthOptional": "לא חובה — נדרש לגרף גדילה לפי עקומות WHO ⚖️",
+    "codeHint": "ניתן למצוא את הקוד תמיד בפרופיל שלך"
   },
   "nav": {
     "home": "בית",
@@ -113,7 +121,8 @@
     "noDataForWeek": "אין נתונים לשבוע זה",
     "times": "פעמים",
     "changes": "החלפות",
-    "sleepPerDay": "שינה ליום (שעות)"
+    "sleepPerDay": "שינה ליום (שעות)",
+    "recent": "אחרונות"
   },
   "growth": {
     "title": "גדילה",
@@ -146,7 +155,19 @@
     "removeMember": "הסר מהמשפחה",
     "removeMemberConfirm": "להסיר את {{name}} מהמשפחה?",
     "memberRemoved": "החבר הוסר מהמשפחה",
-    "refreshCode": "צור קוד חדש"
+    "refreshCode": "צור קוד חדש",
+    "profileSaved": "הפרופיל נשמר",
+    "childUpdated": "פרטי הילד עודכנו",
+    "childAdded": "{{name}} נוסף",
+    "childRemoved": "{{name}} הוסר",
+    "photoUploaded": "✓ התמונה הועלתה",
+    "photoError": "✗ שגיאה בהעלאה",
+    "you": "אתה",
+    "childrenSection": "ילדים 👶",
+    "addChildButton": "+ הוסף",
+    "deleteChildConfirm": "למחוק את {{name}}?",
+    "notificationsOn": "התראות הופעלו",
+    "notificationsOff": "התראות כובו"
   },
   "children": {
     "title": "ילדים",
@@ -159,7 +180,11 @@
     "cancel": "ביטול",
     "switchChild": "החלף ילד/ה",
     "noChildren": "אין ילדים עדיין",
-    "nameRequired": "הכנס שם"
+    "nameRequired": "הכנס שם",
+    "birthDate": "תאריך לידה",
+    "gender": "מין",
+    "male": "ילד",
+    "female": "ילדה"
   },
   "notifications": {
     "title": "התראות בזמן אמת",
@@ -195,7 +220,30 @@
     "displayModeButtons": "כפתורי מינון",
     "displayModeButtonsDesc": "לחצן לכל מינון — בוקר, ערב...",
     "displayModeSimple": "אירוע פשוט",
-    "displayModeSimpleDesc": "כפתור + בלבד, ללא בחירת מינון"
+    "displayModeSimpleDesc": "כפתור + בלבד, ללא בחירת מינון",
+    "controlCenter": "מרכז שליטה",
+    "controlCenterDesc": "הפעל / כבה מעקבים, ערוך, מחק ושנה סדר תצוגה במסך הבית",
+    "myTrackers": "המעקבים שלי",
+    "dosesButton": "מינונים",
+    "wizardIdentity": "שם ועיצוב",
+    "wizardDoseConfig": "הגדרת מינונים",
+    "wizardFields": "שדות מותאמים",
+    "dosesSaved": "המינונים נשמרו",
+    "trackerUpdated": "{{name}} עודכן",
+    "fields": "שדות",
+    "addField": "+ הוסף שדה",
+    "preview": "תצוגה מקדימה",
+    "nextButton": "הבא ←",
+    "doseConfigTitle": "הגדרת מינונים — {{name}}",
+    "dosePlaceholder": "מינון {{number}}",
+    "optionsPlaceholder": "אפשרות 1\nאפשרות 2\nאפשרות 3",
+    "dragToReorder": "גרור לשינוי סדר",
+    "howManyDoses": "כמה מינונים ביום?",
+    "doseName": "שם כל מינון",
+    "displayModeQuestion": "איך להציג את {{name}} בדף הבית?",
+    "choiceOptions": "אפשרויות (אחת בכל שורה)",
+    "addOneField": "הוסף לפחות שדה אחד",
+    "builtin": "מובנה"
   },
   "admin": {
     "title": "ניהול",
@@ -209,7 +257,17 @@
     "noFamilies": "אין משפחות רשומות",
     "deleteFamily": "מחק משפחה",
     "deleteFamilyConfirm": "למחוק את משפחת {{name}}? כל הנתונים יאבדו לצמיתות.",
-    "familyDeleted": "המשפחה נמחקה"
+    "familyDeleted": "המשפחה נמחקה",
+    "families": "משפחות",
+    "familiesTab": "🏠 משפחות",
+    "usersTab": "👤 משתמשים",
+    "registeredAt": "נרשם:",
+    "lastSignIn": "כניסה אחרונה:",
+    "deleteUser": "מחק משתמש",
+    "noUsers": "אין משתמשים",
+    "usersCount": "{{count}} משתמשים רשומים",
+    "deleteUserConfirm": "למחוק את {{email}}?\n\nאם הוא היחיד במשפחה — המשפחה תימחק גם כן.",
+    "withoutFamily": "⚠️ ללא משפחה"
   },
   "tracker": {
     "addEvent": "הוסף",

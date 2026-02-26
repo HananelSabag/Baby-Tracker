@@ -7,7 +7,7 @@ import { SetupPage } from './pages/SetupPage'
 import { HomePage } from './pages/HomePage'
 import { HistoryPage } from './pages/HistoryPage'
 import { ReportsPage } from './pages/ReportsPage'
-import { SettingsPage } from './pages/SettingsPage'
+import { TrackersPage } from './pages/TrackersPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { AdminPage } from './pages/AdminPage'
 import { ADMIN_EMAIL } from './lib/constants'
@@ -32,7 +32,7 @@ function AppRoutes() {
         <Route path="/" element={<HomePage />} />
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/reports" element={<ReportsPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/trackers" element={<TrackersPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         {isAdmin && <Route path="/admin" element={<AdminPage />} />}
         {/* Fallback to home */}

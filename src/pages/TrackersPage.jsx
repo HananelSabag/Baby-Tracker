@@ -13,7 +13,7 @@ import { cn } from '../lib/utils'
 // Wizard steps for creating a new tracker
 const WIZARD_STEPS = { ARCHETYPE: 'archetype', IDENTITY: 'identity', DOSE_CONFIG: 'dose_config', DISPLAY_MODE: 'display_mode', FIELDS: 'fields' }
 
-export function SettingsPage() {
+export function TrackersPage() {
   const { identity } = useApp()
   const { toasts, showToast, dismissToast } = useToast()
   const { trackers, addTracker, updateTracker, deleteTracker } = useTrackers(identity.familyId)
@@ -92,9 +92,9 @@ export function SettingsPage() {
 
       {/* Header */}
       <div className="mb-5">
-        <h1 className="font-rubik font-bold text-2xl text-brown-800 leading-tight">מרכז שליטה</h1>
+        <h1 className="font-rubik font-bold text-2xl text-brown-800 leading-tight">{t('settings.controlCenter')}</h1>
         <p className="font-rubik text-brown-400 text-sm mt-1">
-          הפעל / כבה מעקבים, ערוך, מחק ושנה סדר תצוגה במסך הבית
+          {t('settings.controlCenterDesc')}
         </p>
       </div>
 
@@ -102,8 +102,8 @@ export function SettingsPage() {
       <div className="mb-5">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <p className="font-rubik font-semibold text-brown-500 text-xs uppercase tracking-wide">המעקבים שלי</p>
-            <p className="font-rubik text-brown-400 text-xs mt-0.5">☰ גרור לשינוי סדר</p>
+            <p className="font-rubik font-semibold text-brown-500 text-xs uppercase tracking-wide">{t('settings.myTrackers')}</p>
+            <p className="font-rubik text-brown-400 text-xs mt-0.5">☰ {t('settings.dragToReorder')}</p>
           </div>
           <button
             onClick={() => setAddSheetOpen(true)}
@@ -146,7 +146,7 @@ export function SettingsPage() {
                   <div
                     className="text-brown-300 hover:text-brown-500 flex-shrink-0 px-1 text-base cursor-grab active:cursor-grabbing touch-none"
                     onTouchStart={e => onHandleTouchStart(e, tr.id)}
-                    title="גרור לשינוי סדר"
+                    title={t('settings.dragToReorder')}
                   >
                     ☰
                   </div>
@@ -156,7 +156,7 @@ export function SettingsPage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-rubik font-medium text-brown-800 truncate">{tr.name}</p>
                     {tr.is_builtin && (
-                      <span className="text-xs font-rubik text-brown-400">מובנה</span>
+                      <span className="text-xs font-rubik text-brown-400">{t('settings.builtin')}</span>
                     )}
                   </div>
 
@@ -180,7 +180,7 @@ export function SettingsPage() {
                         onClick={() => setEditTarget(tr)}
                         className="flex items-center gap-1 text-xs font-rubik text-brown-500 bg-cream-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
                       >
-                        ⚙️ מינונים
+                        ⚙️ {t('settings.dosesButton')}
                       </button>
                     )}
                     {!tr.is_builtin && (
@@ -189,13 +189,13 @@ export function SettingsPage() {
                           onClick={() => setEditTrackerTarget(tr)}
                           className="flex items-center gap-1 text-xs font-rubik text-brown-500 bg-cream-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
                         >
-                          ✏️ ערוך
+                          ✏️ {t('common.edit')}
                         </button>
                         <button
                           onClick={() => setDeleteTarget(tr.id)}
                           className="flex items-center gap-1 text-xs font-rubik text-red-400 bg-red-50 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
                         >
-                          🗑 מחק
+                          🗑 {t('common.delete')}
                         </button>
                       </>
                     )}
@@ -212,7 +212,7 @@ export function SettingsPage() {
               className="w-full py-8 rounded-3xl border-2 border-dashed border-cream-300 text-brown-400 font-rubik text-sm active:scale-95 transition-transform"
             >
               <div className="text-3xl mb-1">➕</div>
-              הוסף מעקב מותאם אישית
+              {t('settings.addTracker')}
             </button>
           )}
         </div>
@@ -234,7 +234,7 @@ export function SettingsPage() {
           onSave={async config => {
             await updateTracker(editTarget.id, { config })
             setEditTarget(null)
-            showToast({ message: 'המינונים נשמרו', emoji: '💊' })
+            showToast({ message: t('settings.dosesSaved'), emoji: '💊' })
           }}
         />
       )}
@@ -248,7 +248,7 @@ export function SettingsPage() {
           onSave={async updates => {
             await updateTracker(editTrackerTarget.id, updates)
             setEditTrackerTarget(null)
-            showToast({ message: `${updates.name || editTrackerTarget.name} עודכן`, emoji: '✅' })
+            showToast({ message: t('settings.trackerUpdated', { name: updates.name || editTrackerTarget.name }), emoji: '✅' })
           }}
         />
       )}
@@ -288,7 +288,7 @@ function DoseConfigSheet({ tracker, isOpen, onClose, onSave }) {
   }
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title={`הגדרת מינונים — ${tracker.name}`}>
+    <BottomSheet isOpen={isOpen} onClose={onClose} title={t('settings.doseConfigTitle', { name: tracker.name })}>
       <div className="space-y-5">
         {/* How many doses per day */}
         <div>
@@ -312,7 +312,7 @@ function DoseConfigSheet({ tracker, isOpen, onClose, onSave }) {
 
         {/* Dose labels */}
         <div>
-          <p className="text-sm font-medium text-brown-600 mb-3">שם כל מינון</p>
+          <p className="text-sm font-medium text-brown-600 mb-3">{t('settings.doseName')}</p>
           <div className="space-y-2">
             {Array.from({ length: doseCount }, (_, i) => (
               <div key={i} className="flex items-center gap-3 bg-cream-200 rounded-2xl px-4 py-3">
@@ -321,7 +321,7 @@ function DoseConfigSheet({ tracker, isOpen, onClose, onSave }) {
                   type="text"
                   value={labels[i] ?? ''}
                   onChange={e => updateLabel(i, e.target.value)}
-                  placeholder={`מינון ${i + 1}`}
+                  placeholder={t('settings.dosePlaceholder', { number: i + 1 })}
                   className="flex-1 bg-transparent font-rubik text-brown-800 outline-none text-base"
                 />
               </div>
@@ -431,10 +431,10 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
 
   const stepTitle = {
     [WIZARD_STEPS.ARCHETYPE]: t('settings.addTracker'),
-    [WIZARD_STEPS.IDENTITY]: 'שם ועיצוב',
-    [WIZARD_STEPS.DOSE_CONFIG]: 'הגדרת מינונים',
+    [WIZARD_STEPS.IDENTITY]: t('settings.wizardIdentity'),
+    [WIZARD_STEPS.DOSE_CONFIG]: t('settings.wizardDoseConfig'),
     [WIZARD_STEPS.DISPLAY_MODE]: t('settings.displayMode'),
-    [WIZARD_STEPS.FIELDS]: 'שדות מותאמים',
+    [WIZARD_STEPS.FIELDS]: t('settings.wizardFields'),
   }[step]
 
   return (
@@ -508,14 +508,14 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
             {/* Preview */}
             <div className="flex items-center gap-3 bg-white rounded-2xl shadow-soft px-4 py-3 mt-1">
               <span className="text-2xl">{icon}</span>
-              <span className="font-rubik font-semibold text-brown-800 flex-1">{name || 'תצוגה מקדימה'}</span>
+              <span className="font-rubik font-semibold text-brown-800 flex-1">{name || t('settings.preview')}</span>
               <div className="w-4 h-4 rounded-full" style={{ backgroundColor: color }} />
             </div>
 
             <div className="flex gap-3 pt-1">
               <Button variant="secondary" className="flex-1" onClick={() => setStep(WIZARD_STEPS.ARCHETYPE)}>{t('common.cancel')}</Button>
               <Button className="flex-1" onClick={handleIdentityNext} disabled={!name.trim() || saving}>
-                {(archetype.id === 'dose' || archetype.id === 'freetext') ? 'הבא ←' : saving ? t('app.loading') : t('common.save')}
+                {(archetype.id === 'dose' || archetype.id === 'freetext') ? t('settings.nextButton') : saving ? t('app.loading') : t('common.save')}
               </Button>
             </div>
           </>
@@ -524,7 +524,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
         {/* Step 3: Dose configuration */}
         {step === WIZARD_STEPS.DOSE_CONFIG && (
           <>
-            <p className="text-sm font-medium text-brown-600">כמה מינונים ביום?</p>
+            <p className="text-sm font-medium text-brown-600">{t('settings.howManyDoses')}</p>
             <div className="flex gap-2">
               {[1, 2, 3, 4, 5, 6].map(n => (
                 <button
@@ -538,7 +538,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
               ))}
             </div>
 
-            <p className="text-sm font-medium text-brown-600">שם כל מינון</p>
+            <p className="text-sm font-medium text-brown-600">{t('settings.doseName')}</p>
             <div className="space-y-2">
               {Array.from({ length: doseCount }, (_, i) => (
                 <div key={i} className="flex items-center gap-3 bg-cream-200 rounded-2xl px-4 py-3">
@@ -547,7 +547,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
                     type="text"
                     value={doseLabels[i] ?? ''}
                     onChange={e => setDoseLabels(prev => prev.map((l, idx) => idx === i ? e.target.value : l))}
-                    placeholder={`מינון ${i + 1}`}
+                    placeholder={t('settings.dosePlaceholder', { number: i + 1 })}
                     className="flex-1 bg-transparent font-rubik text-brown-800 outline-none"
                   />
                 </div>
@@ -557,7 +557,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
             <div className="flex gap-3 pt-1">
               <Button variant="secondary" className="flex-1" onClick={() => setStep(WIZARD_STEPS.IDENTITY)}>{t('common.back')}</Button>
               <Button className="flex-1" onClick={handleDoseNext}>
-                הבא ←
+                {t('settings.nextButton')}
               </Button>
             </div>
           </>
@@ -566,7 +566,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
         {/* Step 4: Display mode choice */}
         {step === WIZARD_STEPS.DISPLAY_MODE && (
           <>
-            <p className="text-sm text-brown-400 font-rubik text-center mb-2">איך להציג את {name} בדף הבית?</p>
+            <p className="text-sm text-brown-400 font-rubik text-center mb-2">{t('settings.displayModeQuestion', { name })}</p>
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => handleSave('buttons')}
@@ -595,8 +595,8 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
         {step === WIZARD_STEPS.FIELDS && (
           <>
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-brown-600">שדות</p>
-              <button onClick={addField} className="text-sm font-rubik font-semibold text-brown-600 bg-cream-200 px-3 py-1.5 rounded-full">+ הוסף שדה</button>
+              <p className="text-sm font-medium text-brown-600">{t('settings.fields')}</p>
+              <button onClick={addField} className="text-sm font-rubik font-semibold text-brown-600 bg-cream-200 px-3 py-1.5 rounded-full">{t('settings.addField')}</button>
             </div>
             <div className="space-y-2 max-h-48 overflow-y-auto">
               {fields.map((field, idx) => (
@@ -620,12 +620,12 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
                   </select>
                   {field.type === 'choice' && (
                     <div>
-                      <p className="text-xs text-brown-400 mb-1">אפשרויות (אחת בכל שורה)</p>
+                      <p className="text-xs text-brown-400 mb-1">{t('settings.choiceOptions')}</p>
                       <textarea
                         rows={3}
                         value={(field.options ?? []).join('\n')}
                         onChange={e => updateField(idx, { options: e.target.value.split('\n').map(o => o.trim()).filter(Boolean) })}
-                        placeholder={'אפשרות 1\nאפשרות 2\nאפשרות 3'}
+                        placeholder={t('settings.optionsPlaceholder')}
                         className="w-full bg-white rounded-xl px-3 py-2 font-rubik text-sm text-brown-800 outline-none resize-none"
                       />
                     </div>
@@ -633,7 +633,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
                 </div>
               ))}
               {fields.length === 0 && (
-                <p className="text-center text-brown-400 text-sm font-rubik py-3">הוסף לפחות שדה אחד</p>
+                <p className="text-center text-brown-400 text-sm font-rubik py-3">{t('settings.addOneField')}</p>
               )}
             </div>
             <div className="flex gap-3 pt-1">
