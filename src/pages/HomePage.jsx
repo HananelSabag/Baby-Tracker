@@ -221,7 +221,7 @@ export function HomePage() {
       ) : (
         <div className="space-y-3">
           {/* Hero summary card */}
-          <HeroCard trackers={trackers} eventsByTracker={eventsByTracker} isToday={isToday} />
+          <HeroCard trackers={trackers} eventsByTracker={eventsByTracker} isToday={isToday} child={activeChild} />
 
           {/* Compact action cards */}
           {groupTrackers(trackers).map((group) =>

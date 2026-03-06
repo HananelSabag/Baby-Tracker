@@ -45,22 +45,42 @@ export function FeedingCard({ tracker, familyId, memberId, childId, viewDate, co
   if (compact) {
     return (
       <>
-        <Card compact className="cursor-pointer" onClick={() => setSheetOpen(true)}>
-          <div className="flex items-center gap-3">
-            <span className="text-xl flex-shrink-0">{tracker.icon}</span>
-            <div className="flex-1 min-w-0">
-              <p className="font-rubik font-semibold text-brown-800 text-sm truncate">{tracker.name}</p>
-              <p className="font-rubik text-xs text-brown-400 truncate">
-                {displayEvent
-                  ? `${formatTime(displayEvent.occurred_at)}${todayTotal > 0 ? ` · ${formatMl(todayTotal)}` : ''} · ${events.length}×`
-                  : t('home.noFeedingYet')}
-              </p>
+        <Card>
+          {/* Header */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">{tracker.icon}</span>
+              <span className="font-rubik font-semibold text-brown-800 text-sm">{tracker.name}</span>
             </div>
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-soft flex-shrink-0"
+            <button
+              onClick={() => setSheetOpen(true)}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-soft active:scale-95 transition-transform"
               style={{ backgroundColor: tracker.color }}
-            >+</div>
+            >+</button>
           </div>
+
+          {/* Daily summary stats */}
+          {events.length > 0 ? (
+            <div className="flex gap-2">
+              {todayTotal > 0 && (
+                <div className="flex-1 rounded-xl px-3 py-2.5 text-center bg-cream-100">
+                  <p className="font-rubik font-bold text-brown-800 text-lg leading-tight">{todayTotal}</p>
+                  <p className="font-rubik text-brown-400 text-xs">{t('feeding.ml')}</p>
+                </div>
+              )}
+              <div className="flex-1 rounded-xl px-3 py-2.5 text-center bg-cream-100">
+                <p className="font-rubik font-bold text-brown-800 text-lg leading-tight">{events.length}</p>
+                <p className="font-rubik text-brown-400 text-xs">{t('home.feedings')}</p>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setSheetOpen(true)}
+              className="w-full py-2 text-brown-400 font-rubik text-sm text-center active:opacity-70"
+            >
+              {t('home.noFeedingYet')}
+            </button>
+          )}
         </Card>
         <BottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} title={t('feeding.addFeeding')}>
           <AddFeedingForm onSave={handleSave} onCancel={() => setSheetOpen(false)} loading={saving} />
