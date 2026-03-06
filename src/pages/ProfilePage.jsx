@@ -5,7 +5,7 @@ import { useFamilyMembers, updateMember, updateFamily, removeMember } from '../h
 import { useChildren, addChild } from '../hooks/useChildren'
 import { generateFamilyCode } from '../lib/utils'
 import { ROLES, ADMIN_EMAIL, PARENT_ROLES, STORAGE_KEYS } from '../lib/constants'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -417,6 +417,13 @@ export function ProfilePage() {
           />
         </button>
       </div>
+
+      <Link
+        to="/privacy"
+        className="block text-center font-rubik text-brown-400 text-xs py-2 active:opacity-70"
+      >
+        🔐 מדיניות פרטיות
+      </Link>
 
       <div>
         <Button variant="ghost" className="w-full text-red-400 text-sm" onClick={() => setSignOutConfirm(true)}>
