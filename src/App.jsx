@@ -11,6 +11,7 @@ import { TrackersPage } from './pages/TrackersPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { AdminPage } from './pages/AdminPage'
 import { ADMIN_EMAIL } from './lib/constants'
+import { PushPromoPopup } from './components/PushPromoPopup'
 
 function AppRoutes() {
   const { user, identity, isAuthLoading, isSetupDone } = useApp()
@@ -38,6 +39,7 @@ function AppRoutes() {
         {/* Fallback to home */}
         <Route path="*" element={<HomePage />} />
       </Routes>
+      <PushPromoPopup familyId={identity.familyId} memberId={identity.memberId} />
     </AppLayout>
   )
 }
