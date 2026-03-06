@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 
@@ -104,6 +105,11 @@ export function AuthPage() {
 
           <p className="text-center text-xs text-brown-300 font-rubik pt-2">
             מעקב חכם לכל משפחה 🍼
+          </p>
+          <p className="text-center text-xs text-brown-300 font-rubik">
+            בכניסה לאפליקציה אתה/את מסכים/ה ל
+            <Link to="/privacy" className="underline text-brown-400 mx-0.5">מדיניות הפרטיות</Link>
+            שלנו
           </p>
         </div>
 
