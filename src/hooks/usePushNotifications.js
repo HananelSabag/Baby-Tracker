@@ -12,11 +12,9 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 export const DEFAULT_PREFS = {
-  feeding:      true,
-  feeding_hours: 3,
-  diaper:       false,
+  dose_trackers: {},   // { [trackerId]: bool } — missing key = enabled by default
+  diaper:        false,
   diaper_hours:  4,
-  vitaminD:     true,
 }
 
 export function usePushNotifications({ familyId, memberId }) {
@@ -45,7 +43,7 @@ export function usePushNotifications({ familyId, memberId }) {
           .select('prefs')
           .eq('endpoint', sub.endpoint)
           .maybeSingle()
-        if (data?.prefs) setPrefsState(prev => ({ ...prev, ...data.prefs }))
+        if (data?.prefs) setPrefsState(prev => ({ ...DEFAULT_PREFS, ...prev, ...data.prefs }))
       }
     })
   }, [supported, familyId, memberId])

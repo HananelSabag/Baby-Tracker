@@ -100,8 +100,8 @@ export function PushPromoPopup({ familyId, memberId }) {
               {/* Feature pills */}
               <div className="flex flex-col gap-2 mb-5">
                 {[
-                  { icon: '🍼', text: 'תזכורת האכלה — אחרי 3 שעות' },
-                  { icon: '☀️', text: 'ויטמין D — 10:00 בוקר ו-20:00 ערב' },
+                  { icon: '💊', text: 'תרופות וויטמינים — בשעות שקבעת לכל מינון' },
+                  { icon: '👶', text: 'חיתול — תזכורת אחרי כמה שעות שתרצה' },
                   { icon: '📵', text: 'ללא הרשמה • ללא ספאם • ביטול בכל עת' },
                 ].map(({ icon, text }) => (
                   <div key={text} className="flex items-center gap-2.5 bg-cream-100 rounded-2xl px-3 py-2">

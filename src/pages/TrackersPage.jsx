@@ -272,6 +272,9 @@ function DoseConfigSheet({ tracker, isOpen, onClose, onSave }) {
   const [labels, setLabels] = useState(
     existingConfig.dose_labels ?? ['בוקר', 'ערב', 'צהריים', 'לילה', 'בוקר מאוחר', 'ערב מוקדם']
   )
+  const [times, setTimes] = useState(
+    existingConfig.notification_times ?? ['08:00', '20:00', '12:00', '22:00', '09:00', '19:00']
+  )
   const [saving, setSaving] = useState(false)
 
   const DOSE_EMOJIS = ['☀️', '🌙', '🌅', '🌤', '⭐', '💫']
@@ -281,9 +284,17 @@ function DoseConfigSheet({ tracker, isOpen, onClose, onSave }) {
     setLabels(prev => prev.map((l, idx) => idx === i ? val : l))
   }
 
+  function updateTime(i, val) {
+    setTimes(prev => prev.map((t, idx) => idx === i ? val : t))
+  }
+
   async function handleSave() {
     setSaving(true)
-    await onSave({ daily_doses: doseCount, dose_labels: labels.slice(0, doseCount) })
+    await onSave({
+      daily_doses: doseCount,
+      dose_labels: labels.slice(0, doseCount),
+      notification_times: times.slice(0, doseCount),
+    })
     setSaving(false)
   }
 
@@ -310,23 +321,35 @@ function DoseConfigSheet({ tracker, isOpen, onClose, onSave }) {
           </div>
         </div>
 
-        {/* Dose labels */}
+        {/* Dose labels + notification times */}
         <div>
-          <p className="text-sm font-medium text-brown-600 mb-3">{t('settings.doseName')}</p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-medium text-brown-600">{t('settings.doseName')}</p>
+            <p className="text-xs text-brown-400 font-rubik">שעת התראה</p>
+          </div>
           <div className="space-y-2">
             {Array.from({ length: doseCount }, (_, i) => (
-              <div key={i} className="flex items-center gap-3 bg-cream-200 rounded-2xl px-4 py-3">
-                <span className="text-xl">{DOSE_EMOJIS[i]}</span>
+              <div key={i} className="flex items-center gap-2 bg-cream-200 rounded-2xl px-3 py-2.5">
+                <span className="text-xl flex-shrink-0">{DOSE_EMOJIS[i]}</span>
                 <input
                   type="text"
                   value={labels[i] ?? ''}
                   onChange={e => updateLabel(i, e.target.value)}
                   placeholder={t('settings.dosePlaceholder', { number: i + 1 })}
-                  className="flex-1 bg-transparent font-rubik text-brown-800 outline-none text-base"
+                  className="flex-1 bg-transparent font-rubik text-brown-800 outline-none text-sm min-w-0"
+                />
+                <input
+                  type="time"
+                  value={times[i] ?? '08:00'}
+                  onChange={e => updateTime(i, e.target.value)}
+                  className="bg-white rounded-xl px-2 py-1 font-rubik text-brown-700 text-sm outline-none flex-shrink-0 w-[90px]"
                 />
               </div>
             ))}
           </div>
+          <p className="text-xs text-brown-400 font-rubik mt-2 text-center">
+            התראה תישלח אם המינון לא ניתן עד השעה שנבחרה
+          </p>
         </div>
 
         <div className="flex gap-3 pt-1">
@@ -350,6 +373,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
   const [color, setColor] = useState(TRACKER_COLORS[3])
   const [doseCount, setDoseCount] = useState(2)
   const [doseLabels, setDoseLabels] = useState(['בוקר', 'ערב', 'צהריים', 'לילה', 'בוקר מאוחר', 'ערב מוקדם'])
+  const [doseTimes, setDoseTimes] = useState(['08:00', '20:00', '12:00', '22:00', '09:00', '19:00'])
   const [displayMode, setDisplayMode] = useState('buttons') // 'buttons' | 'simple'
   const [fields, setFields] = useState([])
   const [saving, setSaving] = useState(false)
@@ -364,6 +388,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
     setColor(TRACKER_COLORS[3])
     setDoseCount(2)
     setDoseLabels(['בוקר', 'ערב', 'צהריים', 'לילה', 'בוקר מאוחר', 'ערב מוקדם'])
+    setDoseTimes(['08:00', '20:00', '12:00', '22:00', '09:00', '19:00'])
     setDisplayMode('buttons')
     setFields([])
   }
@@ -400,6 +425,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
       const doseConfig = {
         daily_doses: doseCount,
         dose_labels: doseLabels.slice(0, doseCount),
+        notification_times: doseTimes.slice(0, doseCount),
         ...(effectiveDisplayMode === 'simple' ? { display_mode: 'simple' } : {}),
       }
       const payload = {
@@ -538,21 +564,33 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
               ))}
             </div>
 
-            <p className="text-sm font-medium text-brown-600">{t('settings.doseName')}</p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-brown-600">{t('settings.doseName')}</p>
+              <p className="text-xs text-brown-400 font-rubik">שעת התראה</p>
+            </div>
             <div className="space-y-2">
               {Array.from({ length: doseCount }, (_, i) => (
-                <div key={i} className="flex items-center gap-3 bg-cream-200 rounded-2xl px-4 py-3">
-                  <span className="text-xl">{DOSE_EMOJIS[i]}</span>
+                <div key={i} className="flex items-center gap-2 bg-cream-200 rounded-2xl px-3 py-2.5">
+                  <span className="text-xl flex-shrink-0">{DOSE_EMOJIS[i]}</span>
                   <input
                     type="text"
                     value={doseLabels[i] ?? ''}
                     onChange={e => setDoseLabels(prev => prev.map((l, idx) => idx === i ? e.target.value : l))}
                     placeholder={t('settings.dosePlaceholder', { number: i + 1 })}
-                    className="flex-1 bg-transparent font-rubik text-brown-800 outline-none"
+                    className="flex-1 bg-transparent font-rubik text-brown-800 outline-none text-sm min-w-0"
+                  />
+                  <input
+                    type="time"
+                    value={doseTimes[i] ?? '08:00'}
+                    onChange={e => setDoseTimes(prev => prev.map((t, idx) => idx === i ? e.target.value : t))}
+                    className="bg-white rounded-xl px-2 py-1 font-rubik text-brown-700 text-sm outline-none flex-shrink-0 w-[90px]"
                   />
                 </div>
               ))}
             </div>
+            <p className="text-xs text-brown-400 font-rubik text-center">
+              התראה תישלח אם המינון לא ניתן עד השעה שנבחרה
+            </p>
 
             <div className="flex gap-3 pt-1">
               <Button variant="secondary" className="flex-1" onClick={() => setStep(WIZARD_STEPS.IDENTITY)}>{t('common.back')}</Button>
