@@ -13,12 +13,14 @@ export function GrowthCard({ tracker, familyId, memberId, childId, child }) {
   const [saving, setSaving] = useState(false)
   const [weightVal, setWeightVal] = useState('')
   const [heightVal, setHeightVal] = useState('')
+  const [headVal, setHeadVal] = useState('')
   const [dateVal, setDateVal] = useState(() => format(new Date(), 'yyyy-MM-dd'))
 
   // Most recent measurement (already sorted desc by occurred_at in useEvents)
   const lastEvent = events[0]
   const lastWeight = lastEvent?.data?.weight_kg ? parseFloat(lastEvent.data.weight_kg) : null
   const lastHeight = lastEvent?.data?.height_cm ? parseFloat(lastEvent.data.height_cm) : null
+  const lastHead = lastEvent?.data?.head_cm ? parseFloat(lastEvent.data.head_cm) : null
 
   // Age at last measurement
   const birthDate = child?.birth_date
@@ -33,7 +35,7 @@ export function GrowthCard({ tracker, familyId, memberId, childId, child }) {
   }
 
   async function handleSave() {
-    if (!weightVal && !heightVal) return
+    if (!weightVal && !heightVal && !headVal) return
     setSaving(true)
     try {
       const [y, mo, d] = dateVal.split('-').map(Number)
@@ -41,9 +43,11 @@ export function GrowthCard({ tracker, familyId, memberId, childId, child }) {
       const data = {}
       if (weightVal) data.weight_kg = parseFloat(weightVal)
       if (heightVal) data.height_cm = parseFloat(heightVal)
+      if (headVal)   data.head_cm   = parseFloat(headVal)
       await addEvent({ trackerId: tracker.id, memberId, childId, data, occurredAt: occurred.toISOString() })
       setWeightVal('')
       setHeightVal('')
+      setHeadVal('')
       setDateVal(format(new Date(), 'yyyy-MM-dd'))
       setSheetOpen(false)
     } finally {
@@ -77,18 +81,24 @@ export function GrowthCard({ tracker, familyId, memberId, childId, child }) {
         {/* Last measurement */}
         {loading ? (
           <p className="font-rubik text-brown-400 text-sm">טוען...</p>
-        ) : lastWeight || lastHeight ? (
-          <div className="flex gap-3">
+        ) : lastWeight || lastHeight || lastHead ? (
+          <div className="flex gap-2">
             {lastWeight && (
-              <div className="flex-1 bg-cream-100 rounded-2xl px-3 py-2.5 text-center">
-                <p className="font-rubik font-bold text-2xl text-brown-800">{lastWeight}</p>
+              <div className="flex-1 bg-cream-100 rounded-2xl px-2 py-2.5 text-center">
+                <p className="font-rubik font-bold text-xl text-brown-800">{lastWeight}</p>
                 <p className="font-rubik text-brown-400 text-xs">ק"ג</p>
               </div>
             )}
             {lastHeight && (
-              <div className="flex-1 bg-cream-100 rounded-2xl px-3 py-2.5 text-center">
-                <p className="font-rubik font-bold text-2xl text-brown-800">{lastHeight}</p>
-                <p className="font-rubik text-brown-400 text-xs">ס"מ</p>
+              <div className="flex-1 bg-cream-100 rounded-2xl px-2 py-2.5 text-center">
+                <p className="font-rubik font-bold text-xl text-brown-800">{lastHeight}</p>
+                <p className="font-rubik text-brown-400 text-xs">ס"מ גובה</p>
+              </div>
+            )}
+            {lastHead && (
+              <div className="flex-1 bg-cream-100 rounded-2xl px-2 py-2.5 text-center">
+                <p className="font-rubik font-bold text-xl text-brown-800">{lastHead}</p>
+                <p className="font-rubik text-brown-400 text-xs">ס"מ ראש</p>
               </div>
             )}
           </div>
@@ -120,9 +130,9 @@ export function GrowthCard({ tracker, familyId, memberId, childId, child }) {
               className="w-full bg-cream-200 rounded-2xl px-4 py-3 font-rubik text-brown-800 outline-none"
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             <div>
-              <p className="text-sm font-medium text-brown-600 mb-2">משקל (ק"ג)</p>
+              <p className="text-xs font-medium text-brown-600 mb-2">משקל (ק"ג)</p>
               <input
                 type="number"
                 step="0.1"
@@ -131,11 +141,11 @@ export function GrowthCard({ tracker, familyId, memberId, childId, child }) {
                 value={weightVal}
                 onChange={e => setWeightVal(e.target.value)}
                 placeholder="6.5"
-                className="w-full bg-cream-200 rounded-2xl px-4 py-3 font-rubik text-brown-800 outline-none text-center text-lg font-bold"
+                className="w-full bg-cream-200 rounded-2xl px-2 py-3 font-rubik text-brown-800 outline-none text-center text-base font-bold"
               />
             </div>
             <div>
-              <p className="text-sm font-medium text-brown-600 mb-2">גובה (ס"מ)</p>
+              <p className="text-xs font-medium text-brown-600 mb-2">גובה (ס"מ)</p>
               <input
                 type="number"
                 step="0.5"
@@ -144,16 +154,30 @@ export function GrowthCard({ tracker, familyId, memberId, childId, child }) {
                 value={heightVal}
                 onChange={e => setHeightVal(e.target.value)}
                 placeholder="65"
-                className="w-full bg-cream-200 rounded-2xl px-4 py-3 font-rubik text-brown-800 outline-none text-center text-lg font-bold"
+                className="w-full bg-cream-200 rounded-2xl px-2 py-3 font-rubik text-brown-800 outline-none text-center text-base font-bold"
+              />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-brown-600 mb-2">היקף ראש</p>
+              <input
+                type="number"
+                step="0.1"
+                min="20"
+                max="60"
+                value={headVal}
+                onChange={e => setHeadVal(e.target.value)}
+                placeholder="40"
+                className="w-full bg-cream-200 rounded-2xl px-2 py-3 font-rubik text-brown-800 outline-none text-center text-base font-bold"
               />
             </div>
           </div>
+          <p className="text-xs text-brown-400 font-rubik text-center">כל השדות אופציונליים — הכנס מה שרוצים</p>
           <div className="flex gap-3 pt-1">
             <Button variant="secondary" className="flex-1" onClick={() => setSheetOpen(false)}>ביטול</Button>
             <Button
               className="flex-1"
               onClick={handleSave}
-              disabled={saving || (!weightVal && !heightVal)}
+              disabled={saving || (!weightVal && !heightVal && !headVal)}
               style={{ backgroundColor: tracker.color }}
             >
               {saving ? 'שומר...' : 'שמור'}

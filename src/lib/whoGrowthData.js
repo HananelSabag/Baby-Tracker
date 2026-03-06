@@ -116,30 +116,54 @@ export function ageInMonths(birthDate, measurementDate) {
   return Math.max(0, (meas - birth) / msPerMonth)
 }
 
-// Returns a human-readable percentile label for a weight measurement
+// Interpolates an estimated percentile from known percentile boundary points
+function estimateFromBoundaries(value, boundaries) {
+  // boundaries: array of [percentile, refValue] sorted by percentile
+  for (let i = 0; i < boundaries.length - 1; i++) {
+    const [p0, v0] = boundaries[i]
+    const [p1, v1] = boundaries[i + 1]
+    if (value <= v1) {
+      const t = v1 === v0 ? 0 : (value - v0) / (v1 - v0)
+      return Math.round(p0 + t * (p1 - p0))
+    }
+  }
+  return boundaries[boundaries.length - 1][0]
+}
+
+function percentileDesc(p) {
+  if (p < 3)  return 'מתחת לאחוזון 3'
+  if (p < 15) return 'מתחת לממוצע'
+  if (p < 85) return 'בתחום הנורמה'
+  if (p < 97) return 'מעל הממוצע'
+  return 'מעל אחוזון 97'
+}
+
+// Returns { percentile, desc } for a weight measurement
 export function getWeightPercentileLabel(weightKg, ageMonths, gender) {
   const table = gender === 'female' ? WHO_WEIGHT_GIRLS : WHO_WEIGHT_BOYS
   const ref = interpolateWHO(table, ageMonths)
   if (!ref) return null
-  // [p3, p15, p50, p85, p97]
+  // ref = [p3, p15, p50, p85, p97]
   const [p3, p15, p50, p85, p97] = ref
-  if (weightKg < p3)  return 'מתחת לאחוזון 3 — מתחת לממוצע'
-  if (weightKg < p15) return 'אחוזון 3–15 — מתחת לממוצע'
-  if (weightKg < p50) return 'אחוזון 15–50 — קרוב לממוצע'
-  if (weightKg < p85) return 'אחוזון 50–85 — קרוב לממוצע'
-  if (weightKg < p97) return 'אחוזון 85–97 — מעל הממוצע'
-  return 'מעל אחוזון 97 — מעל הממוצע'
+  const boundaries = [[3, p3], [15, p15], [50, p50], [85, p85], [97, p97]]
+  let percentile
+  if (weightKg < p3)  percentile = Math.max(1, Math.round((weightKg / p3) * 3))
+  else if (weightKg > p97) percentile = 98
+  else percentile = estimateFromBoundaries(weightKg, boundaries)
+  return { percentile, desc: percentileDesc(percentile) }
 }
 
-// Returns a human-readable percentile label for a height measurement
+// Returns { percentile, desc } for a height measurement
 export function getHeightPercentileLabel(heightCm, ageMonths, gender) {
   const table = gender === 'female' ? WHO_HEIGHT_GIRLS : WHO_HEIGHT_BOYS
   const ref = interpolateWHO(table, ageMonths)
   if (!ref) return null
-  // [p3, p50, p97]
+  // ref = [p3, p50, p97]
   const [p3, p50, p97] = ref
-  if (heightCm < p3)  return 'מתחת לאחוזון 3'
-  if (heightCm < p50) return 'אחוזון 3–50 — מתחת לממוצע'
-  if (heightCm < p97) return 'אחוזון 50–97 — מעל הממוצע'
-  return 'מעל אחוזון 97'
+  const boundaries = [[3, p3], [50, p50], [97, p97]]
+  let percentile
+  if (heightCm < p3)  percentile = Math.max(1, Math.round((heightCm / p3) * 3))
+  else if (heightCm > p97) percentile = 98
+  else percentile = estimateFromBoundaries(heightCm, boundaries)
+  return { percentile, desc: percentileDesc(percentile) }
 }

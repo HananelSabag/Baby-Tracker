@@ -10,7 +10,7 @@ import { supabase } from '../lib/supabase'
 import { useToast } from '../hooks/useToast'
 import { ToastContainer } from '../components/ui/Toast'
 
-const STEPS = { CHOOSE: 'choose', ROLE: 'role', FAMILY_NAME: 'family_name', CODE: 'code', CHILD: 'child', DONE: 'done' }
+const STEPS = { CHOOSE: 'choose', ROLE: 'role', ROLE_AND_NAME: 'role_and_name', CODE: 'code', CHILD: 'child', DONE: 'done' }
 
 export function SetupPage() {
   const { user, onFamilyJoined } = useApp()
@@ -42,24 +42,26 @@ export function SetupPage() {
   function goBack() {
     setError('')
     if (step === STEPS.ROLE) setStep(STEPS.CHOOSE)
-    else if (step === STEPS.FAMILY_NAME) setStep(STEPS.ROLE)
+    else if (step === STEPS.ROLE_AND_NAME) setStep(STEPS.CHOOSE)
     else if (step === STEPS.CODE) setStep(STEPS.ROLE)
-    else if (step === STEPS.CHILD) setStep(STEPS.FAMILY_NAME)
+    else if (step === STEPS.CHILD) setStep(STEPS.ROLE_AND_NAME)
   }
 
   function handleChoose(act) {
     setAction(act)
-    setStep(STEPS.ROLE)
+    setStep(act === 'create' ? STEPS.ROLE_AND_NAME : STEPS.ROLE)
   }
 
+  // Join path: role only → CODE
   function handleRoleContinue() {
     if (!role) { setError(t('setup.roleRequired')); return }
     setError('')
-    setStep(action === 'create' ? STEPS.FAMILY_NAME : STEPS.CODE)
+    setStep(STEPS.CODE)
   }
 
-  // Validate family name and advance — family is NOT created in DB yet
-  function handleFamilyNameNext() {
+  // Create path: role + family name → CHILD
+  function handleRoleAndNameContinue() {
+    if (!role) { setError(t('setup.roleRequired')); return }
     if (!familyName.trim()) { setError(t('setup.nameRequired')); return }
     setError('')
     setStep(STEPS.CHILD)
@@ -98,7 +100,8 @@ export function SetupPage() {
 
   // Create family + member + child all at once — deferred from FAMILY_NAME step
   async function handleChildSave() {
-    if (!childName.trim()) { setError(t('children.nameRequired')); return }
+    // Default to "תינוקי שלי" if name is empty — no friction, can rename from profile
+    const finalChildName = childName.trim() || 'תינוקי שלי'
     setLoading(true)
     setError('')
     try {
@@ -138,7 +141,7 @@ export function SetupPage() {
       // Step 3: add child
       let child
       try {
-        child = await addChild({ familyId: family.id, name: childName.trim(), avatarUrl: uploadedUrl, birthDate: childBirthDate || null, gender: childGender || null })
+        child = await addChild({ familyId: family.id, name: finalChildName, avatarUrl: uploadedUrl, birthDate: childBirthDate || null, gender: childGender || null })
       } catch (e) {
         console.error('[Setup] addChild error:', e)
         setError(`שגיאת הוספת ילד: ${e?.message ?? JSON.stringify(e)}`)
@@ -151,7 +154,7 @@ export function SetupPage() {
       setPendingFamily(family)
       setPendingMember(member)
       setPendingChildId(child.id)
-      showToast({ message: t('setup.childAdded', { name: childName.trim() }), emoji: '👶' })
+      showToast({ message: t('setup.childAdded', { name: finalChildName }), emoji: '👶' })
       setStep(STEPS.DONE)
     } catch (e) {
       console.error('[Setup] unexpected error:', e)
@@ -167,7 +170,7 @@ export function SetupPage() {
   function getStepProgress() {
     if (step === STEPS.CHOOSE || step === STEPS.DONE) return null
     const steps = action === 'create'
-      ? [STEPS.ROLE, STEPS.FAMILY_NAME, STEPS.CHILD]
+      ? [STEPS.ROLE_AND_NAME, STEPS.CHILD]
       : [STEPS.ROLE, STEPS.CODE]
     const idx = steps.indexOf(step)
     if (idx === -1) return null
@@ -267,12 +270,11 @@ export function SetupPage() {
           </div>
         )}
 
-        {/* Step: Choose role */}
+        {/* Step: Choose role (join path only) */}
         {step === STEPS.ROLE && (
           <div className="flex-1 flex flex-col justify-center space-y-3">
             <h2 className="font-rubik font-bold text-xl text-brown-800 text-center mb-2">{t('setup.chooseRole')}</h2>
-            {/* When creating: only parent roles (needed for child management RLS) */}
-            {(action === 'create' ? ROLES.filter(r => PARENT_ROLES.includes(r.value)) : ROLES).map(r => (
+            {ROLES.map(r => (
               <button
                 key={r.value}
                 onClick={() => { setRole(r.value); setError('') }}
@@ -303,20 +305,56 @@ export function SetupPage() {
           </div>
         )}
 
-        {/* Step: Enter family name (create) */}
-        {step === STEPS.FAMILY_NAME && (
+        {/* Step: Role + Family name combined (create path) */}
+        {step === STEPS.ROLE_AND_NAME && (
           <div className="flex-1 flex flex-col justify-center space-y-4">
-            <h2 className="font-rubik font-bold text-xl text-brown-800 text-center mb-2">{t('setup.familyName')}</h2>
-            <input
-              type="text"
-              value={familyName}
-              onChange={e => { setFamilyName(e.target.value); setError('') }}
-              placeholder={t('setup.familyNamePlaceholder')}
-              className="w-full bg-white rounded-2xl shadow-soft px-5 py-4 font-rubik text-brown-800 text-lg outline-none focus:ring-2 focus:ring-amber-400"
-              autoFocus
-            />
+            {/* Role section */}
+            <div>
+              <h2 className="font-rubik font-bold text-xl text-brown-800 text-center mb-3">{t('setup.chooseRole')}</h2>
+              <div className="space-y-2">
+                {ROLES.filter(r => PARENT_ROLES.includes(r.value)).map(r => (
+                  <button
+                    key={r.value}
+                    onClick={() => { setRole(r.value); setError('') }}
+                    className={cn(
+                      'w-full flex items-center gap-4 py-3 px-5 rounded-2xl font-rubik font-medium text-base transition-all active:scale-95',
+                      role === r.value ? 'bg-amber-500 text-white shadow-soft' : 'bg-white shadow-card text-brown-800'
+                    )}
+                  >
+                    <span className="text-2xl">{r.emoji}</span>
+                    <span className="flex-1 text-right">{r.label}</span>
+                    {role === r.value && <span className="text-white font-bold text-xl">✓</span>}
+                  </button>
+                ))}
+                {role === 'אחר' && (
+                  <input
+                    type="text"
+                    value={customRole}
+                    onChange={e => setCustomRole(e.target.value)}
+                    placeholder={t('setup.customRolePlaceholder')}
+                    className="w-full bg-cream-200 rounded-2xl px-4 py-3 font-rubik text-brown-800 outline-none"
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-cream-300" />
+
+            {/* Family name section */}
+            <div>
+              <h2 className="font-rubik font-bold text-lg text-brown-800 text-center mb-2">{t('setup.familyName')}</h2>
+              <input
+                type="text"
+                value={familyName}
+                onChange={e => { setFamilyName(e.target.value); setError('') }}
+                placeholder={t('setup.familyNamePlaceholder')}
+                className="w-full bg-white rounded-2xl shadow-soft px-5 py-4 font-rubik text-brown-800 text-lg outline-none focus:ring-2 focus:ring-amber-400"
+              />
+            </div>
+
             {error && <p className="text-red-500 text-sm text-center font-rubik">{error}</p>}
-            <Button className="w-full" size="lg" onClick={handleFamilyNameNext}>
+            <Button className="w-full" size="lg" onClick={handleRoleAndNameContinue}>
               {t('setup.continue')}
             </Button>
           </div>
@@ -349,6 +387,7 @@ export function SetupPage() {
               <div className="text-4xl mb-2">👶</div>
               <h2 className="font-rubik font-bold text-xl text-brown-800">{t('setup.addFirstChild')}</h2>
               <p className="font-rubik text-brown-400 text-sm mt-1">{t('setup.addChildSubtitle')}</p>
+              <p className="font-rubik text-brown-300 text-xs mt-1">{t('setup.childStepOptional')}</p>
             </div>
 
             <div className="flex flex-col items-center gap-3">
@@ -375,6 +414,30 @@ export function SetupPage() {
               className="w-full bg-white rounded-2xl shadow-soft px-5 py-4 font-rubik text-brown-800 text-xl text-center outline-none focus:ring-2 focus:ring-amber-400"
               autoFocus
             />
+
+            {/* Newborn quick-nickname chips */}
+            <div>
+              <p className="text-xs text-brown-400 font-rubik text-center mb-2">{t('setup.newbornSection')}</p>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {['תינוקי 🍼', 'כוכב שלי ⭐', 'מלכה שלי 👑', 'אהובי ❤️'].map(nick => (
+                  <button
+                    key={nick}
+                    type="button"
+                    onClick={() => { setChildName(nick); setError('') }}
+                    className={`font-rubik text-sm px-4 py-2 rounded-full transition-all active:scale-95 ${
+                      childName === nick
+                        ? 'bg-amber-500 text-white shadow-soft'
+                        : 'bg-white text-brown-600 shadow-card'
+                    }`}
+                  >
+                    {nick}
+                  </button>
+                ))}
+              </div>
+              {childName && (
+                <p className="text-xs text-amber-600 font-rubik text-center mt-2">{t('setup.newbornHint')}</p>
+              )}
+            </div>
 
             {/* Birth date + gender — optional, needed for growth chart */}
             <div className="bg-white rounded-2xl shadow-soft px-5 py-4 space-y-4">
@@ -413,8 +476,13 @@ export function SetupPage() {
             {error && <p className="text-red-500 text-sm text-center font-rubik">{error}</p>}
 
             <Button className="w-full" size="lg" onClick={handleChildSave} disabled={loading}>
-              {loading ? t('app.loading') : t('common.save')}
+              {loading ? t('app.loading') : t('setup.letsGo')}
             </Button>
+            {!childName && (
+              <p className="text-xs text-brown-300 font-rubik text-center -mt-2">
+                {t('setup.noNameHint')}
+              </p>
+            )}
           </div>
         )}
 

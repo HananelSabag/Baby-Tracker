@@ -38,7 +38,12 @@
     "joinFamilyDesc": "הצטרף לתא משפחתי קיים עם קוד",
     "childAdded": "{{name}} נוסף בהצלחה!",
     "growthOptional": "לא חובה — נדרש לגרף גדילה לפי עקומות WHO ⚖️",
-    "codeHint": "ניתן למצוא את הקוד תמיד בפרופיל שלך"
+    "codeHint": "ניתן למצוא את הקוד תמיד בפרופיל שלך",
+    "newbornSection": "🎉 עדיין אין שם? בחרו כינוי זמני",
+    "newbornHint": "שם זמני — ניתן לשנות בכל עת מהפרופיל 💛",
+    "childStepOptional": "הכל אופציונלי — ניתן לשנות בכל עת",
+    "letsGo": "🎉 בואו נתחיל!",
+    "noNameHint": "ללא שם? נשמור כ\"תינוקי שלי\" — תמיד אפשר לשנות"
   },
   "nav": {
     "home": "בית",
@@ -53,7 +58,9 @@
     "feedings": "האכלות",
     "lastFeeding": "האכלה אחרונה",
     "ago": "לפני",
-    "noFeedingYet": "עדיין אין האכלות היום"
+    "noFeedingYet": "עדיין אין האכלות היום",
+    "yesterday": "מאתמול",
+    "earlier": "לפני כמה ימים"
   },
   "feeding": {
     "title": "האכלה",
@@ -173,7 +180,7 @@
     "title": "ילדים",
     "addChild": "הוסף ילד/ה",
     "childName": "שם הילד/ה",
-    "childNamePlaceholder": "הרל, שי, רוני...",
+    "childNamePlaceholder": "הכנס שם ילד או כינוי",
     "addPhoto": "הוסף תמונה",
     "editChild": "ערוך ילד/ה",
     "save": "שמור",

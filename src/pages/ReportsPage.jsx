@@ -401,12 +401,13 @@ function GrowthDetailContent({ events, child, tracker }) {
   // Parse measurements sorted oldest-first
   const measurements = useMemo(() => {
     return [...events]
-      .filter(e => e.data?.weight_kg != null || e.data?.height_cm != null)
+      .filter(e => e.data?.weight_kg != null || e.data?.height_cm != null || e.data?.head_cm != null)
       .sort((a,b) => new Date(a.occurred_at) - new Date(b.occurred_at))
       .map(e => ({
         date: new Date(e.occurred_at),
         weight: e.data?.weight_kg != null ? parseFloat(e.data.weight_kg) : null,
         height: e.data?.height_cm != null ? parseFloat(e.data.height_cm) : null,
+        head:   e.data?.head_cm   != null ? parseFloat(e.data.head_cm)   : null,
         age: birthDate ? ageInMonths(birthDate, e.occurred_at) : null,
       }))
   }, [events, birthDate])
@@ -415,22 +416,23 @@ function GrowthDetailContent({ events, child, tracker }) {
   const last = measurements[measurements.length - 1]
   const lastWeight = last?.weight
   const lastHeight = last?.height
+  const lastHead   = last?.head
   const lastAge    = last?.age
 
   // WHO reference table for selected metric
   const whoWeightTable = gender === 'female' ? WHO_WEIGHT_GIRLS : WHO_WEIGHT_BOYS
   const whoHeightTable = gender === 'female' ? WHO_HEIGHT_GIRLS : WHO_HEIGHT_BOYS
 
-  // Build chart data: 0-24 months reference + actual measurements
+  // Build chart data: zoomed to baby's actual age range + WHO reference
   const chartData = useMemo(() => {
     if (!birthDate) return null
-    const maxAge = Math.min(
-      Math.ceil(Math.max(24, ...measurements.map(m => m.age ?? 0))),
-      36
-    )
+    const validAges = measurements.map(m => m.age).filter(a => a != null)
+    const babyMaxAge = validAges.length > 0 ? Math.max(...validAges) : 0
+    // Show up to baby's age + 2 months buffer, minimum 6 months for context
+    const endAge = Math.min(36, Math.max(6, Math.ceil(babyMaxAge) + 2))
 
     // All distinct age-months to plot (every integer + actual measurement ages)
-    const ageSet = new Set(Array.from({length: maxAge + 1}, (_, i) => i))
+    const ageSet = new Set(Array.from({length: endAge + 1}, (_, i) => i))
     measurements.forEach(m => {
       if (m.age != null) ageSet.add(Math.round(m.age * 2) / 2)
     })
@@ -476,7 +478,7 @@ function GrowthDetailContent({ events, child, tracker }) {
   return (
     <div className="space-y-4">
       {/* Summary row */}
-      <div className="flex gap-3">
+      <div className="flex gap-2">
         {lastWeight != null && (
           <div className="flex-1 bg-cream-100 rounded-2xl p-3 text-center">
             <p className="font-rubik font-bold text-2xl text-brown-800">{lastWeight}</p>
@@ -486,7 +488,13 @@ function GrowthDetailContent({ events, child, tracker }) {
         {lastHeight != null && (
           <div className="flex-1 bg-cream-100 rounded-2xl p-3 text-center">
             <p className="font-rubik font-bold text-2xl text-brown-800">{lastHeight}</p>
-            <p className="font-rubik text-brown-400 text-xs">ס"מ</p>
+            <p className="font-rubik text-brown-400 text-xs">ס"מ גובה</p>
+          </div>
+        )}
+        {lastHead != null && (
+          <div className="flex-1 bg-cream-100 rounded-2xl p-3 text-center">
+            <p className="font-rubik font-bold text-2xl text-brown-800">{lastHead}</p>
+            <p className="font-rubik text-brown-400 text-xs">ס"מ ראש</p>
           </div>
         )}
         {measurements.length === 0 && (
@@ -497,15 +505,16 @@ function GrowthDetailContent({ events, child, tracker }) {
         )}
       </div>
 
-      {/* Percentile badge */}
+      {/* Percentile badge — shows exact estimated percentile */}
       {percentileLabel && (
         <div
-          className="rounded-2xl px-4 py-2 text-center"
-          style={{ backgroundColor: `${tracker.color}20` }}
+          className="rounded-2xl px-4 py-3 text-center"
+          style={{ backgroundColor: `${tracker.color}18` }}
         >
-          <p className="font-rubik text-sm font-semibold" style={{ color: tracker.color }}>
-            {percentileLabel}
+          <p className="font-rubik text-3xl font-bold leading-none" style={{ color: tracker.color }}>
+            {metric === 'weight' ? '⚖️' : '📏'} אחוזון {percentileLabel.percentile}
           </p>
+          <p className="font-rubik text-sm text-brown-500 mt-1">{percentileLabel.desc}</p>
         </div>
       )}
 
@@ -536,9 +545,6 @@ function GrowthDetailContent({ events, child, tracker }) {
       {/* Growth chart */}
       {chartData && chartData.length > 0 && measurements.some(m => metric === 'weight' ? m.weight : m.height) && (
         <>
-          <p className="font-rubik text-xs text-brown-400 text-center">
-            {birthDate ? `גרף גדילה לפי גיל בחודשים — עקומות WHO (P3, P50, P97)` : 'מדידות לאורך זמן'}
-          </p>
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#F5E6D3" />
@@ -580,6 +586,9 @@ function GrowthDetailContent({ events, child, tracker }) {
             <span><span className="inline-block w-5 h-0.5 bg-brown-500 mr-1 opacity-70" style={{verticalAlign:'middle'}} />P50 (חציון)</span>
             <span style={{color: tracker.color}}>● {child?.name ?? 'הילד/ה'}</span>
           </div>
+          <p className="font-rubik text-xs text-brown-300 text-center">
+            {birthDate ? 'עקומות WHO — גיל בחודשים' : 'מדידות לאורך זמן'}
+          </p>
         </>
       )}
 
@@ -590,12 +599,15 @@ function GrowthDetailContent({ events, child, tracker }) {
           <div className="space-y-2">
             {[...measurements].reverse().slice(0, 10).map((m, i) => (
               <div key={i} className="flex items-center justify-between bg-cream-100 rounded-2xl px-4 py-2.5">
-                <div className="flex gap-3">
+                <div className="flex gap-3 flex-wrap">
                   {m.weight != null && (
                     <span className="font-rubik text-brown-800 text-sm font-medium">{m.weight} ק"ג</span>
                   )}
                   {m.height != null && (
-                    <span className="font-rubik text-brown-800 text-sm font-medium">{m.height} ס"מ</span>
+                    <span className="font-rubik text-brown-800 text-sm font-medium">{m.height} ס"מ גובה</span>
+                  )}
+                  {m.head != null && (
+                    <span className="font-rubik text-brown-800 text-sm font-medium">{m.head} ס"מ ראש</span>
                   )}
                 </div>
                 <div className="text-left">
@@ -635,6 +647,15 @@ function DryEvents({ events, tracker }) {
 
   function summarise(e) {
     if (!e.data || Object.keys(e.data).length === 0) return null
+    // Built-in diaper: translate type value to Hebrew
+    if (tracker.tracker_type === TRACKER_TYPES.DIAPER) {
+      const map = { wet: t('diaper.wet'), dirty: t('diaper.dirty'), both: t('diaper.both') }
+      return map[e.data.type] ?? ''
+    }
+    // Built-in feeding: show ml
+    if (tracker.tracker_type === TRACKER_TYPES.FEEDING && e.data.amount_ml) {
+      return `${e.data.amount_ml} מ"ל`
+    }
     return schema.map(f => {
       const v = e.data[f.key]
       if (v == null) return null
