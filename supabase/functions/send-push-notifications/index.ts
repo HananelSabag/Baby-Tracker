@@ -1,7 +1,8 @@
 // Supabase Edge Function: send-push-notifications
 // Invoked by pg_cron every 30 minutes.
-// Checks each family's recent events and sends push alerts
-// when a tracker hasn't been updated in too long.
+// For each family: checks dose-type trackers' notification_times against the current hour,
+// and sends push alerts for any dose not yet given today.
+// Also handles interval-based diaper alerts.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -28,7 +29,6 @@ function uint8ToBase64url(buf: Uint8Array): string {
 }
 
 async function buildVapidAuthHeader(audience: string): Promise<string> {
-  // Build JWT header + payload
   const header  = { typ: 'JWT', alg: 'ES256' }
   const now      = Math.floor(Date.now() / 1000)
   const payload  = { aud: audience, exp: now + 43200, sub: VAPID_EMAIL }
@@ -36,7 +36,6 @@ async function buildVapidAuthHeader(audience: string): Promise<string> {
   const encodedP = uint8ToBase64url(new TextEncoder().encode(JSON.stringify(payload)))
   const sigInput = `${encodedH}.${encodedP}`
 
-  // Import private key (PKCS8 / raw)
   const rawKey = base64urlToUint8(VAPID_PRIVATE_KEY)
   const cryptoKey = await crypto.subtle.importKey(
     'pkcs8',
@@ -45,7 +44,6 @@ async function buildVapidAuthHeader(audience: string): Promise<string> {
     false,
     ['sign'],
   ).catch(async () => {
-    // Fallback: try jwk format
     return crypto.subtle.importKey(
       'raw',
       rawKey,
@@ -76,25 +74,21 @@ async function encryptPayload(
   const authSecret  = base64urlToUint8(authB64)
   const salt        = crypto.getRandomValues(new Uint8Array(16))
 
-  // Generate server ECDH key pair
   const serverKeyPair = await crypto.subtle.generateKey(
     { name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits'],
   )
   const serverPublicKeyBuf = await crypto.subtle.exportKey('raw', serverKeyPair.publicKey)
   const serverPublicKey    = new Uint8Array(serverPublicKeyBuf)
 
-  // Import client public key
   const clientPublicKey = await crypto.subtle.importKey(
     'raw', p256dh, { name: 'ECDH', namedCurve: 'P-256' }, false, [],
   )
 
-  // ECDH shared secret
   const sharedSecretBits = await crypto.subtle.deriveBits(
     { name: 'ECDH', public: clientPublicKey }, serverKeyPair.privateKey, 256,
   )
   const sharedSecret = new Uint8Array(sharedSecretBits)
 
-  // HKDF: pseudo-random key
   const prkKeyMaterial = await crypto.subtle.importKey('raw', sharedSecret, 'HKDF', false, ['deriveBits'])
   const authInfo = encoder.encode('Content-Encoding: auth\0')
   const prkBits  = await crypto.subtle.deriveBits(
@@ -102,7 +96,6 @@ async function encryptPayload(
   )
   const prk = new Uint8Array(prkBits)
 
-  // HKDF: content encryption key + nonce
   const prkIkm     = await crypto.subtle.importKey('raw', prk, 'HKDF', false, ['deriveBits'])
   const contextBuf = new Uint8Array([
     ...encoder.encode('P-256\0'),
@@ -115,7 +108,6 @@ async function encryptPayload(
   const cekBits   = await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt, info: cekInfo },   prkIkm, 128)
   const nonceBits = await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt, info: nonceInfo }, prkIkm, 96)
 
-  // Pad payload to 3054 bytes (as per RFC 8291 recommendations)
   const payloadBytes = encoder.encode(payload)
   const padLen  = Math.max(0, 3054 - 2 - payloadBytes.length)
   const padded  = new Uint8Array(2 + padLen + payloadBytes.length)
@@ -153,7 +145,6 @@ async function sendPush(sub: { endpoint: string; p256dh: string; auth: string },
     body: ciphertext,
   })
 
-  // 410 Gone or 404 = subscription expired, should be removed
   if (res.status === 410 || res.status === 404) {
     await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint)
   }
@@ -163,23 +154,20 @@ async function sendPush(sub: { endpoint: string; p256dh: string; auth: string },
 
 // ── Alert throttle check ───────────────────────────────────────────────────
 
-async function wasAlertSentRecently(familyId: string, childId: string | null, alertType: string, withinMinutes = 60): Promise<boolean> {
+async function wasAlertSentRecently(familyId: string, childId: string, alertType: string, withinMinutes = 90): Promise<boolean> {
   const since = new Date(Date.now() - withinMinutes * 60 * 1000).toISOString()
-  const query = supabase
+  const { data } = await supabase
     .from('push_notification_log')
     .select('id')
     .eq('family_id', familyId)
+    .eq('child_id', childId)
     .eq('alert_type', alertType)
     .gte('sent_at', since)
     .limit(1)
-
-  if (childId) query.eq('child_id', childId)
-
-  const { data } = await query
   return (data?.length ?? 0) > 0
 }
 
-async function logAlert(familyId: string, childId: string | null, alertType: string) {
+async function logAlert(familyId: string, childId: string, alertType: string) {
   await supabase.from('push_notification_log').insert({ family_id: familyId, child_id: childId, alert_type: alertType })
 }
 
@@ -191,10 +179,20 @@ function israelHour(): number {
   }).format(new Date()), 10)
 }
 
+function israelTodayStart(): Date {
+  // Get today's date string in Israel timezone (YYYY-MM-DD)
+  const israelDateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' })
+  // Return midnight Israel = date T00:00:00 in Israel tz
+  // We approximate by creating UTC date and subtracting the known offset (2h or 3h)
+  const [y, m, d] = israelDateStr.split('-').map(Number)
+  // Israel is UTC+2 in winter, UTC+3 in summer. Use 2h as safe lower bound.
+  // The actual offset doesn't matter much — we just need "today" in Israel.
+  return new Date(`${israelDateStr}T00:00:00+02:00`)
+}
+
 // ── Main handler ───────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
-  // Simple auth: only allow cron calls (or manual POST with secret header)
   const cronSecret = Deno.env.get('CRON_SECRET')
   if (cronSecret && req.headers.get('x-cron-secret') !== cronSecret) {
     return new Response('Unauthorized', { status: 401 })
@@ -215,7 +213,24 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ sent: 0 }), { status: 200 })
   }
 
+  // Get all active dose-type trackers (vitamin_d + custom dose)
+  const { data: allDoseTrackers } = await supabase
+    .from('trackers')
+    .select('id, name, icon, color, config, tracker_type, family_id')
+    .in('tracker_type', ['vitamin_d', 'dose'])
+    .neq('is_deleted', true)
+    .neq('is_active', false)
+
+  // Get all active diaper trackers
+  const { data: allDiaperTrackers } = await supabase
+    .from('trackers')
+    .select('id, family_id')
+    .eq('tracker_type', 'diaper')
+    .neq('is_deleted', true)
+    .neq('is_active', false)
+
   let totalSent = 0
+  const todayStart = israelTodayStart()
 
   // Group subscriptions by family
   const byFamily = new Map<string, typeof subs>()
@@ -233,52 +248,67 @@ Deno.serve(async (req) => {
 
     if (!children?.length) continue
 
-    // Check alerts for each child
+    const familyDoseTrackers = (allDoseTrackers ?? []).filter(t => t.family_id === familyId)
+    const familyDiaperTracker = (allDiaperTrackers ?? []).find(t => t.family_id === familyId)
+
     for (const child of children) {
       const childId = child.id
 
-      // ── Feeding alert ──────────────────────────────────────────────────
-      // Find subscriptions that have feeding alerts enabled
-      const feedingSubs = familySubs.filter(s => s.prefs?.feeding === true)
-      if (feedingSubs.length > 0) {
-        const thresholdHours = Math.min(...feedingSubs.map(s => s.prefs?.feeding_hours ?? 3))
+      // ── Dose tracker alerts (vitamin_d + custom dose) ────────────────────
+      for (const tracker of familyDoseTrackers) {
+        const config = tracker.config ?? {}
+        const notifTimes: string[] = config.notification_times ?? []
+        const doseCount: number = config.daily_doses ?? 1
+        const doseLabels: string[] = config.dose_labels ?? []
 
-        const { data: lastFeeding } = await supabase
+        // Fetch all doses given today for this child+tracker
+        const { data: todayEvents } = await supabase
           .from('events')
-          .select('occurred_at')
+          .select('data')
           .eq('family_id', familyId)
           .eq('child_id', childId)
-          .eq('tracker_id', await getTrackerIdByType(familyId, 'feeding'))
-          .order('occurred_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
+          .eq('tracker_id', tracker.id)
+          .gte('occurred_at', todayStart.toISOString())
 
-        if (lastFeeding) {
-          const hoursSince = (Date.now() - new Date(lastFeeding.occurred_at).getTime()) / 3600000
-          if (hoursSince >= thresholdHours) {
-            const alreadySent = await wasAlertSentRecently(familyId, childId, 'feeding', 90)
-            if (!alreadySent) {
-              const hoursRounded = Math.round(hoursSince * 10) / 10
-              for (const sub of feedingSubs) {
-                if (sub.prefs?.feeding !== true) continue
-                if (hoursSince < (sub.prefs?.feeding_hours ?? 3)) continue
-                await sendPush(sub, {
-                  title: '🍼 זמן להאכיל!',
-                  body: `עברו ${hoursRounded} שעות מאז ההאכלה האחרונה של ${child.name}`,
-                  tag: 'feeding',
-                  url: '/',
-                })
-                totalSent++
-              }
-              await logAlert(familyId, childId, 'feeding')
-            }
+        const givenDoseIndices = new Set(
+          (todayEvents ?? []).map(e => String(e.data?.dose_index ?? e.data?.dose))
+        )
+
+        for (let i = 0; i < doseCount; i++) {
+          const timeStr = notifTimes[i]
+          if (!timeStr) continue  // no notification time configured for this dose
+
+          const alertHour = parseInt(timeStr.split(':')[0], 10)
+          if (hour !== alertHour) continue  // not the right hour window
+
+          if (givenDoseIndices.has(String(i))) continue  // dose already given today
+
+          const alertType = `tracker_${tracker.id}_dose_${i}`
+          const alreadySent = await wasAlertSentRecently(familyId, childId, alertType, 120)
+          if (alreadySent) continue
+
+          // Subscribers who haven't explicitly disabled this tracker
+          const eligibleSubs = familySubs.filter(
+            s => s.prefs?.dose_trackers?.[tracker.id] !== false
+          )
+
+          for (const sub of eligibleSubs) {
+            const doseLabel = doseLabels[i] ?? `מינון ${i + 1}`
+            await sendPush(sub, {
+              title: `${tracker.icon} ${tracker.name}`,
+              body: `עדיין לא ניתן מינון ${doseLabel} לـ${child.name}`,
+              tag: `dose_${tracker.id}_${i}`,
+              url: '/',
+            })
+            totalSent++
           }
+          await logAlert(familyId, childId, alertType)
         }
       }
 
-      // ── Diaper alert ───────────────────────────────────────────────────
+      // ── Diaper alert (interval-based) ─────────────────────────────────────
       const diaperSubs = familySubs.filter(s => s.prefs?.diaper === true)
-      if (diaperSubs.length > 0) {
+      if (diaperSubs.length > 0 && familyDiaperTracker) {
         const thresholdHours = Math.min(...diaperSubs.map(s => s.prefs?.diaper_hours ?? 4))
 
         const { data: lastDiaper } = await supabase
@@ -286,7 +316,7 @@ Deno.serve(async (req) => {
           .select('occurred_at')
           .eq('family_id', familyId)
           .eq('child_id', childId)
-          .eq('tracker_id', await getTrackerIdByType(familyId, 'diaper'))
+          .eq('tracker_id', familyDiaperTracker.id)
           .order('occurred_at', { ascending: false })
           .limit(1)
           .maybeSingle()
@@ -298,7 +328,6 @@ Deno.serve(async (req) => {
             if (!alreadySent) {
               const hoursRounded = Math.round(hoursSince * 10) / 10
               for (const sub of diaperSubs) {
-                if (sub.prefs?.diaper !== true) continue
                 if (hoursSince < (sub.prefs?.diaper_hours ?? 4)) continue
                 await sendPush(sub, {
                   title: '👶 לבדוק חיתול',
@@ -313,60 +342,6 @@ Deno.serve(async (req) => {
           }
         }
       }
-
-      // ── Vitamin D alerts ───────────────────────────────────────────────
-      const vitSubs = familySubs.filter(s => s.prefs?.vitaminD === true)
-      if (vitSubs.length > 0) {
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        const vitaminTrackerId = await getTrackerIdByType(familyId, 'vitamin_d')
-
-        if (vitaminTrackerId) {
-          const { data: todayVitamin } = await supabase
-            .from('events')
-            .select('data')
-            .eq('family_id', familyId)
-            .eq('child_id', childId)
-            .eq('tracker_id', vitaminTrackerId)
-            .gte('occurred_at', today.toISOString())
-
-          const givenDoseIndices = new Set((todayVitamin ?? []).map(e => String(e.data?.dose_index ?? e.data?.dose)))
-
-          // Morning: alert at 10am if dose 0 not given
-          if (hour >= 10 && hour < 11 && !givenDoseIndices.has('0')) {
-            const alreadySent = await wasAlertSentRecently(familyId, childId, 'vitaminD_morning', 120)
-            if (!alreadySent) {
-              for (const sub of vitSubs) {
-                await sendPush(sub, {
-                  title: '☀️ ויטמין D — בוקר',
-                  body: `עדיין לא ניתן מינון הבוקר של ויטמין D לـ${child.name}`,
-                  tag: 'vitaminD',
-                  url: '/',
-                })
-                totalSent++
-              }
-              await logAlert(familyId, childId, 'vitaminD_morning')
-            }
-          }
-
-          // Evening: alert at 20:00 if dose 1 not given
-          if (hour >= 20 && hour < 21 && !givenDoseIndices.has('1')) {
-            const alreadySent = await wasAlertSentRecently(familyId, childId, 'vitaminD_evening', 120)
-            if (!alreadySent) {
-              for (const sub of vitSubs) {
-                await sendPush(sub, {
-                  title: '🌙 ויטמין D — ערב',
-                  body: `עדיין לא ניתן מינון הערב של ויטמין D לـ${child.name}`,
-                  tag: 'vitaminD',
-                  url: '/',
-                })
-                totalSent++
-              }
-              await logAlert(familyId, childId, 'vitaminD_evening')
-            }
-          }
-        }
-      }
     }
   }
 
@@ -375,24 +350,3 @@ Deno.serve(async (req) => {
     status: 200,
   })
 })
-
-// ── Helper: get tracker ID by type for a family ────────────────────────────
-const trackerCache = new Map<string, string | null>()
-
-async function getTrackerIdByType(familyId: string, trackerType: string): Promise<string | null> {
-  const key = `${familyId}:${trackerType}`
-  if (trackerCache.has(key)) return trackerCache.get(key)!
-
-  const { data } = await supabase
-    .from('trackers')
-    .select('id')
-    .eq('family_id', familyId)
-    .eq('tracker_type', trackerType)
-    .eq('is_active', true)
-    .limit(1)
-    .maybeSingle()
-
-  const id = data?.id ?? null
-  trackerCache.set(key, id)
-  return id
-}

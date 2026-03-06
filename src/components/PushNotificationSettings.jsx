@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { usePushNotifications, DEFAULT_PREFS } from '../hooks/usePushNotifications'
+import { useTrackers } from '../hooks/useTrackers'
 import { cn } from '../lib/utils'
 
-const HOUR_OPTIONS_FEEDING = [2, 3, 4]
-const HOUR_OPTIONS_DIAPER  = [3, 4, 5]
+const HOUR_OPTIONS_DIAPER = [3, 4, 5]
 
 function Toggle({ on, onChange, disabled }) {
   return (
@@ -21,26 +21,6 @@ function Toggle({ on, onChange, disabled }) {
   )
 }
 
-function HourPicker({ value, options, onChange, color }) {
-  return (
-    <div className="flex gap-1.5 mt-1.5">
-      {options.map(h => (
-        <button
-          key={h}
-          onClick={() => onChange(h)}
-          className={cn(
-            'flex-1 py-1 rounded-xl text-xs font-rubik font-medium transition-all',
-            value === h ? 'text-white shadow-soft' : 'bg-cream-100 text-brown-500'
-          )}
-          style={value === h ? { backgroundColor: color } : {}}
-        >
-          {h}ש'
-        </button>
-      ))}
-    </div>
-  )
-}
-
 export function PushNotificationSettings({ familyId, memberId }) {
   const {
     supported,
@@ -53,20 +33,37 @@ export function PushNotificationSettings({ familyId, memberId }) {
     updatePrefs,
   } = usePushNotifications({ familyId, memberId })
 
-  const [localPrefs, setLocalPrefs] = useState(prefs)
+  const { trackers } = useTrackers(familyId)
+
+  // Dose-capable trackers: vitamin_d and custom dose
+  const doseTrackers = trackers.filter(
+    t => (t.tracker_type === 'vitamin_d' || t.tracker_type === 'dose') && t.is_active !== false
+  )
+
   const [status, setStatus] = useState(null) // 'denied' | 'success' | 'error'
 
   async function handleEnable() {
-    const result = await subscribe(localPrefs)
+    const result = await subscribe(DEFAULT_PREFS)
     if (result === 'denied')      setStatus('denied')
     else if (result === 'granted') setStatus('success')
     else                           setStatus('error')
   }
 
-  async function handlePrefChange(key, value) {
-    const next = { ...localPrefs, [key]: value }
-    setLocalPrefs(next)
-    if (isSubscribed) await updatePrefs(next)
+  function isTrackerEnabled(trackerId) {
+    // Missing key = enabled by default
+    return prefs.dose_trackers?.[trackerId] !== false
+  }
+
+  async function toggleTracker(trackerId, enabled) {
+    const next = {
+      ...prefs,
+      dose_trackers: { ...prefs.dose_trackers, [trackerId]: enabled },
+    }
+    await updatePrefs(next)
+  }
+
+  async function handleDiaperChange(key, value) {
+    await updatePrefs({ ...prefs, [key]: value })
   }
 
   // Not supported in this browser
@@ -87,7 +84,7 @@ export function PushNotificationSettings({ familyId, memberId }) {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-soft px-4 py-4 space-y-3">
+    <div className="bg-white rounded-2xl shadow-soft px-4 py-4 space-y-4">
       {/* Header row */}
       <div className="flex items-center justify-between">
         <div>
@@ -132,71 +129,91 @@ export function PushNotificationSettings({ familyId, memberId }) {
         </p>
       )}
 
-      {/* Prefs grid — shown always so user can configure before enabling */}
-      <div className="space-y-3 pt-1 border-t border-cream-200">
+      {/* Dose trackers section */}
+      {doseTrackers.length > 0 && (
+        <div className="space-y-2 pt-1 border-t border-cream-200">
+          <p className="font-rubik text-xs font-semibold text-brown-400 uppercase tracking-wide">מינונים ותרופות</p>
+          {doseTrackers.map(tracker => {
+            const config = tracker.config ?? {}
+            const times = config.notification_times ?? []
+            const labels = config.dose_labels ?? []
+            const doseCount = config.daily_doses ?? 1
+            const enabled = isTrackerEnabled(tracker.id)
 
-        {/* Feeding alert */}
-        <div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-base">🍼</span>
-              <p className="font-rubik text-sm text-brown-700">האכלה — התראה אחרי</p>
-            </div>
-            <Toggle
-              on={localPrefs.feeding}
-              onChange={v => handlePrefChange('feeding', v)}
-              disabled={!isSubscribed && !loading}
-            />
-          </div>
-          {localPrefs.feeding && (
-            <HourPicker
-              value={localPrefs.feeding_hours}
-              options={HOUR_OPTIONS_FEEDING}
-              onChange={v => handlePrefChange('feeding_hours', v)}
-              color="#6B9E8C"
-            />
-          )}
+            return (
+              <div key={tracker.id} className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">{tracker.icon}</span>
+                    <p className="font-rubik text-sm text-brown-700">{tracker.name}</p>
+                  </div>
+                  <Toggle
+                    on={enabled}
+                    onChange={v => toggleTracker(tracker.id, v)}
+                    disabled={!isSubscribed}
+                  />
+                </div>
+                {/* Show dose times if configured */}
+                {enabled && times.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pr-7">
+                    {Array.from({ length: doseCount }, (_, i) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1 bg-cream-100 rounded-full px-2 py-0.5 font-rubik text-xs text-brown-500"
+                      >
+                        {labels[i] ?? `מינון ${i + 1}`}
+                        {times[i] && <span className="text-brown-400">{times[i]}</span>}
+                      </span>
+                    ))}
+                    <span className="font-rubik text-[10px] text-brown-300 self-center">
+                      לשינוי שעות — ⚙️ כוונן מעקב
+                    </span>
+                  </div>
+                )}
+                {enabled && times.length === 0 && (
+                  <p className="font-rubik text-xs text-amber-600 bg-amber-50 rounded-xl px-2 py-1 pr-7">
+                    ⚙️ הגדר שעות התראה בכוונן המעקב
+                  </p>
+                )}
+              </div>
+            )
+          })}
         </div>
+      )}
 
-        {/* Vitamin D alert */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-base">☀️</span>
-            <div>
-              <p className="font-rubik text-sm text-brown-700">ויטמין D</p>
-              <p className="font-rubik text-brown-400 text-xs">10:00 בוקר + 20:00 ערב</p>
-            </div>
-          </div>
-          <Toggle
-            on={localPrefs.vitaminD}
-            onChange={v => handlePrefChange('vitaminD', v)}
-            disabled={!isSubscribed && !loading}
-          />
-        </div>
-
-        {/* Diaper alert */}
+      {/* Diaper section */}
+      <div className="space-y-2 pt-1 border-t border-cream-200">
+        <p className="font-rubik text-xs font-semibold text-brown-400 uppercase tracking-wide">חיתול</p>
         <div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-base">👶</span>
-              <p className="font-rubik text-sm text-brown-700">חיתול — התראה אחרי</p>
+              <p className="font-rubik text-sm text-brown-700">התראה אחרי</p>
             </div>
             <Toggle
-              on={localPrefs.diaper}
-              onChange={v => handlePrefChange('diaper', v)}
-              disabled={!isSubscribed && !loading}
+              on={prefs.diaper}
+              onChange={v => handleDiaperChange('diaper', v)}
+              disabled={!isSubscribed}
             />
           </div>
-          {localPrefs.diaper && (
-            <HourPicker
-              value={localPrefs.diaper_hours}
-              options={HOUR_OPTIONS_DIAPER}
-              onChange={v => handlePrefChange('diaper_hours', v)}
-              color="#9B8EC4"
-            />
+          {prefs.diaper && (
+            <div className="flex gap-1.5 mt-1.5">
+              {HOUR_OPTIONS_DIAPER.map(h => (
+                <button
+                  key={h}
+                  onClick={() => handleDiaperChange('diaper_hours', h)}
+                  className={cn(
+                    'flex-1 py-1 rounded-xl text-xs font-rubik font-medium transition-all',
+                    prefs.diaper_hours === h ? 'text-white shadow-soft' : 'bg-cream-100 text-brown-500'
+                  )}
+                  style={prefs.diaper_hours === h ? { backgroundColor: '#9B8EC4' } : {}}
+                >
+                  {h}ש'
+                </button>
+              ))}
+            </div>
           )}
         </div>
-
       </div>
 
       {!isSubscribed && (
