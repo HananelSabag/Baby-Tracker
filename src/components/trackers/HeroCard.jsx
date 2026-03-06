@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { TRACKER_TYPES } from '../../lib/constants'
 import { formatTime, formatTimeAgo, formatMl, cn } from '../../lib/utils'
+import { ageInMonths, getWeightPercentileLabel, getHeightPercentileLabel } from '../../lib/whoGrowthData'
 
 const DOSE_EMOJIS = ['☀️', '🌅', '🌙', '⭐']
 
@@ -33,7 +34,7 @@ function getSleepStats(events, now) {
   return { isSleeping, totalMs }
 }
 
-function TrackerChip({ tracker, events, now }) {
+function TrackerChip({ tracker, events, now, child }) {
   const type = tracker.tracker_type
   const last = events[0]
   let label
@@ -70,13 +71,38 @@ function TrackerChip({ tracker, events, now }) {
         ? <span className="font-rubik text-xs text-brown-600">{formatDur(totalMs)} שינה</span>
         : <span className="font-rubik text-xs text-brown-300">לא ישן</span>
   } else if (type === TRACKER_TYPES.GROWTH) {
-    const w = last?.data?.weight_kg
-    const h = last?.data?.height_cm
-    label = w != null
-      ? <span className="font-rubik text-xs text-brown-600">{parseFloat(w)} ק"ג</span>
-      : h != null
-        ? <span className="font-rubik text-xs text-brown-600">{parseFloat(h)} ס"מ</span>
-        : <span className="font-rubik text-xs text-brown-300">—</span>
+    if (!last) return null // no measurements → hide chip entirely
+    const w = last.data?.weight_kg != null ? parseFloat(last.data.weight_kg) : null
+    const h = last.data?.height_cm != null ? parseFloat(last.data.height_cm) : null
+    let result = null
+    if (child?.birth_date) {
+      const months = ageInMonths(child.birth_date, last.occurred_at)
+      if (months !== null) {
+        result = w != null
+          ? getWeightPercentileLabel(w, months, child.gender ?? 'male')
+          : h != null
+            ? getHeightPercentileLabel(h, months, child.gender ?? 'male')
+            : null
+      }
+    }
+    if (result) {
+      const isNormal = result.percentile >= 15 && result.percentile <= 85
+      const isConcerning = result.percentile < 3 || result.percentile > 97
+      label = (
+        <div>
+          <span className={cn('font-rubik text-xs font-bold leading-tight',
+            isNormal ? 'text-green-600' : isConcerning ? 'text-red-500' : 'text-amber-600'
+          )}>
+            אחוזון {result.percentile}
+          </span>
+          <p className="font-rubik text-xs text-brown-400 leading-tight">{result.desc}</p>
+        </div>
+      )
+    } else {
+      label = w != null
+        ? <span className="font-rubik text-xs text-brown-600">{w} ק"ג</span>
+        : <span className="font-rubik text-xs text-brown-600">{h} ס"מ</span>
+    }
   } else {
     label = last
       ? <span className="font-rubik text-xs text-brown-600">{events.length}×</span>
@@ -128,7 +154,7 @@ function SmartStatusLine({ trackers, eventsByTracker, now }) {
   return null
 }
 
-export function HeroCard({ trackers, eventsByTracker, isToday }) {
+export function HeroCard({ trackers, eventsByTracker, isToday, child }) {
   const [now, setNow] = useState(Date.now())
 
   const feedingTracker = trackers.find(t => t.tracker_type === TRACKER_TYPES.FEEDING)
@@ -170,13 +196,13 @@ export function HeroCard({ trackers, eventsByTracker, isToday }) {
                     {formatTime(lastFeeding.occurred_at)}
                   </p>
                   <p className="text-xs text-brown-400 font-rubik mt-0.5">
-                    {formatTimeAgo(lastFeeding.occurred_at)} לפני · {feedingEvents.length} ארוחות
+                    {formatTimeAgo(lastFeeding.occurred_at)} לפני
                   </p>
                 </div>
-                {totalMl > 0 && (
+                {(lastFeeding.data?.amount_ml ?? 0) > 0 && (
                   <div className="text-center">
                     <p className="font-rubik font-bold text-3xl leading-tight" style={{ color: feedingTracker.color }}>
-                      {totalMl}
+                      {lastFeeding.data.amount_ml}
                     </p>
                     <p className="text-xs text-brown-400 font-rubik">מ"ל</p>
                   </div>
@@ -198,6 +224,7 @@ export function HeroCard({ trackers, eventsByTracker, isToday }) {
               tracker={tr}
               events={eventsByTracker[tr.id] ?? []}
               now={now}
+              child={child}
             />
           ))}
         </div>
