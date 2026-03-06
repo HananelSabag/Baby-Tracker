@@ -4,7 +4,7 @@ import { useApp } from '../hooks/useAppContext'
 import { useFamilyMembers, updateMember, updateFamily, removeMember } from '../hooks/useFamily'
 import { useChildren, addChild } from '../hooks/useChildren'
 import { generateFamilyCode } from '../lib/utils'
-import { ROLES, ADMIN_EMAIL, PARENT_ROLES, STORAGE_KEYS } from '../lib/constants'
+import { ROLES, ADMIN_EMAIL, PARENT_ROLES } from '../lib/constants'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Card } from '../components/ui/Card'
@@ -14,7 +14,6 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { ToastContainer } from '../components/ui/Toast'
 import { useToast } from '../hooks/useToast'
 import { cn } from '../lib/utils'
-import { usePushNotifications } from '../hooks/usePushNotifications'
 
 export function ProfilePage() {
   const { identity, user, signOut, saveIdentity, setMemberAvatarUrl } = useApp()
@@ -43,20 +42,6 @@ export function ProfilePage() {
   const [addChildOpen, setAddChildOpen] = useState(false)
   const [editChildTarget, setEditChildTarget] = useState(null)
   const [deleteChildTarget, setDeleteChildTarget] = useState(null)
-
-  // ── Notifications ─────────────────────────────────────────────────────────
-  const [notificationsOn, setNotificationsOn] = useState(
-    () => localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS) === null
-      ? true
-      : localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS) === 'true'
-  )
-
-  function toggleNotifications() {
-    const next = !notificationsOn
-    setNotificationsOn(next)
-    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, String(next))
-    showToast({ message: next ? t('profile.notificationsOn') : t('profile.notificationsOff'), emoji: next ? '🔔' : '🔕' })
-  }
 
   // ── Dialogs ───────────────────────────────────────────────────────────────
   const [signOutConfirm, setSignOutConfirm] = useState(false)
@@ -397,26 +382,20 @@ export function ProfilePage() {
         </div>
       </Card>
 
-      {/* Notifications center link */}
-      <NotificationsCenterCard familyId={identity.familyId} memberId={identity.memberId} onNavigate={() => navigate('/notifications')} />
-
-      {/* Notifications + sign out */}
-      <div className="bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center justify-between">
-        <div>
-          <p className="font-rubik font-medium text-brown-800 text-sm">🔔 {t('notifications.title')}</p>
-          <p className="font-rubik text-brown-400 text-xs mt-0.5">{t('notifications.subtitle')}</p>
+      {/* Quick link to Control Center notifications tab */}
+      <button
+        onClick={() => navigate('/trackers?tab=notifications')}
+        className="w-full bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center justify-between active:scale-[0.99] transition-transform"
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-xl">🔔</span>
+          <div className="text-right">
+            <p className="font-rubik font-semibold text-brown-800 text-sm">הגדרות התראות</p>
+            <p className="font-rubik text-brown-400 text-xs mt-0.5">Push, שעות מינונים, חיתול</p>
+          </div>
         </div>
-        <button
-          onClick={toggleNotifications}
-          className="relative w-14 h-7 rounded-full transition-colors duration-200 flex-shrink-0"
-          style={{ backgroundColor: notificationsOn ? '#22C55E' : '#D6C4B0' }}
-        >
-          <span
-            className="absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform duration-200"
-            style={{ transform: notificationsOn ? 'translateX(28px)' : 'translateX(2px)' }}
-          />
-        </button>
-      </div>
+        <span className="text-brown-400 text-lg">‹</span>
+      </button>
 
       <Link
         to="/privacy"
@@ -478,64 +457,6 @@ export function ProfilePage() {
           onSave={data => handleChildSave(data, true)}
         />
       )}
-    </div>
-  )
-}
-
-// ─── Notifications Center Card ───────────────────────────────────────────────
-
-function NotificationsCenterCard({ familyId, memberId, onNavigate }) {
-  const { supported, isSubscribed, loading, subscribe, unsubscribe } = usePushNotifications({ familyId, memberId })
-
-  if (!supported) {
-    return (
-      <div className="bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center gap-3">
-        <span className="text-xl">🔕</span>
-        <p className="font-rubik text-brown-400 text-xs flex-1">
-          התראות Push לא נתמכות בדפדפן זה
-        </p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="bg-white rounded-2xl shadow-soft px-4 py-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-xl">🔔</span>
-          <div>
-            <p className="font-rubik font-semibold text-brown-800 text-sm">התראות Push</p>
-            <p className="font-rubik text-brown-400 text-xs mt-0.5">
-              {isSubscribed ? 'פועל' : 'כבוי'}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {isSubscribed ? (
-            <button
-              onClick={unsubscribe}
-              disabled={loading}
-              className="text-xs font-rubik text-red-400 bg-red-50 px-3 py-1.5 rounded-full active:scale-95 transition-transform disabled:opacity-40"
-            >
-              {loading ? '...' : 'כבה'}
-            </button>
-          ) : (
-            <button
-              onClick={() => subscribe()}
-              disabled={loading}
-              className="text-xs font-rubik text-white bg-green-500 px-3 py-1.5 rounded-full active:scale-95 transition-transform disabled:opacity-40"
-            >
-              {loading ? '...' : 'הפעל'}
-            </button>
-          )}
-          <button
-            onClick={onNavigate}
-            className="text-xs font-rubik text-brown-600 bg-cream-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
-          >
-            הגדר ←
-          </button>
-        </div>
-      </div>
     </div>
   )
 }

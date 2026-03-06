@@ -76,7 +76,7 @@ export function HomePage() {
       viewDate,
     }
     switch (tracker.tracker_type) {
-      case TRACKER_TYPES.FEEDING:   return <FeedingCard key={tracker.id} {...props} />
+      case TRACKER_TYPES.FEEDING:   return <FeedingCard key={tracker.id} {...props} compact />
       case TRACKER_TYPES.VITAMIN_D: return <VitaminDCard key={tracker.id} {...props} />
       case TRACKER_TYPES.DIAPER:    return <DiaperCard key={tracker.id} {...props} />
       case TRACKER_TYPES.SLEEP:     return <SleepCard key={tracker.id} {...props} />
