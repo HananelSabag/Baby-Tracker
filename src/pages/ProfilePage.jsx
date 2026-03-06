@@ -14,6 +14,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { ToastContainer } from '../components/ui/Toast'
 import { useToast } from '../hooks/useToast'
 import { cn } from '../lib/utils'
+import { PushNotificationSettings } from '../components/PushNotificationSettings'
 
 export function ProfilePage() {
   const { identity, user, signOut, saveIdentity, setMemberAvatarUrl } = useApp()
@@ -395,6 +396,9 @@ export function ProfilePage() {
           </div>
         </div>
       </Card>
+
+      {/* Push Notifications */}
+      <PushNotificationSettings familyId={identity.familyId} memberId={identity.memberId} />
 
       {/* Notifications + sign out */}
       <div className="bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center justify-between">
