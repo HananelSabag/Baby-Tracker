@@ -5,6 +5,12 @@ import { CacheFirst } from 'workbox-strategies'
 // Inject precache manifest (Vite PWA replaces self.__WB_MANIFEST at build time)
 precacheAndRoute(self.__WB_MANIFEST)
 
+// Immediately take control when a new SW version is installed —
+// no waiting for tabs to close. The app listens for 'controllerchange'
+// and reloads to pick up the new assets.
+self.addEventListener('install', () => self.skipWaiting())
+self.addEventListener('activate', event => event.waitUntil(self.clients.claim()))
+
 // Cache Google Fonts
 registerRoute(
   /^https:\/\/fonts\.googleapis\.com\/.*/i,
