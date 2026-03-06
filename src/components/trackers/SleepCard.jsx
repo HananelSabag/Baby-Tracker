@@ -24,7 +24,7 @@ function formatDurationShort(ms) {
   return `${m} ${t('sleep.minAbbr')}`
 }
 
-export function SleepCard({ tracker, familyId, memberId, childId, viewDate }) {
+export function SleepCard({ tracker, familyId, memberId, childId, viewDate, compact = false }) {
   const { events, addEvent } = useEvents(familyId, { trackerId: tracker.id, date: viewDate, childId })
   const [now, setNow] = useState(Date.now())
   const [saving, setSaving] = useState(false)
@@ -83,6 +83,33 @@ export function SleepCard({ tracker, familyId, memberId, childId, viewDate }) {
     } finally {
       setSaving(false)
     }
+  }
+
+  if (compact) {
+    return (
+      <Card compact>
+        <div className="flex items-center gap-3">
+          <span className="text-xl flex-shrink-0">{tracker.icon}</span>
+          <div className="flex-1 min-w-0">
+            <p className="font-rubik font-semibold text-brown-800 text-sm">{tracker.name}</p>
+            {totalMs > 0 && !isSleeping && (
+              <p className="font-rubik text-xs text-brown-400">{formatDurationShort(totalMs)} {t('sleep.totalToday')}</p>
+            )}
+          </div>
+          <button
+            onClick={handleToggle}
+            disabled={saving}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-rubik font-semibold text-sm transition-all active:scale-95 flex-shrink-0"
+            style={{ backgroundColor: isSleeping ? tracker.color : `${tracker.color}22` }}
+          >
+            <span>{isSleeping ? '☀️' : '🌙'}</span>
+            <span style={{ color: isSleeping ? 'white' : tracker.color }}>
+              {saving ? '...' : isSleeping ? formatDuration(currentMs) : t('sleep.asleep')}
+            </span>
+          </button>
+        </div>
+      </Card>
+    )
   }
 
   return (

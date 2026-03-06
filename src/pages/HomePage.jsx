@@ -4,6 +4,7 @@ import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
 import { useChildren } from '../hooks/useChildren'
+import { useHomeEvents } from '../hooks/useHomeEvents'
 import { TRACKER_TYPES } from '../lib/constants'
 import { FeedingCard } from '../components/trackers/FeedingCard'
 import { VitaminDCard } from '../components/trackers/VitaminDCard'
@@ -11,6 +12,7 @@ import { DiaperCard } from '../components/trackers/DiaperCard'
 import { SleepCard } from '../components/trackers/SleepCard'
 import { CustomTrackerCard } from '../components/trackers/CustomTrackerCard'
 import { GrowthCard } from '../components/trackers/GrowthCard'
+import { HeroCard } from '../components/trackers/HeroCard'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { Spinner } from '../components/ui/Spinner'
 import { format, addDays, subDays, isSameDay } from 'date-fns'
@@ -26,37 +28,35 @@ export function HomePage() {
   const [childPickerOpen, setChildPickerOpen] = useState(false)
   const [viewDate, setViewDate] = useState(() => new Date())
   const [bellOpen, setBellOpen] = useState(false)
-  const [showDateNav, setShowDateNav] = useState(false)
+
+  const isToday = isSameDay(viewDate, new Date())
+  const activeChild = children.find(c => c.id === identity.activeChildId) ?? children[0] ?? null
+
+  const { eventsByTracker } = useHomeEvents(identity.familyId, viewDate, activeChild?.id ?? null)
+
+  const todayLabel = format(new Date(), 'EEEE, d בMMMM', { locale: he })
+  const dateLabel = isToday ? 'היום' : format(viewDate, 'd/M', { locale: he })
 
   function handleBellClick() {
     markNotificationsRead()
     setBellOpen(prev => !prev)
   }
 
-  const todayLabel = format(new Date(), 'EEEE, d בMMMM', { locale: he })
-  const isToday = isSameDay(viewDate, new Date())
-  const activeChild = children.find(c => c.id === identity.activeChildId) ?? children[0] ?? null
-
-  const dateLabel = isToday
-    ? 'היום'
-    : format(viewDate, 'EEEE, d בMMMM', { locale: he })
-
-  // Trackers that render as a compact single-row card (eligible for 2-col grid)
-  function isCompactTracker(tracker) {
+  // Trackers that render in 2-col grid when consecutive (custom + simple dose)
+  function isGridable(tracker) {
     return (
       tracker.tracker_type === TRACKER_TYPES.CUSTOM ||
       (tracker.tracker_type === TRACKER_TYPES.DOSE && tracker.config?.display_mode === 'simple')
     )
   }
 
-  // Group consecutive compact trackers into pairs for 2-col grid layout
   function groupTrackers(list) {
     const groups = []
     let i = 0
     while (i < list.length) {
       const current = list[i]
       const next = list[i + 1]
-      if (isCompactTracker(current) && next && isCompactTracker(next)) {
+      if (isGridable(current) && next && isGridable(next)) {
         groups.push({ type: 'pair', items: [current, next] })
         i += 2
       } else {
@@ -67,7 +67,7 @@ export function HomePage() {
     return groups
   }
 
-  function renderTracker(tracker, compact = false) {
+  function renderTracker(tracker, inGrid = false) {
     const props = {
       tracker,
       familyId: identity.familyId,
@@ -81,10 +81,10 @@ export function HomePage() {
       case TRACKER_TYPES.DIAPER:    return <DiaperCard key={tracker.id} {...props} />
       case TRACKER_TYPES.SLEEP:     return <SleepCard key={tracker.id} {...props} />
       case TRACKER_TYPES.DOSE:      return tracker.config?.display_mode === 'simple'
-                                      ? <CustomTrackerCard key={tracker.id} {...props} compact={compact} />
+                                      ? <CustomTrackerCard key={tracker.id} {...props} compact={inGrid} />
                                       : <VitaminDCard key={tracker.id} {...props} />
       case TRACKER_TYPES.GROWTH:    return <GrowthCard key={tracker.id} {...props} child={activeChild} />
-      default:                      return <CustomTrackerCard key={tracker.id} {...props} compact={compact} />
+      default:                      return <CustomTrackerCard key={tracker.id} {...props} compact={inGrid} />
     }
   }
 
@@ -166,7 +166,7 @@ export function HomePage() {
         </div>
       </div>
 
-      {/* Compact child + date bar */}
+      {/* Child + inline date nav bar */}
       <div className="flex items-center gap-2 bg-white rounded-2xl shadow-soft px-3 py-2.5 mb-4">
         {/* Child avatar + name */}
         {activeChild ? (
@@ -190,59 +190,41 @@ export function HomePage() {
           <div className="flex-1" />
         )}
 
-        {/* "Back to today" pill — only when browsing past */}
-        {!isToday && (
+        {/* Inline date navigation — always visible */}
+        <div className="flex items-center gap-1 flex-shrink-0">
           <button
-            onClick={() => { setViewDate(new Date()); setShowDateNav(false) }}
-            className="font-rubik text-xs text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full flex-shrink-0 active:scale-95 transition-transform"
-          >
-            ↩ היום
-          </button>
-        )}
-
-        {/* Calendar icon — tap to open mini date nav popover */}
-        <div className="relative flex-shrink-0">
+            onClick={() => setViewDate(d => subDays(d, 1))}
+            className="w-7 h-7 rounded-full bg-cream-100 text-brown-600 font-bold flex items-center justify-center active:scale-95 transition-transform text-lg leading-none"
+          >‹</button>
           <button
-            onClick={() => setShowDateNav(prev => !prev)}
+            onClick={() => !isToday && setViewDate(new Date())}
             className={cn(
-              'w-8 h-8 rounded-full flex items-center justify-center text-sm active:scale-95 transition-all',
-              !isToday ? 'bg-amber-100 text-amber-600' : 'bg-cream-100 text-brown-400'
+              'font-rubik font-medium text-sm px-2 py-0.5 rounded-full transition-colors min-w-[44px] text-center',
+              isToday ? 'text-brown-600' : 'text-amber-700 bg-amber-50'
             )}
-            title="ניווט תאריך"
           >
-            📅
+            {dateLabel}
           </button>
-
-          {showDateNav && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowDateNav(false)} />
-              <div className="absolute left-0 top-10 bg-white rounded-2xl shadow-lg px-3 py-2.5 z-50 flex items-center gap-2">
-                <button
-                  onClick={() => setViewDate(d => subDays(d, 1))}
-                  className="w-8 h-8 rounded-full bg-cream-100 text-brown-600 font-bold text-xl flex items-center justify-center active:scale-95 transition-transform"
-                >‹</button>
-                <span className="font-rubik font-medium text-brown-800 text-sm whitespace-nowrap min-w-[90px] text-center">
-                  {dateLabel}
-                </span>
-                <button
-                  onClick={() => setViewDate(d => addDays(d, 1))}
-                  disabled={isToday}
-                  className="w-8 h-8 rounded-full bg-cream-100 text-brown-600 font-bold text-xl flex items-center justify-center active:scale-95 transition-transform disabled:opacity-25"
-                >›</button>
-              </div>
-            </>
-          )}
+          <button
+            onClick={() => setViewDate(d => addDays(d, 1))}
+            disabled={isToday}
+            className="w-7 h-7 rounded-full bg-cream-100 text-brown-600 font-bold flex items-center justify-center active:scale-95 transition-transform text-lg leading-none disabled:opacity-25"
+          >›</button>
         </div>
       </div>
 
-      {/* Trackers */}
+      {/* Content */}
       {loading ? (
         <div className="flex justify-center py-12">
           <Spinner size="lg" />
         </div>
       ) : (
         <div className="space-y-3">
-          {groupTrackers(trackers).map((group, idx) =>
+          {/* Hero summary card */}
+          <HeroCard trackers={trackers} eventsByTracker={eventsByTracker} isToday={isToday} />
+
+          {/* Compact action cards */}
+          {groupTrackers(trackers).map((group) =>
             group.type === 'pair' ? (
               <div key={`pair-${group.items[0].id}`} className="grid grid-cols-2 gap-3">
                 {group.items.map(tr => renderTracker(tr, true))}

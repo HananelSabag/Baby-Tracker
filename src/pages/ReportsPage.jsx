@@ -98,8 +98,16 @@ export function ReportsPage() {
           break
         }
         case TRACKER_TYPES.GROWTH: {
-          // Most recent measurement this child has (all time, not just week)
-          map[tr.id] = { value: '⚖️', unit: 'לחץ לגרף גדילה' }
+          const lastGrowth = [...trEvents].sort((a, b) => new Date(b.occurred_at) - new Date(a.occurred_at))[0]
+          const lastW = lastGrowth?.data?.weight_kg
+          const lastH = lastGrowth?.data?.height_cm
+          if (lastW != null) {
+            map[tr.id] = { value: `${parseFloat(lastW)}`, unit: 'ק"ג השבוע' }
+          } else if (lastH != null) {
+            map[tr.id] = { value: `${parseFloat(lastH)}`, unit: 'ס"מ גובה השבוע' }
+          } else {
+            map[tr.id] = { value: '—', unit: 'הקש לגרף גדילה' }
+          }
           break
         }
         default:

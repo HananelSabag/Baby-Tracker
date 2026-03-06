@@ -6,7 +6,7 @@ import { BottomSheet } from '../ui/BottomSheet'
 import { AddDiaperForm } from '../forms/AddDiaperForm'
 import { Card } from '../ui/Card'
 
-export function DiaperCard({ tracker, familyId, memberId, childId, viewDate }) {
+export function DiaperCard({ tracker, familyId, memberId, childId, viewDate, compact = false }) {
   const { events, loading, addEvent } = useEvents(familyId, { trackerId: tracker.id, date: viewDate, childId })
   const [sheetOpen, setSheetOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -24,6 +24,31 @@ export function DiaperCard({ tracker, familyId, memberId, childId, viewDate }) {
     } finally {
       setSaving(false)
     }
+  }
+
+  if (compact) {
+    return (
+      <>
+        <Card compact className="cursor-pointer" onClick={() => setSheetOpen(true)}>
+          <div className="flex items-center gap-3">
+            <span className="text-xl flex-shrink-0">{tracker.icon}</span>
+            <div className="flex-1 min-w-0">
+              <p className="font-rubik font-semibold text-brown-800 text-sm">{tracker.name}</p>
+              <p className="font-rubik text-xs text-brown-400">
+                {lastEvent ? `${formatTime(lastEvent.occurred_at)} · ${events.length}×` : 'אין עדיין'}
+              </p>
+            </div>
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-soft flex-shrink-0"
+              style={{ backgroundColor: tracker.color }}
+            >+</div>
+          </div>
+        </Card>
+        <BottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} title={t('diaper.addChange')}>
+          <AddDiaperForm onSave={handleSave} onCancel={() => setSheetOpen(false)} loading={saving} />
+        </BottomSheet>
+      </>
+    )
   }
 
   return (

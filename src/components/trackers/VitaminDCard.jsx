@@ -7,7 +7,7 @@ import { cn } from '../../lib/utils'
 // Dose slot emojis: morning, noon, evening, night
 const DOSE_EMOJIS = ['☀️', '🌅', '🌙', '⭐']
 
-export function VitaminDCard({ tracker, familyId, memberId, childId, viewDate }) {
+export function VitaminDCard({ tracker, familyId, memberId, childId, viewDate, compact = false }) {
   const { events, addEvent } = useEvents(familyId, { trackerId: tracker.id, date: viewDate, childId })
   // pendingKeys: optimistic update — marks a dose as "done" instantly on tap,
   // before the DB round-trip + realtime update arrives. Prevents double-tapping.
@@ -49,6 +49,38 @@ export function VitaminDCard({ tracker, familyId, memberId, childId, viewDate })
   }
 
   const allDone = doses.every(d => givenKeys.has(d.key))
+
+  if (compact) {
+    return (
+      <Card compact>
+        <div className="flex items-center gap-3">
+          <span className="text-xl flex-shrink-0">{tracker.icon}</span>
+          <span className="font-rubik font-semibold text-brown-800 text-sm flex-1 truncate">{tracker.name}</span>
+          {allDone && <span className="text-xs font-rubik font-medium text-amber-600">✓</span>}
+          <div className="flex gap-1.5 flex-shrink-0">
+            {doses.map(dose => {
+              const done = givenKeys.has(dose.key)
+              const isPending = pendingKeys.has(dose.key) && !confirmedKeys.has(dose.key)
+              return (
+                <button
+                  key={dose.key}
+                  onClick={() => handleDose(dose.key, dose.label)}
+                  disabled={done}
+                  className={cn(
+                    'w-9 h-9 rounded-xl flex items-center justify-center text-base transition-all active:scale-95',
+                    done ? 'opacity-100' : 'opacity-40 hover:opacity-70',
+                  )}
+                  style={{ backgroundColor: done ? tracker.color : `${tracker.color}22` }}
+                >
+                  {isPending ? '⏳' : dose.emoji}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </Card>
+    )
+  }
 
   return (
     <Card>
