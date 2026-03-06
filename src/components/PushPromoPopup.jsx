@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { usePushNotifications, DEFAULT_PREFS } from '../hooks/usePushNotifications'
 
-const SEEN_KEY = 'bt_push_promo_seen'
+const UPDATE_KEY = 'bt_update_v2_seen'
 
 export function PushPromoPopup({ familyId, memberId }) {
   const [visible, setVisible] = useState(false)
@@ -10,20 +10,21 @@ export function PushPromoPopup({ familyId, memberId }) {
 
   const { supported, isSubscribed, subscribe } = usePushNotifications({ familyId, memberId })
 
-  useEffect(() => {
-    // Already seen, already subscribed, or not supported → skip
-    if (localStorage.getItem(SEEN_KEY) || isSubscribed || !supported) return
+  const canShowPush = supported && !isSubscribed
 
-    // Show after 2 seconds so the page settles
+  useEffect(() => {
+    if (localStorage.getItem(UPDATE_KEY)) return
+
     const t = setTimeout(() => {
       setVisible(true)
       requestAnimationFrame(() => requestAnimationFrame(() => setAnimIn(true)))
     }, 2000)
     return () => clearTimeout(t)
-  }, [isSubscribed, supported])
+  }, [])
 
   function dismiss() {
-    localStorage.setItem(SEEN_KEY, '1')
+    localStorage.setItem(UPDATE_KEY, '1')
+    localStorage.setItem('bt_push_promo_seen', '1')
     setAnimIn(false)
     setTimeout(() => setVisible(false), 350)
   }
@@ -62,47 +63,47 @@ export function PushPromoPopup({ familyId, memberId }) {
           <div className="w-10 h-1 bg-cream-300 rounded-full mx-auto mb-5" />
 
           {step === 'granted' ? (
-            /* Success state */
             <div className="text-center py-4">
               <div className="text-5xl mb-3">🎉</div>
-              <p className="font-rubik font-bold text-brown-800 text-xl">התראות הופעלו!</p>
+              <p className="font-rubik font-bold text-brown-800 text-xl">הכל מוכן!</p>
               <p className="font-rubik text-brown-500 text-sm mt-2 leading-relaxed">
-                תקבלו עדכונים על התינוק גם כשהאפליקציה סגורה
+                תראות הופעלו — תקבלו עדכונים גם כשהאפליקציה סגורה
               </p>
             </div>
           ) : step === 'denied' ? (
-            /* Denied state */
             <div className="text-center py-4">
               <div className="text-5xl mb-3">😕</div>
               <p className="font-rubik font-bold text-brown-800 text-lg">הרשאה נדחתה</p>
               <p className="font-rubik text-brown-500 text-sm mt-2 leading-relaxed">
-                תמיד אפשר להפעיל מאוחר יותר מעמוד הפרופיל
+                תמיד אפשר להפעיל מאוחר יותר ממרכז השליטה
               </p>
             </div>
           ) : (
-            /* Default promo state */
             <>
               {/* Icon + Title */}
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center flex-shrink-0 text-3xl shadow-soft">
-                  🔔
+                  ✨
                 </div>
                 <div>
                   <p className="font-rubik font-bold text-brown-800 text-lg leading-tight">
-                    חדש! התראות דפדפן אמיתיות
+                    BabyTracker התחדש!
                   </p>
                   <p className="font-rubik text-brown-400 text-xs mt-0.5">
-                    עדכונים חיים — גם כשהאפליקציה סגורה
+                    גרסה חדשה עם שיפורים גדולים
                   </p>
                 </div>
               </div>
 
-              {/* Feature pills */}
-              <div className="flex flex-col gap-2 mb-5">
+              {/* What's new */}
+              <div className="flex flex-col gap-2 mb-4">
                 {[
-                  { icon: '💊', text: 'תרופות וויטמינים — בשעות שקבעת לכל מינון' },
-                  { icon: '👶', text: 'חיתול — תזכורת אחרי כמה שעות שתרצה' },
-                  { icon: '📵', text: 'ללא הרשמה • ללא ספאם • ביטול בכל עת' },
+                  { icon: '📊', text: 'כרטיס סיכום יומי — כל מה שקרה היום במבט אחד' },
+                  { icon: '🎛️', text: 'מרכז שליטה — מעקבים, התראות והגדרות במקום אחד' },
+                  canShowPush
+                    ? { icon: '🔔', text: 'התראות חכמות — תזכורות גם כשהאפליקציה סגורה' }
+                    : { icon: '🔔', text: 'התראות חכמות — הגדר שעות לכל מינון וחיתול' },
+                  { icon: '🚀', text: 'ועוד עדכונים מגיעים בקרוב — נשארים עם BabyTracker!' },
                 ].map(({ icon, text }) => (
                   <div key={text} className="flex items-center gap-2.5 bg-cream-100 rounded-2xl px-3 py-2">
                     <span className="text-lg flex-shrink-0">{icon}</span>
@@ -111,10 +112,11 @@ export function PushPromoPopup({ familyId, memberId }) {
                 ))}
               </div>
 
-              {/* Disclaimer */}
-              <p className="font-rubik text-brown-400 text-xs text-center mb-4">
-                תמיד אפשר לבטל מעמוד הפרופיל
-              </p>
+              {canShowPush && (
+                <p className="font-rubik text-brown-400 text-xs text-center mb-4">
+                  תמיד אפשר לבטל ממרכז השליטה
+                </p>
+              )}
 
               {/* Buttons */}
               <div className="flex gap-3">
@@ -122,16 +124,18 @@ export function PushPromoPopup({ familyId, memberId }) {
                   onClick={dismiss}
                   className="flex-1 py-3 rounded-2xl bg-cream-100 font-rubik font-medium text-brown-600 text-sm active:scale-[0.98] transition-transform"
                 >
-                  אחר כך
+                  {canShowPush ? 'אחר כך' : '🙌 מגניב, תודה!'}
                 </button>
-                <button
-                  onClick={handleEnable}
-                  disabled={step === 'loading'}
-                  className="flex-[2] py-3 rounded-2xl font-rubik font-bold text-white text-sm active:scale-[0.98] transition-all disabled:opacity-70"
-                  style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}
-                >
-                  {step === 'loading' ? '⏳ מחכה לאישור...' : '🔔 הפעל התראות'}
-                </button>
+                {canShowPush && (
+                  <button
+                    onClick={handleEnable}
+                    disabled={step === 'loading'}
+                    className="flex-[2] py-3 rounded-2xl font-rubik font-bold text-white text-sm active:scale-[0.98] transition-all disabled:opacity-70"
+                    style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}
+                  >
+                    {step === 'loading' ? '⏳ מחכה לאישור...' : '🔔 הפעל התראות'}
+                  </button>
+                )}
               </div>
             </>
           )}
