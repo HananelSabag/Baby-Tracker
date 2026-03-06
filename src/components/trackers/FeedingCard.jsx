@@ -1,18 +1,36 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { isToday, isYesterday } from 'date-fns'
 import { t } from '../../lib/strings'
 import { formatTime, formatTimeAgo, formatMl } from '../../lib/utils'
 import { useEvents } from '../../hooks/useEvents'
 import { BottomSheet } from '../ui/BottomSheet'
 import { AddFeedingForm } from '../forms/AddFeedingForm'
 import { Card } from '../ui/Card'
+import { supabase } from '../../lib/supabase'
 
 export function FeedingCard({ tracker, familyId, memberId, childId, viewDate }) {
   const { events, loading, addEvent } = useEvents(familyId, { trackerId: tracker.id, date: viewDate, childId })
   const [sheetOpen, setSheetOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [lastEverEvent, setLastEverEvent] = useState(null)
+
+  // Fetch the most recent feeding ever (no date filter) — used as fallback when no feedings today
+  useEffect(() => {
+    if (!familyId || !tracker?.id) return
+    let query = supabase.from('events')
+      .select('*')
+      .eq('family_id', familyId)
+      .eq('tracker_id', tracker.id)
+      .order('occurred_at', { ascending: false })
+      .limit(1)
+    if (childId) query = query.or(`child_id.eq.${childId},child_id.is.null`)
+    query.then(({ data }) => setLastEverEvent(data?.[0] ?? null))
+  }, [familyId, tracker?.id, childId, events.length])
 
   const todayTotal = events.reduce((sum, e) => sum + (e.data?.amount_ml ?? 0), 0)
   const lastEvent = events[0]
+  // When viewing today and there are no feedings yet, fall back to the last feeding ever
+  const displayEvent = lastEvent ?? (isToday(viewDate) ? lastEverEvent : null)
 
   async function handleSave(data, occurredAt) {
     setSaving(true)
@@ -43,17 +61,24 @@ export function FeedingCard({ tracker, familyId, memberId, childId, viewDate }) 
 
         {/* Last feeding — primary info */}
         <div className="rounded-2xl px-4 py-3 mb-2" style={{ backgroundColor: `${tracker.color}18` }}>
-          {lastEvent ? (
+          {displayEvent ? (
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-brown-500 font-rubik mb-0.5">{t('home.lastFeeding')}</p>
-                <p className="font-rubik font-bold text-brown-800 text-2xl leading-tight">{formatTime(lastEvent.occurred_at)}</p>
-                <p className="text-xs text-brown-400 font-rubik mt-0.5">{formatTimeAgo(lastEvent.occurred_at)} {t('home.ago')}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-rubik font-bold text-brown-800 text-2xl leading-tight">{formatTime(displayEvent.occurred_at)}</p>
+                  {!isToday(new Date(displayEvent.occurred_at)) && (
+                    <span className="text-xs bg-amber-100 text-amber-700 font-rubik px-2 py-0.5 rounded-full">
+                      {isYesterday(new Date(displayEvent.occurred_at)) ? t('home.yesterday') : t('home.earlier')}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-brown-400 font-rubik mt-0.5">{formatTimeAgo(displayEvent.occurred_at)} {t('home.ago')}</p>
               </div>
-              {lastEvent.data?.amount_ml ? (
+              {displayEvent.data?.amount_ml ? (
                 <div className="text-center">
                   <p className="font-rubik font-bold text-3xl leading-tight" style={{ color: tracker.color }}>
-                    {lastEvent.data.amount_ml}
+                    {displayEvent.data.amount_ml}
                   </p>
                   <p className="text-xs text-brown-400 font-rubik">{t('feeding.ml')}</p>
                 </div>
