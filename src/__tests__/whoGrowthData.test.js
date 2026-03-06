@@ -61,22 +61,27 @@ describe('ageInMonths', () => {
 // getWeightPercentileLabel
 // ---------------------------------------------------------------------------
 describe('getWeightPercentileLabel', () => {
-  it('returns the "קרוב לממוצע" label when weight is near p50 for a 6-month boy', () => {
-    // At 6 months, boys p50 = 7.9 kg — 7.5 kg is between p15 (7.1) and p50 (7.9)
+  it('returns { percentile, desc } with "בתחום הנורמה" when weight is near p50 for a 6-month boy', () => {
+    // At 6 months, boys p15=7.1, p50=7.9 — 7.5 kg is ~33rd percentile → בתחום הנורמה
     const label = getWeightPercentileLabel(7.5, 6, 'male')
-    expect(label).toContain('קרוב לממוצע')
+    expect(label).not.toBeNull()
+    expect(label.desc).toBe('בתחום הנורמה')
+    expect(label.percentile).toBeGreaterThan(15)
+    expect(label.percentile).toBeLessThan(50)
   })
 
   it('returns the below-p3 label for very low weight', () => {
     // 1 kg at 6 months is clearly below p3 (6.4 kg for boys)
     const label = getWeightPercentileLabel(1, 6, 'male')
-    expect(label).toContain('מתחת לאחוזון 3')
+    expect(label).not.toBeNull()
+    expect(label.desc).toBe('מתחת לאחוזון 3')
   })
 
   it('returns the above-p97 label for very high weight', () => {
     // 20 kg at 6 months is clearly above p97 (9.8 kg for boys)
     const label = getWeightPercentileLabel(20, 6, 'male')
-    expect(label).toContain('מעל אחוזון 97')
+    expect(label).not.toBeNull()
+    expect(label.desc).toBe('מעל אחוזון 97')
   })
 
   it('returns null when age is out of the WHO table range', () => {
@@ -88,15 +93,19 @@ describe('getWeightPercentileLabel', () => {
 // getHeightPercentileLabel
 // ---------------------------------------------------------------------------
 describe('getHeightPercentileLabel', () => {
-  it('returns "מעל הממוצע" label for height between p50 and p97', () => {
-    // At 6 months, girls p50 = 65.7, p97 = 70.3 — 68 cm is between them
+  it('returns { percentile, desc } with "בתחום הנורמה" for height between p50 and p85', () => {
+    // At 6 months, girls p50=65.7, p97=70.3 — 68 cm is ~74th percentile → בתחום הנורמה
     const label = getHeightPercentileLabel(68, 6, 'female')
-    expect(label).toContain('מעל הממוצע')
+    expect(label).not.toBeNull()
+    expect(label.desc).toBe('בתחום הנורמה')
+    expect(label.percentile).toBeGreaterThan(50)
+    expect(label.percentile).toBeLessThan(85)
   })
 
   it('returns the below-p3 label for very short height', () => {
     // 40 cm at 6 months is clearly below p3 (61.2 for girls)
     const label = getHeightPercentileLabel(40, 6, 'female')
-    expect(label).toContain('מתחת לאחוזון 3')
+    expect(label).not.toBeNull()
+    expect(label.desc).toBe('מתחת לאחוזון 3')
   })
 })
