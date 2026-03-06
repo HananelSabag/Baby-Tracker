@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AppProvider, useApp } from './hooks/useAppContext'
 import { AppLayout } from './components/layout/AppLayout'
 import { FullPageSpinner } from './components/ui/Spinner'
@@ -7,13 +7,12 @@ import { SetupPage } from './pages/SetupPage'
 import { HomePage } from './pages/HomePage'
 import { HistoryPage } from './pages/HistoryPage'
 import { ReportsPage } from './pages/ReportsPage'
-import { TrackersPage } from './pages/TrackersPage'
+import { ControlCenterPage } from './pages/ControlCenterPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { AdminPage } from './pages/AdminPage'
 import { ADMIN_EMAIL } from './lib/constants'
 import { PushPromoPopup } from './components/PushPromoPopup'
 import { PrivacyPage } from './pages/PrivacyPage'
-import { NotificationsPage } from './pages/NotificationsPage'
 
 function AppRoutes() {
   const { user, identity, isAuthLoading, isSetupDone } = useApp()
@@ -39,9 +38,10 @@ function AppRoutes() {
         <Route path="/" element={<HomePage />} />
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/reports" element={<ReportsPage />} />
-        <Route path="/trackers" element={<TrackersPage />} />
+        <Route path="/trackers" element={<ControlCenterPage />} />
         <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/notifications" element={<NotificationsPage />} />
+        {/* Legacy redirect — old notifications route goes to Control Center notifications tab */}
+        <Route path="/notifications" element={<Navigate to="/trackers?tab=notifications" replace />} />
         {isAdmin && <Route path="/admin" element={<AdminPage />} />}
         {/* Fallback to home */}
         <Route path="*" element={<HomePage />} />

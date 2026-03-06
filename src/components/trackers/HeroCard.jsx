@@ -42,15 +42,21 @@ function TrackerChip({ tracker, events, now }) {
     const doseCount = tracker.config?.daily_doses ?? 2
     const given = new Set(events.map(e => String(e.data?.dose_index ?? e.data?.dose)))
     const allDone = given.size >= doseCount
+    const givenCount = given.size
+    const statusText = allDone ? 'ניתן ✓' : givenCount > 0 ? `${givenCount}/${doseCount} ניתן` : 'לא ניתן'
     label = (
-      <span className="flex items-center gap-0.5">
-        {Array.from({ length: doseCount }, (_, i) => (
-          <span key={i} className={cn('text-xs', given.has(String(i)) ? 'opacity-100' : 'opacity-20')}>
-            {DOSE_EMOJIS[i] ?? '💊'}
-          </span>
-        ))}
-        {allDone && <span className="font-rubik text-xs text-amber-600 font-semibold mr-0.5">✓</span>}
-      </span>
+      <div>
+        <span className="flex items-center gap-0.5">
+          {Array.from({ length: doseCount }, (_, i) => (
+            <span key={i} className={cn('text-xs', given.has(String(i)) ? 'opacity-100' : 'opacity-20')}>
+              {DOSE_EMOJIS[i] ?? '💊'}
+            </span>
+          ))}
+        </span>
+        <span className={cn('font-rubik text-xs leading-tight', allDone ? 'text-amber-600 font-semibold' : givenCount > 0 ? 'text-amber-500' : 'text-brown-300')}>
+          {statusText}
+        </span>
+      </div>
     )
   } else if (type === TRACKER_TYPES.DIAPER) {
     label = last

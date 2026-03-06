@@ -4,11 +4,13 @@ import { useToast } from '../../hooks/useToast'
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications'
 import { ToastContainer } from '../ui/Toast'
 import { LovePopup } from '../ui/LovePopup'
+import { SisterPopup } from '../ui/SisterPopup'
 import { BottomNav } from './BottomNav'
 import { STORAGE_KEYS } from '../../lib/constants'
 import { t } from '../../lib/strings'
 
 const WIFE_EMAIL = 'nofarromi1998@gmail.com'
+const SISTER_EMAIL = 'ortalhayuta@gmail.com'
 
 function getNotificationsEnabled() {
   const stored = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS)
@@ -38,6 +40,7 @@ export function AppLayout({ children }) {
   })
 
   const isWife = identity.email === WIFE_EMAIL
+  const isSister = identity.email === SISTER_EMAIL
 
   return (
     <div className="min-h-screen bg-cream-100 flex justify-center">
@@ -45,6 +48,12 @@ export function AppLayout({ children }) {
         <ToastContainer toasts={toasts} onDismiss={dismissToast} />
         {isWife && (
           <LovePopup
+            avatarUrl={identity.memberAvatarUrl ?? identity.googleAvatarUrl}
+            name={identity.memberName}
+          />
+        )}
+        {isSister && (
+          <SisterPopup
             avatarUrl={identity.memberAvatarUrl ?? identity.googleAvatarUrl}
             name={identity.memberName}
           />
