@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { AppProvider, useApp } from './hooks/useAppContext'
 import { AppLayout } from './components/layout/AppLayout'
 import { FullPageSpinner } from './components/ui/Spinner'
@@ -16,12 +16,13 @@ import { PrivacyPage } from './pages/PrivacyPage'
 
 function AppRoutes() {
   const { user, identity, isAuthLoading, isSetupDone } = useApp()
+  const location = useLocation()
 
   // Show spinner while resolving auth session (handles refresh token recovery too)
   if (isAuthLoading) return <FullPageSpinner />
 
   // Privacy page is public — accessible without login
-  if (window.location.pathname === '/privacy') return <PrivacyPage />
+  if (location.pathname === '/privacy') return <PrivacyPage />
 
   // Not logged in → sign-in page
   if (!user) return <AuthPage />
