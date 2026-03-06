@@ -14,7 +14,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { ToastContainer } from '../components/ui/Toast'
 import { useToast } from '../hooks/useToast'
 import { cn } from '../lib/utils'
-import { PushNotificationSettings } from '../components/PushNotificationSettings'
+import { usePushNotifications } from '../hooks/usePushNotifications'
 
 export function ProfilePage() {
   const { identity, user, signOut, saveIdentity, setMemberAvatarUrl } = useApp()
@@ -397,8 +397,8 @@ export function ProfilePage() {
         </div>
       </Card>
 
-      {/* Push Notifications */}
-      <PushNotificationSettings familyId={identity.familyId} memberId={identity.memberId} />
+      {/* Notifications center link */}
+      <NotificationsCenterCard familyId={identity.familyId} memberId={identity.memberId} onNavigate={() => navigate('/notifications')} />
 
       {/* Notifications + sign out */}
       <div className="bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center justify-between">
@@ -478,6 +478,64 @@ export function ProfilePage() {
           onSave={data => handleChildSave(data, true)}
         />
       )}
+    </div>
+  )
+}
+
+// ─── Notifications Center Card ───────────────────────────────────────────────
+
+function NotificationsCenterCard({ familyId, memberId, onNavigate }) {
+  const { supported, isSubscribed, loading, subscribe, unsubscribe } = usePushNotifications({ familyId, memberId })
+
+  if (!supported) {
+    return (
+      <div className="bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center gap-3">
+        <span className="text-xl">🔕</span>
+        <p className="font-rubik text-brown-400 text-xs flex-1">
+          התראות Push לא נתמכות בדפדפן זה
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-white rounded-2xl shadow-soft px-4 py-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-xl">🔔</span>
+          <div>
+            <p className="font-rubik font-semibold text-brown-800 text-sm">התראות Push</p>
+            <p className="font-rubik text-brown-400 text-xs mt-0.5">
+              {isSubscribed ? 'פועל' : 'כבוי'}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {isSubscribed ? (
+            <button
+              onClick={unsubscribe}
+              disabled={loading}
+              className="text-xs font-rubik text-red-400 bg-red-50 px-3 py-1.5 rounded-full active:scale-95 transition-transform disabled:opacity-40"
+            >
+              {loading ? '...' : 'כבה'}
+            </button>
+          ) : (
+            <button
+              onClick={() => subscribe()}
+              disabled={loading}
+              className="text-xs font-rubik text-white bg-green-500 px-3 py-1.5 rounded-full active:scale-95 transition-transform disabled:opacity-40"
+            >
+              {loading ? '...' : 'הפעל'}
+            </button>
+          )}
+          <button
+            onClick={onNavigate}
+            className="text-xs font-rubik text-brown-600 bg-cream-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
+          >
+            הגדר ←
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

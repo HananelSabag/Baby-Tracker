@@ -13,6 +13,7 @@ import { AdminPage } from './pages/AdminPage'
 import { ADMIN_EMAIL } from './lib/constants'
 import { PushPromoPopup } from './components/PushPromoPopup'
 import { PrivacyPage } from './pages/PrivacyPage'
+import { NotificationsPage } from './pages/NotificationsPage'
 
 function AppRoutes() {
   const { user, identity, isAuthLoading, isSetupDone } = useApp()
@@ -40,6 +41,7 @@ function AppRoutes() {
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/trackers" element={<TrackersPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
         {isAdmin && <Route path="/admin" element={<AdminPage />} />}
         {/* Fallback to home */}
         <Route path="*" element={<HomePage />} />
