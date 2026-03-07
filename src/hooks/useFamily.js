@@ -93,21 +93,24 @@ export async function createFamily({ familyName, role, customRole, authUserId, a
   return { family, member }
 }
 
-// Join an existing family by code
-export async function joinFamily({ code, role, customRole, authUserId, avatarUrl }) {
-  const displayName = role === 'אחר' ? (customRole || 'אחר') : role
+// Look up a family by invite code — bypasses RLS via SECURITY DEFINER function.
+// Returns { family_id, family_name, family_code, taken_roles } or null.
+export async function lookupFamilyByCode(code) {
+  const { data, error } = await supabase
+    .rpc('lookup_family_for_join', { p_code: code.toUpperCase() })
+  if (error) throw error
+  if (!data || data.length === 0) return null
+  return data[0]
+}
 
-  const { data: family, error: familyErr } = await supabase
-    .from('families')
-    .select()
-    .eq('code', code.toUpperCase())
-    .single()
-  if (familyErr || !family) throw new Error('family_not_found')
+// Join an existing family by code — familyId already resolved via lookupFamilyByCode
+export async function joinFamily({ familyId, familyCode, role, customRole, authUserId, avatarUrl }) {
+  const displayName = role === 'אחר' ? (customRole || 'אחר') : role
 
   const { data: member, error: memberErr } = await supabase
     .from('family_members')
     .insert({
-      family_id: family.id,
+      family_id: familyId,
       display_name: displayName,
       role: displayName,
       auth_user_id: authUserId,
@@ -121,7 +124,7 @@ export async function joinFamily({ code, role, customRole, authUserId, avatarUrl
     throw memberErr
   }
 
-  return { family, member }
+  return { family: { id: familyId, code: familyCode }, member }
 }
 
 // Update member profile (role display_name, avatar_url)
