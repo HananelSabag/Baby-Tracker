@@ -4,6 +4,7 @@ import {
   generateDeviceToken,
   formatMl,
   formatDateLabel,
+  formatTime,
   groupEventsByDay,
   cn,
 } from '../lib/utils'
@@ -48,6 +49,27 @@ describe('generateDeviceToken', () => {
     // format: dt_<timestamp>_<random>
     expect(parts).toHaveLength(3)
     expect(Number(parts[1])).toBeGreaterThan(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// formatTime
+// ---------------------------------------------------------------------------
+describe('formatTime', () => {
+  it('returns a string in HH:mm format', () => {
+    // We test the shape, not the exact value, because HH:mm depends on local timezone
+    const result = formatTime(new Date())
+    expect(result).toMatch(/^\d{2}:\d{2}$/)
+  })
+
+  it('pads single-digit hours and minutes with a leading zero', () => {
+    // 2024-06-17T01:05:00Z → "01:05" in UTC (or adjusted by TZ, but always padded)
+    const result = formatTime(new Date('2024-06-17T01:05:00Z'))
+    expect(result).toMatch(/^\d{2}:\d{2}$/)
+    // Both parts must be exactly 2 digits
+    const [h, m] = result.split(':')
+    expect(h).toHaveLength(2)
+    expect(m).toHaveLength(2)
   })
 })
 
@@ -101,6 +123,16 @@ describe('formatDateLabel', () => {
     // One day before frozen clock → should return "אתמול"
     const label = formatDateLabel(new Date('2024-06-16T15:00:00.000Z'))
     expect(label).toBe('אתמול')
+  })
+
+  it('returns a Hebrew day+date string for older dates (not today or yesterday)', () => {
+    // 10 days before frozen clock → should NOT be "היום" or "אתמול"
+    const label = formatDateLabel(new Date('2024-06-07T10:00:00.000Z'))
+    expect(label).not.toBe('היום')
+    expect(label).not.toBe('אתמול')
+    // Should contain a digit (the day-of-month) and a Hebrew month name
+    expect(label).toMatch(/\d/)
+    expect(label).toMatch(/ב/)
   })
 })
 

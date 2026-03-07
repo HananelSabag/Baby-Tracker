@@ -72,10 +72,15 @@ export function usePushNotifications({ familyId, memberId }) {
       if (perm !== 'granted') return perm
 
       const reg = await navigator.serviceWorker.ready
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-      })
+      let sub
+      try {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        })
+      } catch {
+        return 'error'
+      }
 
       const json = sub.toJSON()
       await supabase.from('push_subscriptions').upsert({

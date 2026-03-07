@@ -8,9 +8,9 @@ export function PushPromoPopup({ familyId, memberId }) {
   const [animIn, setAnimIn]   = useState(false)
   const [step, setStep]       = useState('idle') // 'idle' | 'loading' | 'granted' | 'denied'
 
-  const { supported, isSubscribed, subscribe } = usePushNotifications({ familyId, memberId })
+  const { supported, permission, isSubscribed, subscribe } = usePushNotifications({ familyId, memberId })
 
-  const canShowPush = supported && !isSubscribed
+  const canShowPush = supported && !isSubscribed && permission !== 'denied'
 
   useEffect(() => {
     if (localStorage.getItem(UPDATE_KEY)) return
@@ -24,7 +24,6 @@ export function PushPromoPopup({ familyId, memberId }) {
 
   function dismiss() {
     localStorage.setItem(UPDATE_KEY, '1')
-    localStorage.setItem('bt_push_promo_seen', '1')
     setAnimIn(false)
     setTimeout(() => setVisible(false), 350)
   }
