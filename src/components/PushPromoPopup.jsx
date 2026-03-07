@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { usePushNotifications, DEFAULT_PREFS } from '../hooks/usePushNotifications'
 
-const UPDATE_KEY = 'bt_update_v2_seen'
+const UPDATE_KEY = 'bt_update_v3_seen'
 
 export function PushPromoPopup({ familyId, memberId }) {
   const [visible, setVisible] = useState(false)
@@ -98,12 +98,12 @@ export function PushPromoPopup({ familyId, memberId }) {
               {/* What's new */}
               <div className="flex flex-col gap-2 mb-4">
                 {[
+                  { icon: '🔗', text: 'תוקן — הצטרפות למשפחה קיימת עובדת עכשיו בצורה חלקה' },
                   { icon: '📊', text: 'כרטיס סיכום יומי — כל מה שקרה היום במבט אחד' },
                   { icon: '🎛️', text: 'מרכז שליטה — מעקבים, התראות והגדרות במקום אחד' },
                   canShowPush
                     ? { icon: '🔔', text: 'התראות חכמות — תזכורות גם כשהאפליקציה סגורה' }
                     : { icon: '🔔', text: 'התראות חכמות — הגדר שעות לכל מינון וחיתול' },
-                  { icon: '🚀', text: 'ועוד עדכונים מגיעים בקרוב — נשארים עם BabyTracker!' },
                 ].map(({ icon, text }) => (
                   <div key={text} className="flex items-center gap-2.5 bg-cream-100 rounded-2xl px-3 py-2">
                     <span className="text-lg flex-shrink-0">{icon}</span>

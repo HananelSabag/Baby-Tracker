@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { t } from '../lib/strings'
 import { ROLES, PARENT_ROLES } from '../lib/constants'
-import { createFamily, joinFamily } from '../hooks/useFamily'
+import { createFamily, joinFamily, lookupFamilyByCode } from '../hooks/useFamily'
 import { addChild } from '../hooks/useChildren'
 import { useApp } from '../hooks/useAppContext'
 import { Button } from '../components/ui/Button'
@@ -10,76 +10,108 @@ import { supabase } from '../lib/supabase'
 import { useToast } from '../hooks/useToast'
 import { ToastContainer } from '../components/ui/Toast'
 
-const STEPS = { CHOOSE: 'choose', ROLE: 'role', ROLE_AND_NAME: 'role_and_name', CODE: 'code', CHILD: 'child', DONE: 'done' }
+// Join path:   CHOOSE → CODE_JOIN → ROLE_JOIN  (then handleJoin)
+// Create path: CHOOSE → ROLE_AND_NAME → CHILD → DONE
+const STEPS = {
+  CHOOSE:       'choose',
+  CODE_JOIN:    'code_join',
+  ROLE_JOIN:    'role_join',
+  ROLE_AND_NAME:'role_and_name',
+  CHILD:        'child',
+  DONE:         'done',
+}
 
 export function SetupPage() {
   const { user, onFamilyJoined } = useApp()
   const { toasts, showToast, dismissToast } = useToast()
-  const [codeCopied, setCodeCopied] = useState(false)
-  const [step, setStep] = useState(STEPS.CHOOSE)
-  const [action, setAction] = useState(null)
-  const [role, setRole] = useState('')
-  const [customRole, setCustomRole] = useState('')
-  const [familyName, setFamilyName] = useState('')
-  const [code, setCode] = useState('')
-  const [createdCode, setCreatedCode] = useState('')
-  // Pending data — filled after CHILD step, used in DONE step button
-  const [pendingFamily, setPendingFamily] = useState(null)
-  const [pendingMember, setPendingMember] = useState(null)
+  const [codeCopied, setCodeCopied]     = useState(false)
+  const [step, setStep]                 = useState(STEPS.CHOOSE)
+  const [action, setAction]             = useState(null)
+  const [role, setRole]                 = useState('')
+  const [customRole, setCustomRole]     = useState('')
+  const [familyName, setFamilyName]     = useState('')
+  const [code, setCode]                 = useState('')
+  const [createdCode, setCreatedCode]   = useState('')
+  const [foundFamily, setFoundFamily]   = useState(null)   // from lookupFamilyByCode
+  const [codeValidating, setCodeValidating] = useState(false)
+
+  // Pending data — filled after CHILD step, used in DONE step
+  const [pendingFamily, setPendingFamily]   = useState(null)
+  const [pendingMember, setPendingMember]   = useState(null)
   const [pendingChildId, setPendingChildId] = useState(null)
-  const [childName, setChildName] = useState('')
-  const [childAvatar, setChildAvatar] = useState(null)
+  const [childName, setChildName]           = useState('')
+  const [childAvatar, setChildAvatar]       = useState(null)
   const [childAvatarFile, setChildAvatarFile] = useState(null)
   const [childBirthDate, setChildBirthDate] = useState('')
-  const [childGender, setChildGender] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [childGender, setChildGender]       = useState('')
+  const [error, setError]                   = useState('')
+  const [loading, setLoading]               = useState(false)
   const fileRef = useRef(null)
 
-  const avatarUrl = user?.user_metadata?.avatar_url ?? null
+  const avatarUrl  = user?.user_metadata?.avatar_url ?? null
   const googleName = user?.user_metadata?.full_name ?? ''
 
+  // Roles already taken by existing family members (for join path)
+  const takenRoles = foundFamily?.taken_roles ?? []
+  // A parent role is selectable only if not already taken
+  function isRoleDisabled(roleValue) {
+    return PARENT_ROLES.includes(roleValue) && takenRoles.includes(roleValue)
+  }
+
+  // ── Navigation ─────────────────────────────────────────────────────────────
   function goBack() {
     setError('')
-    if (step === STEPS.ROLE) setStep(STEPS.CHOOSE)
-    else if (step === STEPS.ROLE_AND_NAME) setStep(STEPS.CHOOSE)
-    else if (step === STEPS.CODE) setStep(STEPS.ROLE)
-    else if (step === STEPS.CHILD) setStep(STEPS.ROLE_AND_NAME)
+    if      (step === STEPS.ROLE_AND_NAME) { setStep(STEPS.CHOOSE) }
+    else if (step === STEPS.CODE_JOIN)     { setStep(STEPS.CHOOSE) }
+    else if (step === STEPS.ROLE_JOIN)     { setRole(''); setStep(STEPS.CODE_JOIN) }
+    else if (step === STEPS.CHILD)         { setStep(STEPS.ROLE_AND_NAME) }
   }
 
   function handleChoose(act) {
     setAction(act)
-    setStep(act === 'create' ? STEPS.ROLE_AND_NAME : STEPS.ROLE)
-  }
-
-  // Join path: role only → CODE
-  function handleRoleContinue() {
-    if (!role) { setError(t('setup.roleRequired')); return }
+    setRole('')
     setError('')
-    setStep(STEPS.CODE)
+    setStep(act === 'create' ? STEPS.ROLE_AND_NAME : STEPS.CODE_JOIN)
   }
 
-  // Create path: role + family name → CHILD
-  function handleRoleAndNameContinue() {
-    if (!role) { setError(t('setup.roleRequired')); return }
-    if (!familyName.trim()) { setError(t('setup.nameRequired')); return }
-    setError('')
-    setStep(STEPS.CHILD)
-  }
-
-  async function handleJoin() {
+  // ── Join path: step 1 — enter code ────────────────────────────────────────
+  async function handleCodeContinue() {
     if (code.length !== 6) { setError(t('setup.codeError')); return }
+    setCodeValidating(true)
+    setError('')
+    try {
+      const result = await lookupFamilyByCode(code)
+      if (!result) { setError(t('setup.codeError')); return }
+      setFoundFamily(result)
+      setRole('')
+      setStep(STEPS.ROLE_JOIN)
+    } catch {
+      setError(t('setup.codeError'))
+    } finally {
+      setCodeValidating(false)
+    }
+  }
+
+  // ── Join path: step 2 — pick role then join ────────────────────────────────
+  async function handleJoin() {
+    if (!role) { setError(t('setup.roleRequired')); return }
+    if (isRoleDisabled(role)) { setError(t('errors.roleTaken')); return }
     setLoading(true)
     setError('')
     try {
-      const { family, member } = await joinFamily({ code, role, customRole, authUserId: user.id, avatarUrl })
-      // Auto-select first child if family already has one
+      const { family, member } = await joinFamily({
+        familyId:   foundFamily.family_id,
+        familyCode: foundFamily.family_code,
+        role,
+        customRole,
+        authUserId: user.id,
+        avatarUrl,
+      })
       const { data: existingChildren } = await supabase
         .from('children').select('id').eq('family_id', family.id)
         .order('created_at', { ascending: true }).limit(1)
       const childId = existingChildren?.[0]?.id ?? null
       onFamilyJoined({ family, member, childId })
-      // isSetupDone → true → App navigates to HomePage automatically
     } catch (err) {
       if (err.message === 'family_full') setError(t('errors.familyFull'))
       else if (err.message === 'role_taken') setError(t('errors.roleTaken'))
@@ -89,6 +121,15 @@ export function SetupPage() {
     }
   }
 
+  // ── Create path: role + family name → CHILD ────────────────────────────────
+  function handleRoleAndNameContinue() {
+    if (!role) { setError(t('setup.roleRequired')); return }
+    if (!familyName.trim()) { setError(t('setup.nameRequired')); return }
+    setError('')
+    setStep(STEPS.CHILD)
+  }
+
+  // ── Create path: avatar file picker ────────────────────────────────────────
   function handleAvatarChange(e) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -98,58 +139,40 @@ export function SetupPage() {
     reader.readAsDataURL(file)
   }
 
-  // Create family + member + child all at once — deferred from FAMILY_NAME step
+  // ── Create path: create family + child → DONE ──────────────────────────────
   async function handleChildSave() {
-    // Default to "תינוקי שלי" if name is empty — no friction, can rename from profile
     const finalChildName = childName.trim() || 'תינוקי שלי'
     setLoading(true)
     setError('')
     try {
-      // Step 1: upload child avatar
       let uploadedUrl = null
       if (childAvatarFile) {
-        const ext = childAvatarFile.name.split('.').pop()
+        const ext  = childAvatarFile.name.split('.').pop()
         const path = `children/${Date.now()}.${ext}`
         const { error: uploadErr } = await supabase.storage.from('avatars').upload(path, childAvatarFile)
-        if (uploadErr) {
-          console.error('[Setup] avatar upload error:', uploadErr)
-          setError(`שגיאת העלאת תמונה: ${uploadErr.message}`)
-          setLoading(false)
-          return
-        }
+        if (uploadErr) { setError(`שגיאת העלאת תמונה: ${uploadErr.message}`); setLoading(false); return }
         const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
         uploadedUrl = urlData.publicUrl
       }
 
-      // Step 2: create family + member
       let family, member
       try {
-        ;({ family, member } = await createFamily({
-          familyName: familyName.trim(),
-          role,
-          customRole,
-          authUserId: user.id,
-          avatarUrl,
-        }))
+        ;({ family, member } = await createFamily({ familyName: familyName.trim(), role, customRole, authUserId: user.id, avatarUrl }))
       } catch (e) {
-        console.error('[Setup] createFamily error:', e)
         setError(`שגיאת יצירת משפחה: ${e?.message ?? JSON.stringify(e)}`)
         setLoading(false)
         return
       }
 
-      // Step 3: add child
       let child
       try {
         child = await addChild({ familyId: family.id, name: finalChildName, avatarUrl: uploadedUrl, birthDate: childBirthDate || null, gender: childGender || null })
       } catch (e) {
-        console.error('[Setup] addChild error:', e)
         setError(`שגיאת הוספת ילד: ${e?.message ?? JSON.stringify(e)}`)
         setLoading(false)
         return
       }
 
-      // Store for DONE step — don't call onFamilyJoined yet so DONE step stays visible
       setCreatedCode(family.code)
       setPendingFamily(family)
       setPendingMember(member)
@@ -157,7 +180,6 @@ export function SetupPage() {
       showToast({ message: t('setup.childAdded', { name: finalChildName }), emoji: '👶' })
       setStep(STEPS.DONE)
     } catch (e) {
-      console.error('[Setup] unexpected error:', e)
       setError(`שגיאה לא צפויה: ${e?.message ?? JSON.stringify(e)}`)
     } finally {
       setLoading(false)
@@ -166,12 +188,11 @@ export function SetupPage() {
 
   const showBack = step !== STEPS.CHOOSE && step !== STEPS.DONE
 
-  // Step progress dots: which step index + total for current path
   function getStepProgress() {
     if (step === STEPS.CHOOSE || step === STEPS.DONE) return null
     const steps = action === 'create'
       ? [STEPS.ROLE_AND_NAME, STEPS.CHILD]
-      : [STEPS.ROLE, STEPS.CODE]
+      : [STEPS.CODE_JOIN, STEPS.ROLE_JOIN]
     const idx = steps.indexOf(step)
     if (idx === -1) return null
     return { current: idx, total: steps.length }
@@ -193,7 +214,7 @@ export function SetupPage() {
           </button>
         )}
 
-        {/* User greeting — always shown when we know the name */}
+        {/* User greeting */}
         {googleName && (
           <div className="flex items-center gap-3 mb-6">
             {avatarUrl
@@ -220,7 +241,7 @@ export function SetupPage() {
           </div>
         )}
 
-        {/* Step: Choose create or join */}
+        {/* ── CHOOSE ─────────────────────────────────────────────────────────── */}
         {step === STEPS.CHOOSE && (
           <div className="flex-1 flex flex-col justify-center space-y-4">
             <div className="text-center mb-6">
@@ -229,7 +250,6 @@ export function SetupPage() {
               <p className="font-rubik text-brown-400 text-sm mt-1">{t('setup.welcomeSubtitle')}</p>
             </div>
 
-            {/* Create family card */}
             <button
               onClick={() => handleChoose('create')}
               className="w-full rounded-3xl bg-white shadow-card overflow-hidden active:scale-[0.98] transition-transform text-right"
@@ -245,7 +265,6 @@ export function SetupPage() {
               </div>
             </button>
 
-            {/* Join family card */}
             <button
               onClick={() => handleChoose('join')}
               className="w-full rounded-3xl bg-white shadow-soft overflow-hidden active:scale-[0.98] transition-transform text-right"
@@ -270,24 +289,78 @@ export function SetupPage() {
           </div>
         )}
 
-        {/* Step: Choose role (join path only) */}
-        {step === STEPS.ROLE && (
+        {/* ── CODE_JOIN — enter code first ────────────────────────────────────── */}
+        {step === STEPS.CODE_JOIN && (
+          <div className="flex-1 flex flex-col justify-center space-y-5">
+            <div className="text-center">
+              <div className="text-4xl mb-2">🔗</div>
+              <h2 className="font-rubik font-bold text-xl text-brown-800">{t('setup.enterCodeTitle')}</h2>
+            </div>
+
+            {/* How-to instruction card */}
+            <div className="bg-white rounded-2xl shadow-soft px-4 py-4 flex gap-3">
+              <span className="text-2xl flex-shrink-0 mt-0.5">💡</span>
+              <p className="font-rubik text-brown-500 text-sm leading-relaxed">{t('setup.enterCodeHint')}</p>
+            </div>
+
+            {/* Code input */}
+            <input
+              type="text"
+              maxLength={6}
+              value={code}
+              onChange={e => { setCode(e.target.value.toUpperCase()); setError('') }}
+              placeholder={t('setup.codePlaceholder')}
+              className="w-full bg-white text-center text-3xl font-bold font-rubik tracking-[0.5em] rounded-2xl py-5 shadow-soft outline-none text-brown-800 uppercase focus:ring-2 focus:ring-amber-400"
+              autoFocus
+            />
+
+            {error && <p className="text-red-500 text-sm text-center font-rubik">{error}</p>}
+
+            <Button className="w-full" size="lg" onClick={handleCodeContinue} disabled={codeValidating || code.length !== 6}>
+              {codeValidating ? t('setup.codeValidating') : t('setup.continue')}
+            </Button>
+          </div>
+        )}
+
+        {/* ── ROLE_JOIN — pick role after code validated ───────────────────────── */}
+        {step === STEPS.ROLE_JOIN && (
           <div className="flex-1 flex flex-col justify-center space-y-3">
-            <h2 className="font-rubik font-bold text-xl text-brown-800 text-center mb-2">{t('setup.chooseRole')}</h2>
-            {ROLES.map(r => (
-              <button
-                key={r.value}
-                onClick={() => { setRole(r.value); setError('') }}
-                className={cn(
-                  'w-full flex items-center gap-4 py-4 px-5 rounded-2xl font-rubik font-medium text-lg transition-all active:scale-95',
-                  role === r.value ? 'bg-amber-500 text-white shadow-soft' : 'bg-white shadow-card text-brown-800'
-                )}
-              >
-                <span className="text-2xl">{r.emoji}</span>
-                <span className="flex-1 text-right">{r.label}</span>
-                {role === r.value && <span className="text-white font-bold text-xl">✓</span>}
-              </button>
-            ))}
+            <div className="text-center mb-1">
+              <h2 className="font-rubik font-bold text-xl text-brown-800">{t('setup.chooseRole')}</h2>
+              {foundFamily && (
+                <p className="font-rubik text-brown-400 text-sm mt-1">
+                  {t('setup.chooseRoleSubtitle', { name: foundFamily.family_name })}
+                </p>
+              )}
+            </div>
+
+            {ROLES.map(r => {
+              const disabled = isRoleDisabled(r.value)
+              const selected = role === r.value
+              return (
+                <button
+                  key={r.value}
+                  onClick={() => { if (!disabled) { setRole(r.value); setError('') } }}
+                  disabled={disabled}
+                  className={cn(
+                    'w-full flex items-center gap-4 py-4 px-5 rounded-2xl font-rubik font-medium text-lg transition-all active:scale-95',
+                    disabled  ? 'bg-cream-200 text-brown-300 cursor-not-allowed opacity-60' :
+                    selected  ? 'bg-amber-500 text-white shadow-soft' :
+                                'bg-white shadow-card text-brown-800'
+                  )}
+                >
+                  <span className="text-2xl">{r.emoji}</span>
+                  <span className="flex-1 text-right">{r.label}</span>
+                  {disabled && (
+                    <span className="text-xs font-rubik font-semibold bg-brown-200 text-brown-500 px-2 py-0.5 rounded-full">
+                      {t('setup.roleTakenBadge')}
+                    </span>
+                  )}
+                  {selected && !disabled && <span className="text-white font-bold text-xl">✓</span>}
+                </button>
+              )
+            })}
+
             {role === 'אחר' && (
               <input
                 type="text"
@@ -298,17 +371,18 @@ export function SetupPage() {
                 autoFocus
               />
             )}
+
             {error && <p className="text-red-500 text-sm text-center font-rubik">{error}</p>}
-            <Button className="w-full mt-2" size="lg" onClick={handleRoleContinue}>
-              {t('setup.continue')}
+
+            <Button className="w-full mt-2" size="lg" onClick={handleJoin} disabled={loading || !role}>
+              {loading ? t('app.loading') : t('setup.join')}
             </Button>
           </div>
         )}
 
-        {/* Step: Role + Family name combined (create path) */}
+        {/* ── ROLE_AND_NAME — create path ─────────────────────────────────────── */}
         {step === STEPS.ROLE_AND_NAME && (
           <div className="flex-1 flex flex-col justify-center space-y-4">
-            {/* Role section */}
             <div>
               <h2 className="font-rubik font-bold text-xl text-brown-800 text-center mb-3">{t('setup.chooseRole')}</h2>
               <div className="space-y-2">
@@ -326,22 +400,11 @@ export function SetupPage() {
                     {role === r.value && <span className="text-white font-bold text-xl">✓</span>}
                   </button>
                 ))}
-                {role === 'אחר' && (
-                  <input
-                    type="text"
-                    value={customRole}
-                    onChange={e => setCustomRole(e.target.value)}
-                    placeholder={t('setup.customRolePlaceholder')}
-                    className="w-full bg-cream-200 rounded-2xl px-4 py-3 font-rubik text-brown-800 outline-none"
-                  />
-                )}
               </div>
             </div>
 
-            {/* Divider */}
             <div className="border-t border-cream-300" />
 
-            {/* Family name section */}
             <div>
               <h2 className="font-rubik font-bold text-lg text-brown-800 text-center mb-2">{t('setup.familyName')}</h2>
               <input
@@ -360,27 +423,7 @@ export function SetupPage() {
           </div>
         )}
 
-        {/* Step: Enter code (join) */}
-        {step === STEPS.CODE && (
-          <div className="flex-1 flex flex-col justify-center space-y-4">
-            <h2 className="font-rubik font-bold text-xl text-brown-800 text-center mb-2">{t('setup.enterCode')}</h2>
-            <input
-              type="text"
-              maxLength={6}
-              value={code}
-              onChange={e => { setCode(e.target.value.toUpperCase()); setError('') }}
-              placeholder={t('setup.codePlaceholder')}
-              className="w-full bg-white text-center text-3xl font-bold font-rubik tracking-[0.5em] rounded-2xl py-5 shadow-soft outline-none text-brown-800 uppercase focus:ring-2 focus:ring-amber-400"
-              autoFocus
-            />
-            {error && <p className="text-red-500 text-sm text-center font-rubik">{error}</p>}
-            <Button className="w-full" size="lg" onClick={handleJoin} disabled={loading}>
-              {loading ? t('app.loading') : t('setup.join')}
-            </Button>
-          </div>
-        )}
-
-        {/* Step: Add first child */}
+        {/* ── CHILD — create path ──────────────────────────────────────────────── */}
         {step === STEPS.CHILD && (
           <div className="flex-1 flex flex-col justify-center space-y-5">
             <div className="text-center">
@@ -415,7 +458,6 @@ export function SetupPage() {
               autoFocus
             />
 
-            {/* Newborn quick-nickname chips */}
             <div>
               <p className="text-xs text-brown-400 font-rubik text-center mb-2">{t('setup.newbornSection')}</p>
               <div className="flex flex-wrap gap-2 justify-center">
@@ -425,9 +467,7 @@ export function SetupPage() {
                     type="button"
                     onClick={() => { setChildName(nick); setError('') }}
                     className={`font-rubik text-sm px-4 py-2 rounded-full transition-all active:scale-95 ${
-                      childName === nick
-                        ? 'bg-amber-500 text-white shadow-soft'
-                        : 'bg-white text-brown-600 shadow-card'
+                      childName === nick ? 'bg-amber-500 text-white shadow-soft' : 'bg-white text-brown-600 shadow-card'
                     }`}
                   >
                     {nick}
@@ -439,11 +479,8 @@ export function SetupPage() {
               )}
             </div>
 
-            {/* Birth date + gender — optional, needed for growth chart */}
             <div className="bg-white rounded-2xl shadow-soft px-5 py-4 space-y-4">
-              <p className="font-rubik text-xs text-brown-400 text-center">
-                {t('setup.growthOptional')}
-              </p>
+              <p className="font-rubik text-xs text-brown-400 text-center">{t('setup.growthOptional')}</p>
               <div>
                 <p className="text-sm font-medium text-brown-600 mb-2">{t('children.birthDate')}</p>
                 <input
@@ -474,19 +511,16 @@ export function SetupPage() {
             </div>
 
             {error && <p className="text-red-500 text-sm text-center font-rubik">{error}</p>}
-
             <Button className="w-full" size="lg" onClick={handleChildSave} disabled={loading}>
               {loading ? t('app.loading') : t('setup.letsGo')}
             </Button>
             {!childName && (
-              <p className="text-xs text-brown-300 font-rubik text-center -mt-2">
-                {t('setup.noNameHint')}
-              </p>
+              <p className="text-xs text-brown-300 font-rubik text-center -mt-2">{t('setup.noNameHint')}</p>
             )}
           </div>
         )}
 
-        {/* Step: Done — show family code, then navigate to app */}
+        {/* ── DONE — show family code ──────────────────────────────────────────── */}
         {step === STEPS.DONE && (
           <div className="flex-1 flex flex-col justify-center text-center space-y-5">
             <div className="text-5xl">🎉</div>
