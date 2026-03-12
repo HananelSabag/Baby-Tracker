@@ -65,7 +65,7 @@ describe('getWeightPercentileLabel', () => {
     // At 6 months, boys p15=7.1, p50=7.9 — 7.5 kg is ~33rd percentile → בתחום הנורמה
     const label = getWeightPercentileLabel(7.5, 6, 'male')
     expect(label).not.toBeNull()
-    expect(label.desc).toBe('בתחום הנורמה')
+    expect(label.desc).toBe('טווח גדילה תקין')
     expect(label.percentile).toBeGreaterThan(15)
     expect(label.percentile).toBeLessThan(50)
   })
@@ -97,7 +97,7 @@ describe('getHeightPercentileLabel', () => {
     // At 6 months, girls p50=65.7, p97=70.3 — 68 cm is ~74th percentile → בתחום הנורמה
     const label = getHeightPercentileLabel(68, 6, 'female')
     expect(label).not.toBeNull()
-    expect(label.desc).toBe('בתחום הנורמה')
+    expect(label.desc).toBe('טווח גדילה תקין')
     expect(label.percentile).toBeGreaterThan(50)
     expect(label.percentile).toBeLessThan(85)
   })
