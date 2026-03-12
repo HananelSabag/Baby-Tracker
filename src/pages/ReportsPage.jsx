@@ -17,7 +17,9 @@ import { Spinner } from '../components/ui/Spinner'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import {
   WHO_WEIGHT_BOYS, WHO_WEIGHT_GIRLS, WHO_HEIGHT_BOYS, WHO_HEIGHT_GIRLS,
-  interpolateWHO, ageInMonths, getWeightPercentileLabel, getHeightPercentileLabel,
+  WHO_HEAD_BOYS, WHO_HEAD_GIRLS,
+  interpolateWHO, ageInMonths,
+  getWeightPercentileLabel, getHeightPercentileLabel, getHeadPercentileLabel,
 } from '../lib/whoGrowthData'
 
 // ── Chart style constants ────────────────────────────────────────────────────
@@ -399,14 +401,51 @@ function TrackerChartContent({ tracker, weekEvents, weekDays }) {
   )
 }
 
+// ── Percentile meter bar ──────────────────────────────────────────────────────
+function PercentileMeter({ percentile }) {
+  const pct = Math.max(2, Math.min(98, percentile))
+  const color = pct < 3 ? '#EF4444' : pct < 15 ? '#F59E0B' : pct < 85 ? '#22C55E' : pct < 97 ? '#F59E0B' : '#EF4444'
+  return (
+    <div className="relative h-2 rounded-full my-2" style={{
+      background: 'linear-gradient(to right, #EF444435 0% 3%, #F59E0B35 3% 15%, #22C55E35 15% 85%, #F59E0B35 85% 97%, #EF444435 97% 100%)',
+    }}>
+      <div
+        className="absolute w-3 h-3 rounded-full border-2 border-white shadow-sm"
+        style={{ left: `${pct}%`, top: '50%', transform: 'translate(-50%,-50%)', backgroundColor: color }}
+      />
+    </div>
+  )
+}
+
+// ── Single metric card (weight / height / head) ───────────────────────────────
+function MetricCard({ icon, label, value, unit, pLabel }) {
+  if (value == null) return null
+  return (
+    <div className="flex-1 bg-white rounded-2xl p-3 shadow-soft min-w-0">
+      <div className="flex items-center gap-1 mb-1">
+        <span className="text-sm">{icon}</span>
+        <p className="font-rubik text-xs text-brown-400 truncate">{label}</p>
+      </div>
+      <p className="font-rubik font-bold text-xl text-brown-800 leading-tight">{value} <span className="text-sm font-normal text-brown-400">{unit}</span></p>
+      {pLabel && (
+        <>
+          <PercentileMeter percentile={pLabel.percentile} />
+          <p className="font-rubik text-xs font-semibold" style={{ color: pLabel.bandColor }}>
+            P{pLabel.percentile} · {pLabel.bandLabel}
+          </p>
+        </>
+      )}
+    </div>
+  )
+}
+
 // ── Growth detail with WHO curves ────────────────────────────────────────────
 function GrowthDetailContent({ events, child, tracker }) {
-  const [metric, setMetric] = useState('weight') // 'weight' | 'height'
+  const [metric, setMetric] = useState('weight') // 'weight' | 'height' | 'head'
 
   const birthDate = child?.birth_date
-  const gender    = child?.gender // 'male' | 'female' | null
+  const gender    = child?.gender
 
-  // Parse measurements sorted oldest-first
   const measurements = useMemo(() => {
     return [...events]
       .filter(e => e.data?.weight_kg != null || e.data?.height_cm != null || e.data?.head_cm != null)
@@ -420,129 +459,122 @@ function GrowthDetailContent({ events, child, tracker }) {
       }))
   }, [events, birthDate])
 
-  // Last measurement for the summary
   const last = measurements[measurements.length - 1]
-  const lastWeight = last?.weight
-  const lastHeight = last?.height
-  const lastHead   = last?.head
-  const lastAge    = last?.age
+  const prev = measurements[measurements.length - 2]
 
-  // WHO reference table for selected metric
   const whoWeightTable = gender === 'female' ? WHO_WEIGHT_GIRLS : WHO_WEIGHT_BOYS
   const whoHeightTable = gender === 'female' ? WHO_HEIGHT_GIRLS : WHO_HEIGHT_BOYS
+  const whoHeadTable   = gender === 'female' ? WHO_HEAD_GIRLS   : WHO_HEAD_BOYS
 
-  // Build chart data: zoomed to baby's actual age range + WHO reference
+  // Percentile labels for all three metrics of last measurement
+  const weightLabel = last?.weight != null && last.age != null ? getWeightPercentileLabel(last.weight, last.age, gender) : null
+  const heightLabel = last?.height != null && last.age != null ? getHeightPercentileLabel(last.height, last.age, gender) : null
+  const headLabel   = last?.head   != null && last.age != null ? getHeadPercentileLabel(last.head,   last.age, gender) : null
+
+  // Overall status: worst band across all available metrics
+  const allLabels = [weightLabel, heightLabel, headLabel].filter(Boolean)
+  const overallStatus = useMemo(() => {
+    if (allLabels.length === 0) return null
+    const hasCritical = allLabels.some(l => l.band === 'low' || l.band === 'high')
+    const hasWarning  = allLabels.some(l => l.band === 'low-normal' || l.band === 'high-normal')
+    if (hasCritical) return { emoji: '⚠️', title: 'מומלץ לשוחח עם רופא הילדים', sub: 'מדד אחד חורג מהטווח — כדאי לבדוק', color: '#EF4444', bg: '#FEF2F2' }
+    if (hasWarning)  return { emoji: '🔍', title: 'גדילה תקינה ברובה',           sub: 'מדד אחד לתשומת לב — המשך מעקב', color: '#F59E0B', bg: '#FFFBEB' }
+    return               { emoji: '✅', title: 'גדילה תקינה',                   sub: 'כל המדדים בטווח WHO הנורמלי',   color: '#22C55E', bg: '#F0FDF4' }
+  }, [allLabels])
+
+  // Delta from previous measurement
+  const delta = useMemo(() => {
+    if (!prev || !last) return null
+    const parts = []
+    if (last.weight != null && prev.weight != null) {
+      const d = Math.round((last.weight - prev.weight) * 100) / 100
+      parts.push(`${d > 0 ? '+' : ''}${d} ק"ג`)
+    }
+    if (last.height != null && prev.height != null) {
+      const d = Math.round((last.height - prev.height) * 10) / 10
+      parts.push(`${d > 0 ? '+' : ''}${d} ס"מ גובה`)
+    }
+    if (last.head != null && prev.head != null) {
+      const d = Math.round((last.head - prev.head) * 10) / 10
+      parts.push(`${d > 0 ? '+' : ''}${d} ס"מ ראש`)
+    }
+    if (parts.length === 0) return null
+    return { text: parts.join(' · '), date: format(prev.date, 'd/M', { locale: he }) }
+  }, [last, prev])
+
+  // Chart data
   const chartData = useMemo(() => {
     if (!birthDate) return null
     const validAges = measurements.map(m => m.age).filter(a => a != null)
     const babyMaxAge = validAges.length > 0 ? Math.max(...validAges) : 0
-    // Show up to baby's age + 2 months buffer, minimum 6 months for context
     const endAge = Math.min(36, Math.max(6, Math.ceil(babyMaxAge) + 2))
 
-    // All distinct age-months to plot (every integer + exact measurement ages)
     const ageSet = new Set(Array.from({length: endAge + 1}, (_, i) => i))
-    measurements.forEach(m => {
-      if (m.age != null) ageSet.add(Math.round(m.age * 10) / 10)
-    })
+    measurements.forEach(m => { if (m.age != null) ageSet.add(Math.round(m.age * 10) / 10) })
     const ages = [...ageSet].sort((a,b) => a - b)
 
     return ages.map(age => {
+      const roundedAge = Math.round(age * 10) / 10
       if (metric === 'weight') {
         const ref = interpolateWHO(whoWeightTable, age)
-        // [p3, p15, p50, p85, p97]
         const m = measurements.find(me => me.weight != null && me.age != null && Math.abs(me.age - age) < 0.06)
-        return {
-          age: Math.round(age * 10) / 10,
-          p3:   ref ? Math.round(ref[0] * 100) / 100 : undefined,
-          p15:  ref ? Math.round(ref[1] * 100) / 100 : undefined,
-          p50:  ref ? Math.round(ref[2] * 100) / 100 : undefined,
-          p85:  ref ? Math.round(ref[3] * 100) / 100 : undefined,
-          p97:  ref ? Math.round(ref[4] * 100) / 100 : undefined,
-          baby: m?.weight ?? null,
-        }
-      } else {
+        return { age: roundedAge, p3: ref?.[0], p15: ref?.[1], p50: ref?.[2], p85: ref?.[3], p97: ref?.[4], baby: m?.weight ?? null }
+      } else if (metric === 'height') {
         const ref = interpolateWHO(whoHeightTable, age)
-        // [p3, p50, p97]
         const m = measurements.find(me => me.height != null && me.age != null && Math.abs(me.age - age) < 0.06)
-        return {
-          age: Math.round(age * 10) / 10,
-          p3:   ref ? Math.round(ref[0] * 100) / 100 : undefined,
-          p50:  ref ? Math.round(ref[1] * 100) / 100 : undefined,
-          p97:  ref ? Math.round(ref[2] * 100) / 100 : undefined,
-          baby: m?.height ?? null,
-        }
+        return { age: roundedAge, p3: ref?.[0], p50: ref?.[1], p97: ref?.[2], baby: m?.height ?? null }
+      } else {
+        const ref = interpolateWHO(whoHeadTable, age)
+        const m = measurements.find(me => me.head != null && me.age != null && Math.abs(me.age - age) < 0.06)
+        return { age: roundedAge, p3: ref?.[0], p50: ref?.[1], p97: ref?.[2], baby: m?.head ?? null }
       }
     })
   }, [measurements, metric, birthDate, gender])
 
-  // Percentile label for last measurement
-  const percentileLabel = useMemo(() => {
-    if (!lastAge) return null
-    if (metric === 'weight' && lastWeight) return getWeightPercentileLabel(lastWeight, lastAge, gender)
-    if (metric === 'height' && lastHeight) return getHeightPercentileLabel(lastHeight, lastAge, gender)
-    return null
-  }, [metric, lastWeight, lastHeight, lastAge, gender])
-
   const unit = metric === 'weight' ? 'ק"ג' : 'ס"מ'
+  const hasHead = measurements.some(m => m.head != null)
+  const chartHasData = chartData && chartData.length > 0 && measurements.some(m =>
+    metric === 'weight' ? m.weight != null : metric === 'height' ? m.height != null : m.head != null
+  )
 
   return (
     <div className="space-y-4">
-      {/* Summary row */}
-      <div className="flex gap-2">
-        {lastWeight != null && (
-          <div className="flex-1 bg-cream-100 rounded-2xl p-3 text-center">
-            <p className="font-rubik font-bold text-2xl text-brown-800">{lastWeight}</p>
-            <p className="font-rubik text-brown-400 text-xs">ק"ג</p>
-          </div>
-        )}
-        {lastHeight != null && (
-          <div className="flex-1 bg-cream-100 rounded-2xl p-3 text-center">
-            <p className="font-rubik font-bold text-2xl text-brown-800">{lastHeight}</p>
-            <p className="font-rubik text-brown-400 text-xs">ס"מ גובה</p>
-          </div>
-        )}
-        {lastHead != null && (
-          <div className="flex-1 bg-cream-100 rounded-2xl p-3 text-center">
-            <p className="font-rubik font-bold text-2xl text-brown-800">{lastHead}</p>
-            <p className="font-rubik text-brown-400 text-xs">ס"מ ראש</p>
-          </div>
-        )}
-        {measurements.length === 0 && (
-          <div className="flex-1 text-center py-4">
-            <p className="font-rubik text-brown-400 text-sm">אין מדידות עדיין</p>
-            <p className="font-rubik text-brown-300 text-xs mt-1">הוסף מדידה מדף הבית</p>
-          </div>
-        )}
-      </div>
 
-      {/* Percentile badge */}
-      {percentileLabel && (
-        <div className="rounded-2xl px-4 py-3" style={{ backgroundColor: `${percentileLabel.bandColor}15` }}>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-rubik text-xs text-brown-400">{metric === 'weight' ? 'אחוזון משקל' : 'אחוזון גובה'}</p>
-              <p className="font-rubik text-3xl font-bold leading-tight" style={{ color: percentileLabel.bandColor }}>
-                P{percentileLabel.percentile}
-              </p>
-              <p className="font-rubik text-sm font-medium mt-0.5" style={{ color: percentileLabel.bandColor }}>
-                {percentileLabel.bandLabel}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="font-rubik text-xs text-brown-400 mb-1">טווחי WHO</p>
-              {[
-                { label: 'P97', val: percentileLabel.p97 },
-                { label: 'P85', val: percentileLabel.p85 },
-                { label: 'P50', val: percentileLabel.p50 },
-                { label: 'P15', val: percentileLabel.p15 },
-                { label: 'P3',  val: percentileLabel.p3 },
-              ].filter(r => r.val != null).map(r => (
-                <p key={r.label} className="font-rubik text-xs text-brown-400 leading-tight">
-                  <span className="text-brown-300">{r.label} </span>
-                  {Math.round(r.val * 10) / 10} {metric === 'weight' ? 'ק"ג' : 'ס"מ'}
-                </p>
-              ))}
-            </div>
+      {/* No measurements */}
+      {measurements.length === 0 && (
+        <div className="text-center py-8">
+          <p className="font-rubik text-brown-400 text-sm">אין מדידות עדיין</p>
+          <p className="font-rubik text-brown-300 text-xs mt-1">הוסף מדידה מדף הבית</p>
+        </div>
+      )}
+
+      {/* Overall status banner */}
+      {overallStatus && birthDate && (
+        <div className="rounded-2xl px-4 py-3 flex items-center gap-3" style={{ backgroundColor: overallStatus.bg }}>
+          <span className="text-2xl flex-shrink-0">{overallStatus.emoji}</span>
+          <div>
+            <p className="font-rubik font-bold text-sm" style={{ color: overallStatus.color }}>{overallStatus.title}</p>
+            <p className="font-rubik text-xs text-brown-500 mt-0.5">{overallStatus.sub}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Three metric cards */}
+      {measurements.length > 0 && (
+        <div className="flex gap-2">
+          <MetricCard icon="⚖️" label="משקל"  value={last.weight} unit='ק"ג' pLabel={birthDate ? weightLabel : null} />
+          <MetricCard icon="📏" label="גובה"   value={last.height} unit='ס"מ' pLabel={birthDate ? heightLabel : null} />
+          {hasHead && <MetricCard icon="🔵" label='היקף ראש' value={last.head} unit='ס"מ' pLabel={birthDate ? headLabel : null} />}
+        </div>
+      )}
+
+      {/* Delta from previous measurement */}
+      {delta && (
+        <div className="bg-cream-100 rounded-2xl px-4 py-2.5 flex items-center gap-2">
+          <span className="text-base">📈</span>
+          <div>
+            <p className="font-rubik text-xs text-brown-400">מאז מדידה קודמת ({delta.date})</p>
+            <p className="font-rubik text-sm font-semibold text-brown-700">{delta.text}</p>
           </div>
         </div>
       )}
@@ -551,15 +583,19 @@ function GrowthDetailContent({ events, child, tracker }) {
       {!birthDate && measurements.length > 0 && (
         <div className="bg-amber-50 rounded-2xl px-4 py-3 text-center">
           <p className="font-rubik text-amber-700 text-sm">
-            💡 הוסף תאריך לידה בהגדרות הילד/ה כדי לראות גרף גדילה עם עקומות WHO
+            💡 הוסף תאריך לידה בהגדרות הילד/ה כדי לראות אחוזוני WHO
           </p>
         </div>
       )}
 
-      {/* Metric tabs */}
+      {/* Metric chart tabs */}
       {measurements.length > 0 && (
         <div className="flex gap-2 bg-cream-200 rounded-2xl p-1">
-          {[{ value: 'weight', label: '⚖️ משקל' }, { value: 'height', label: '📏 גובה' }].map(opt => (
+          {[
+            { value: 'weight', label: '⚖️ משקל' },
+            { value: 'height', label: '📏 גובה' },
+            ...(hasHead ? [{ value: 'head', label: '🔵 ראש' }] : []),
+          ].map(opt => (
             <button
               key={opt.value}
               onClick={() => setMetric(opt.value)}
@@ -572,87 +608,64 @@ function GrowthDetailContent({ events, child, tracker }) {
       )}
 
       {/* Growth chart */}
-      {chartData && chartData.length > 0 && measurements.some(m => metric === 'weight' ? m.weight : m.height) && (
+      {chartHasData && (
         <>
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#F5E6D3" />
               <XAxis
-                dataKey="age"
-                {...AXIS}
+                dataKey="age" {...AXIS}
                 label={{ value: 'גיל (חודשים)', position: 'insideBottom', offset: -2, fontFamily: 'Rubik', fontSize: 10, fill: '#A87048' }}
-                tickFormatter={v => `${v}`}
-                height={30}
+                tickFormatter={v => `${v}`} height={30}
               />
               <YAxis {...AXIS} width={36} orientation="left" domain={['auto', 'auto']} />
               <Tooltip
                 {...CHART_TOOLTIP}
                 formatter={(v, name) => {
                   if (v == null) return [null, name]
-                  const labels = {
-                    p3: 'P3 (אחוזון 3)', p15: 'P15 (אחוזון 15)',
-                    p50: 'P50 (חציון)', p85: 'P85 (אחוזון 85)',
-                    p97: 'P97 (אחוזון 97)', baby: child?.name ?? 'הילד/ה',
-                  }
+                  const labels = { p3: 'P3', p15: 'P15', p50: 'P50 (חציון)', p85: 'P85', p97: 'P97', baby: child?.name ?? 'הילד/ה' }
                   return [`${v} ${unit}`, labels[name] ?? name]
                 }}
                 labelFormatter={v => `גיל: ${v} חודשים`}
               />
-              {/* WHO reference lines */}
               <Line dataKey="p3"  stroke="#D6C4B0" strokeWidth={1}   strokeDasharray="3 3" dot={false} legendType="none" />
               {metric === 'weight' && <Line dataKey="p15" stroke="#C4A882" strokeWidth={1.5} strokeDasharray="5 2" dot={false} legendType="none" />}
               <Line dataKey="p50" stroke="#A87048" strokeWidth={2}   strokeDasharray="0"   dot={false} legendType="none" />
               {metric === 'weight' && <Line dataKey="p85" stroke="#C4A882" strokeWidth={1.5} strokeDasharray="5 2" dot={false} legendType="none" />}
               <Line dataKey="p97" stroke="#D6C4B0" strokeWidth={1}   strokeDasharray="3 3" dot={false} legendType="none" />
-              {/* Baby measurements */}
-              <Line
-                dataKey="baby"
-                stroke={tracker.color}
-                strokeWidth={2.5}
-                dot={{ fill: tracker.color, r: 4, strokeWidth: 0 }}
-                activeDot={{ r: 6 }}
-                connectNulls={false}
-                name="baby"
+              <Line dataKey="baby" stroke={tracker.color} strokeWidth={2.5}
+                dot={{ fill: tracker.color, r: 4, strokeWidth: 0 }} activeDot={{ r: 6 }}
+                connectNulls={false} name="baby"
               />
             </LineChart>
           </ResponsiveContainer>
           <div className="flex gap-3 justify-center flex-wrap text-xs font-rubik text-brown-400">
-            <span><span className="inline-block w-4 h-0.5 mr-1 opacity-50" style={{verticalAlign:'middle',borderBottom:'1.5px dashed #D6C4B0'}} />P3/P97</span>
-            {metric === 'weight' && <span><span className="inline-block w-4 h-0.5 mr-1 opacity-70" style={{verticalAlign:'middle',borderBottom:'1.5px dashed #C4A882'}} />P15/P85</span>}
-            <span><span className="inline-block w-4 h-0.5 bg-brown-500 mr-1 opacity-70" style={{verticalAlign:'middle'}} />P50 (חציון)</span>
+            <span><span className="inline-block w-4 h-0 mr-1 border-t border-dashed border-brown-300 opacity-60" style={{verticalAlign:'middle'}} />P3/P97</span>
+            {metric === 'weight' && <span><span className="inline-block w-4 h-0 mr-1 border-t border-dashed border-brown-400 opacity-70" style={{verticalAlign:'middle'}} />P15/P85</span>}
+            <span><span className="inline-block w-4 h-0.5 bg-brown-500 mr-1 opacity-70" style={{verticalAlign:'middle'}} />P50</span>
             <span style={{color: tracker.color}}>● {child?.name ?? 'הילד/ה'}</span>
           </div>
-          <p className="font-rubik text-xs text-brown-300 text-center">
-            {birthDate ? 'עקומות WHO — גיל בחודשים' : 'מדידות לאורך זמן'}
-          </p>
+          <p className="font-rubik text-xs text-brown-300 text-center">עקומות WHO — גיל בחודשים</p>
         </>
       )}
 
-      {/* Dry events list */}
+      {/* Measurements history */}
       {measurements.length > 0 && (
         <div>
-          <p className="font-rubik font-semibold text-brown-600 text-xs uppercase tracking-wide mb-2">מדידות</p>
+          <p className="font-rubik font-semibold text-brown-600 text-xs uppercase tracking-wide mb-2">היסטוריית מדידות</p>
           <div className="space-y-2">
             {[...measurements].reverse().slice(0, 10).map((m, i) => (
               <div key={i} className="flex items-center justify-between bg-cream-100 rounded-2xl px-4 py-2.5">
                 <div className="flex gap-3 flex-wrap">
-                  {m.weight != null && (
-                    <span className="font-rubik text-brown-800 text-sm font-medium">{m.weight} ק"ג</span>
-                  )}
-                  {m.height != null && (
-                    <span className="font-rubik text-brown-800 text-sm font-medium">{m.height} ס"מ גובה</span>
-                  )}
-                  {m.head != null && (
-                    <span className="font-rubik text-brown-800 text-sm font-medium">{m.head} ס"מ ראש</span>
-                  )}
+                  {m.weight != null && <span className="font-rubik text-brown-800 text-sm font-medium">{m.weight} ק"ג</span>}
+                  {m.height != null && <span className="font-rubik text-brown-800 text-sm font-medium">{m.height} ס"מ</span>}
+                  {m.head   != null && <span className="font-rubik text-brown-500 text-sm">ראש {m.head} ס"מ</span>}
                 </div>
                 <div className="text-left">
-                  <p className="font-rubik text-brown-400 text-xs">
-                    {format(m.date, 'd בMMM yyyy', { locale: he })}
-                  </p>
+                  <p className="font-rubik text-brown-400 text-xs">{format(m.date, 'd בMMM yyyy', { locale: he })}</p>
                   {m.age != null && (
                     <p className="font-rubik text-brown-300 text-xs">
-                      גיל: {Math.floor(m.age)} חו'
+                      גיל: {Math.floor(m.age)}ח׳ {Math.round((m.age % 1) * 30)}י׳
                     </p>
                   )}
                 </div>
