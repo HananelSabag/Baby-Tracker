@@ -104,7 +104,7 @@ export function interpolateWHO(table, ageMonths) {
   }
 
   const t = (ageMonths - lower[0]) / (upper[0] - lower[0])
-  return lower.slice(1).map((v, i) => Math.round(lerp(v, upper[i + 1], t) * 10) / 10)
+  return lower.slice(1).map((v, i) => lerp(v, upper[i + 1], t))
 }
 
 // Returns age in months (fractional) from birthDate to measurementDate
@@ -130,15 +130,25 @@ function estimateFromBoundaries(value, boundaries) {
   return boundaries[boundaries.length - 1][0]
 }
 
+// band: which WHO percentile channel the value falls into
+function getBand(p) {
+  if (p < 3)  return { band: 'low',    label: 'מתחת לאחוזון 3',   color: '#EF4444' }
+  if (p < 15) return { band: 'low-normal', label: 'בין P3 לP15',  color: '#F59E0B' }
+  if (p < 50) return { band: 'normal', label: 'בין P15 לחציון',   color: '#22C55E' }
+  if (p < 85) return { band: 'normal', label: 'בין החציון לP85',  color: '#22C55E' }
+  if (p < 97) return { band: 'high-normal', label: 'בין P85 לP97', color: '#F59E0B' }
+  return       { band: 'high',   label: 'מעל אחוזון 97',          color: '#EF4444' }
+}
+
 function percentileDesc(p) {
   if (p < 3)  return 'מתחת לאחוזון 3'
-  if (p < 15) return 'מתחת לממוצע'
-  if (p < 85) return 'בתחום הנורמה'
+  if (p < 15) return 'מתחת לטווח הרגיל'
+  if (p < 85) return 'טווח גדילה תקין'
   if (p < 97) return 'מעל הממוצע'
   return 'מעל אחוזון 97'
 }
 
-// Returns { percentile, desc } for a weight measurement
+// Returns { percentile, desc, band, bandLabel, bandColor } for a weight measurement
 export function getWeightPercentileLabel(weightKg, ageMonths, gender) {
   const table = gender === 'female' ? WHO_WEIGHT_GIRLS : WHO_WEIGHT_BOYS
   const ref = interpolateWHO(table, ageMonths)
@@ -150,10 +160,11 @@ export function getWeightPercentileLabel(weightKg, ageMonths, gender) {
   if (weightKg < p3)  percentile = Math.max(1, Math.round((weightKg / p3) * 3))
   else if (weightKg > p97) percentile = 98
   else percentile = estimateFromBoundaries(weightKg, boundaries)
-  return { percentile, desc: percentileDesc(percentile) }
+  const { band, label: bandLabel, color: bandColor } = getBand(percentile)
+  return { percentile, desc: percentileDesc(percentile), band, bandLabel, bandColor, p3, p15, p50, p85, p97 }
 }
 
-// Returns { percentile, desc } for a height measurement
+// Returns { percentile, desc, band, bandLabel, bandColor } for a height measurement
 export function getHeightPercentileLabel(heightCm, ageMonths, gender) {
   const table = gender === 'female' ? WHO_HEIGHT_GIRLS : WHO_HEIGHT_BOYS
   const ref = interpolateWHO(table, ageMonths)
@@ -165,5 +176,6 @@ export function getHeightPercentileLabel(heightCm, ageMonths, gender) {
   if (heightCm < p3)  percentile = Math.max(1, Math.round((heightCm / p3) * 3))
   else if (heightCm > p97) percentile = 98
   else percentile = estimateFromBoundaries(heightCm, boundaries)
-  return { percentile, desc: percentileDesc(percentile) }
+  const { band, label: bandLabel, color: bandColor } = getBand(percentile)
+  return { percentile, desc: percentileDesc(percentile), band, bandLabel, bandColor, p3, p50, p97 }
 }

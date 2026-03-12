@@ -439,10 +439,10 @@ function GrowthDetailContent({ events, child, tracker }) {
     // Show up to baby's age + 2 months buffer, minimum 6 months for context
     const endAge = Math.min(36, Math.max(6, Math.ceil(babyMaxAge) + 2))
 
-    // All distinct age-months to plot (every integer + actual measurement ages)
+    // All distinct age-months to plot (every integer + exact measurement ages)
     const ageSet = new Set(Array.from({length: endAge + 1}, (_, i) => i))
     measurements.forEach(m => {
-      if (m.age != null) ageSet.add(Math.round(m.age * 2) / 2)
+      if (m.age != null) ageSet.add(Math.round(m.age * 10) / 10)
     })
     const ages = [...ageSet].sort((a,b) => a - b)
 
@@ -450,23 +450,25 @@ function GrowthDetailContent({ events, child, tracker }) {
       if (metric === 'weight') {
         const ref = interpolateWHO(whoWeightTable, age)
         // [p3, p15, p50, p85, p97]
-        const m = measurements.find(me => me.weight != null && me.age != null && Math.abs(me.age - age) < 0.26)
+        const m = measurements.find(me => me.weight != null && me.age != null && Math.abs(me.age - age) < 0.06)
         return {
-          age,
-          p3:   ref?.[0],
-          p50:  ref?.[2],
-          p97:  ref?.[4],
+          age: Math.round(age * 10) / 10,
+          p3:   ref ? Math.round(ref[0] * 100) / 100 : undefined,
+          p15:  ref ? Math.round(ref[1] * 100) / 100 : undefined,
+          p50:  ref ? Math.round(ref[2] * 100) / 100 : undefined,
+          p85:  ref ? Math.round(ref[3] * 100) / 100 : undefined,
+          p97:  ref ? Math.round(ref[4] * 100) / 100 : undefined,
           baby: m?.weight ?? null,
         }
       } else {
         const ref = interpolateWHO(whoHeightTable, age)
         // [p3, p50, p97]
-        const m = measurements.find(me => me.height != null && me.age != null && Math.abs(me.age - age) < 0.26)
+        const m = measurements.find(me => me.height != null && me.age != null && Math.abs(me.age - age) < 0.06)
         return {
-          age,
-          p3:   ref?.[0],
-          p50:  ref?.[1],
-          p97:  ref?.[2],
+          age: Math.round(age * 10) / 10,
+          p3:   ref ? Math.round(ref[0] * 100) / 100 : undefined,
+          p50:  ref ? Math.round(ref[1] * 100) / 100 : undefined,
+          p97:  ref ? Math.round(ref[2] * 100) / 100 : undefined,
           baby: m?.height ?? null,
         }
       }
@@ -513,16 +515,35 @@ function GrowthDetailContent({ events, child, tracker }) {
         )}
       </div>
 
-      {/* Percentile badge — shows exact estimated percentile */}
+      {/* Percentile badge */}
       {percentileLabel && (
-        <div
-          className="rounded-2xl px-4 py-3 text-center"
-          style={{ backgroundColor: `${tracker.color}18` }}
-        >
-          <p className="font-rubik text-3xl font-bold leading-none" style={{ color: tracker.color }}>
-            {metric === 'weight' ? '⚖️' : '📏'} אחוזון {percentileLabel.percentile}
-          </p>
-          <p className="font-rubik text-sm text-brown-500 mt-1">{percentileLabel.desc}</p>
+        <div className="rounded-2xl px-4 py-3" style={{ backgroundColor: `${percentileLabel.bandColor}15` }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-rubik text-xs text-brown-400">{metric === 'weight' ? 'אחוזון משקל' : 'אחוזון גובה'}</p>
+              <p className="font-rubik text-3xl font-bold leading-tight" style={{ color: percentileLabel.bandColor }}>
+                P{percentileLabel.percentile}
+              </p>
+              <p className="font-rubik text-sm font-medium mt-0.5" style={{ color: percentileLabel.bandColor }}>
+                {percentileLabel.bandLabel}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="font-rubik text-xs text-brown-400 mb-1">טווחי WHO</p>
+              {[
+                { label: 'P97', val: percentileLabel.p97 },
+                { label: 'P85', val: percentileLabel.p85 },
+                { label: 'P50', val: percentileLabel.p50 },
+                { label: 'P15', val: percentileLabel.p15 },
+                { label: 'P3',  val: percentileLabel.p3 },
+              ].filter(r => r.val != null).map(r => (
+                <p key={r.label} className="font-rubik text-xs text-brown-400 leading-tight">
+                  <span className="text-brown-300">{r.label} </span>
+                  {Math.round(r.val * 10) / 10} {metric === 'weight' ? 'ק"ג' : 'ס"מ'}
+                </p>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -568,15 +589,21 @@ function GrowthDetailContent({ events, child, tracker }) {
                 {...CHART_TOOLTIP}
                 formatter={(v, name) => {
                   if (v == null) return [null, name]
-                  const labels = { p3: 'P3 (אחוזון 3)', p50: 'P50 (חציון)', p97: 'P97 (אחוזון 97)', baby: child?.name ?? 'הילד/ה' }
+                  const labels = {
+                    p3: 'P3 (אחוזון 3)', p15: 'P15 (אחוזון 15)',
+                    p50: 'P50 (חציון)', p85: 'P85 (אחוזון 85)',
+                    p97: 'P97 (אחוזון 97)', baby: child?.name ?? 'הילד/ה',
+                  }
                   return [`${v} ${unit}`, labels[name] ?? name]
                 }}
                 labelFormatter={v => `גיל: ${v} חודשים`}
               />
               {/* WHO reference lines */}
-              <Line dataKey="p3"  stroke="#D6C4B0" strokeWidth={1.5} strokeDasharray="4 2" dot={false} legendType="none" />
-              <Line dataKey="p50" stroke="#A87048" strokeWidth={1.5} strokeDasharray="0"   dot={false} legendType="none" />
-              <Line dataKey="p97" stroke="#D6C4B0" strokeWidth={1.5} strokeDasharray="4 2" dot={false} legendType="none" />
+              <Line dataKey="p3"  stroke="#D6C4B0" strokeWidth={1}   strokeDasharray="3 3" dot={false} legendType="none" />
+              {metric === 'weight' && <Line dataKey="p15" stroke="#C4A882" strokeWidth={1.5} strokeDasharray="5 2" dot={false} legendType="none" />}
+              <Line dataKey="p50" stroke="#A87048" strokeWidth={2}   strokeDasharray="0"   dot={false} legendType="none" />
+              {metric === 'weight' && <Line dataKey="p85" stroke="#C4A882" strokeWidth={1.5} strokeDasharray="5 2" dot={false} legendType="none" />}
+              <Line dataKey="p97" stroke="#D6C4B0" strokeWidth={1}   strokeDasharray="3 3" dot={false} legendType="none" />
               {/* Baby measurements */}
               <Line
                 dataKey="baby"
@@ -589,9 +616,10 @@ function GrowthDetailContent({ events, child, tracker }) {
               />
             </LineChart>
           </ResponsiveContainer>
-          <div className="flex gap-4 justify-center text-xs font-rubik text-brown-400">
-            <span><span className="inline-block w-5 h-0.5 bg-brown-300 mr-1 opacity-60" style={{verticalAlign:'middle',borderBottom:'1.5px dashed #D6C4B0'}} />P3 / P97</span>
-            <span><span className="inline-block w-5 h-0.5 bg-brown-500 mr-1 opacity-70" style={{verticalAlign:'middle'}} />P50 (חציון)</span>
+          <div className="flex gap-3 justify-center flex-wrap text-xs font-rubik text-brown-400">
+            <span><span className="inline-block w-4 h-0.5 mr-1 opacity-50" style={{verticalAlign:'middle',borderBottom:'1.5px dashed #D6C4B0'}} />P3/P97</span>
+            {metric === 'weight' && <span><span className="inline-block w-4 h-0.5 mr-1 opacity-70" style={{verticalAlign:'middle',borderBottom:'1.5px dashed #C4A882'}} />P15/P85</span>}
+            <span><span className="inline-block w-4 h-0.5 bg-brown-500 mr-1 opacity-70" style={{verticalAlign:'middle'}} />P50 (חציון)</span>
             <span style={{color: tracker.color}}>● {child?.name ?? 'הילד/ה'}</span>
           </div>
           <p className="font-rubik text-xs text-brown-300 text-center">
