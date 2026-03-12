@@ -42,6 +42,36 @@ export const WHO_WEIGHT_GIRLS = [
   [24, 9.0, 10.0, 11.5, 13.2, 15.3],
 ]
 
+// Head circumference-for-age: [month, p3, p50, p97]
+// Source: WHO MGRS 2006
+export const WHO_HEAD_BOYS = [
+  [0,  32.1, 34.5, 37.0],
+  [1,  34.9, 37.3, 39.7],
+  [2,  36.4, 39.1, 41.7],
+  [3,  37.8, 40.5, 43.2],
+  [4,  38.9, 41.6, 44.4],
+  [5,  39.8, 42.6, 45.3],
+  [6,  40.5, 43.3, 46.2],
+  [9,  42.0, 45.0, 47.9],
+  [12, 43.1, 46.1, 49.2],
+  [18, 44.7, 47.6, 50.5],
+  [24, 45.5, 48.7, 51.9],
+]
+
+export const WHO_HEAD_GIRLS = [
+  [0,  31.7, 33.9, 36.2],
+  [1,  34.2, 36.5, 38.8],
+  [2,  35.8, 38.3, 40.7],
+  [3,  37.0, 39.5, 42.0],
+  [4,  38.0, 40.6, 43.2],
+  [5,  38.9, 41.5, 44.1],
+  [6,  39.5, 42.2, 44.9],
+  [9,  41.1, 43.9, 46.6],
+  [12, 42.3, 44.9, 47.6],
+  [18, 43.5, 46.2, 48.9],
+  [24, 44.4, 47.1, 49.8],
+]
+
 // Height-for-age: [month, p3, p50, p97]
 export const WHO_HEIGHT_BOYS = [
   [0,  46.1, 49.9, 53.7],
@@ -162,6 +192,22 @@ export function getWeightPercentileLabel(weightKg, ageMonths, gender) {
   else percentile = estimateFromBoundaries(weightKg, boundaries)
   const { band, label: bandLabel, color: bandColor } = getBand(percentile)
   return { percentile, desc: percentileDesc(percentile), band, bandLabel, bandColor, p3, p15, p50, p85, p97 }
+}
+
+// Returns { percentile, desc, band, bandLabel, bandColor } for a head circumference measurement
+export function getHeadPercentileLabel(headCm, ageMonths, gender) {
+  const table = gender === 'female' ? WHO_HEAD_GIRLS : WHO_HEAD_BOYS
+  const ref = interpolateWHO(table, ageMonths)
+  if (!ref) return null
+  // ref = [p3, p50, p97]
+  const [p3, p50, p97] = ref
+  const boundaries = [[3, p3], [50, p50], [97, p97]]
+  let percentile
+  if (headCm < p3)  percentile = Math.max(1, Math.round((headCm / p3) * 3))
+  else if (headCm > p97) percentile = 98
+  else percentile = estimateFromBoundaries(headCm, boundaries)
+  const { band, label: bandLabel, color: bandColor } = getBand(percentile)
+  return { percentile, desc: percentileDesc(percentile), band, bandLabel, bandColor, p3, p50, p97 }
 }
 
 // Returns { percentile, desc, band, bandLabel, bandColor } for a height measurement
