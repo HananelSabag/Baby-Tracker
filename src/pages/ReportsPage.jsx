@@ -477,9 +477,9 @@ function GrowthDetailContent({ events, child, tracker }) {
     if (allLabels.length === 0) return null
     const hasCritical = allLabels.some(l => l.band === 'low' || l.band === 'high')
     const hasWarning  = allLabels.some(l => l.band === 'low-normal' || l.band === 'high-normal')
-    if (hasCritical) return { emoji: '⚠️', title: 'מומלץ לשוחח עם רופא הילדים', sub: 'מדד אחד חורג מהטווח — כדאי לבדוק', color: '#EF4444', bg: '#FEF2F2' }
-    if (hasWarning)  return { emoji: '🔍', title: 'גדילה תקינה ברובה',           sub: 'מדד אחד לתשומת לב — המשך מעקב', color: '#F59E0B', bg: '#FFFBEB' }
-    return               { emoji: '✅', title: 'גדילה תקינה',                   sub: 'כל המדדים בטווח WHO הנורמלי',   color: '#22C55E', bg: '#F0FDF4' }
+    if (hasCritical) return { emoji: '📋', title: 'מדד אחד חורג מהטווח',   sub: 'המידע להשוואה בלבד — ראו הערה למטה', color: '#F59E0B', bg: '#FFFBEB' }
+    if (hasWarning)  return { emoji: '🔍', title: 'מדד אחד לתשומת לב',      sub: 'המידע להשוואה בלבד — ראו הערה למטה', color: '#F59E0B', bg: '#FFFBEB' }
+    return               { emoji: '✅', title: 'כל המדדים בטווח WHO',       sub: 'המידע להשוואה בלבד — ראו הערה למטה', color: '#22C55E', bg: '#F0FDF4' }
   }, [allLabels])
 
   // Delta from previous measurement
@@ -647,6 +647,17 @@ function GrowthDetailContent({ events, child, tracker }) {
           </div>
           <p className="font-rubik text-xs text-brown-300 text-center">עקומות WHO — גיל בחודשים</p>
         </>
+      )}
+
+      {/* Disclaimer */}
+      {measurements.length > 0 && (
+        <div className="bg-cream-100 rounded-2xl px-4 py-3">
+          <p className="font-rubik text-xs text-brown-400 leading-relaxed text-center">
+            ⚠️ המידע מוצג לצורך מעקב אישי בלבד, על בסיס טבלאות WHO (2006).
+            אינו מהווה ייעוץ רפואי ואינו מחליף בדיקה אצל רופא ילדים.
+            ייתכנו שגיאות חישוב.
+          </p>
+        </div>
       )}
 
       {/* Measurements history */}
