@@ -27,8 +27,7 @@ export function useEvents(familyId, { trackerId, days, date, childId, startDate,
     } else if (days) {
       query = query.gte('occurred_at', subDays(new Date(), days).toISOString())
     }
-    // Show events for this child OR legacy events with no child_id
-    if (childId) query = query.or(`child_id.eq.${childId},child_id.is.null`)
+    if (childId) query = query.eq('child_id', childId)
 
     const { data } = await query
     setEvents(data ?? [])
@@ -88,7 +87,7 @@ export function useTodayEvents(familyId, trackerId, childId) {
       .lte('occurred_at', endOfDay(new Date()).toISOString())
       .order('occurred_at', { ascending: false })
 
-    if (childId) query = query.or(`child_id.eq.${childId},child_id.is.null`)
+    if (childId) query = query.eq('child_id', childId)
 
     const { data } = await query
     setEvents(data ?? [])

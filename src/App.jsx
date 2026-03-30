@@ -21,7 +21,7 @@ function AppRoutes() {
   // Show spinner while resolving auth session (handles refresh token recovery too)
   if (isAuthLoading) return <FullPageSpinner />
 
-  // Privacy page is public — accessible without login
+  // Public pages — accessible without login
   if (location.pathname === '/privacy') return <PrivacyPage />
 
   // Not logged in → sign-in page
