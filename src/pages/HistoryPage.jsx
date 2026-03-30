@@ -304,38 +304,34 @@ export function HistoryPage() {
                 </div>
 
                 {/* Events for this day */}
-                <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
                   {dayEvents.map(event => (
                     <div
                       key={event.id}
-                      className="bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center gap-3"
+                      onClick={() => setEditTarget(event)}
+                      className="bg-white rounded-xl shadow-soft px-3 py-2.5 flex flex-col cursor-pointer active:scale-[0.97] transition-transform select-none"
                     >
-                      <div
-                        className="w-9 h-9 rounded-full flex items-center justify-center text-lg flex-shrink-0"
-                        style={{ backgroundColor: `${event.tracker?.color ?? '#D6C4B0'}22` }}
-                      >
-                        {event.tracker?.icon}
+                      <div className="flex items-center justify-between mb-1.5">
+                        <button
+                          onClick={e => { e.stopPropagation(); setDeleteTarget(event.id) }}
+                          className="rounded-md px-2 py-0.5 text-red-400 bg-red-50 border border-red-200 hover:bg-red-100 hover:border-red-300 transition-colors flex-shrink-0 text-xs font-rubik leading-none"
+                          aria-label="מחק"
+                        >מחק</button>
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0"
+                          style={{ backgroundColor: `${event.tracker?.color ?? '#D6C4B0'}22` }}
+                        >
+                          {event.tracker?.icon}
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-rubik font-semibold text-brown-800 text-sm">{event.tracker?.name}</p>
-                        <p className="font-rubik text-brown-500 text-xs leading-tight">
-                          {formatTime(event.occurred_at)}
-                          {formatEventSummary(event) ? ` · ${formatEventSummary(event)}` : ''}
-                          {event.member ? ` · ${event.member.display_name}` : ''}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setEditTarget(event)}
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-brown-300 hover:text-blue-400 hover:bg-blue-50 transition-colors"
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        onClick={() => setDeleteTarget(event.id)}
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-brown-300 hover:text-red-400 hover:bg-red-50 transition-colors"
-                      >
-                        🗑
-                      </button>
+                      <p className="font-rubik font-bold text-brown-800 text-sm leading-tight text-right">{event.tracker?.name}</p>
+                      <p className="font-rubik text-brown-500 text-xs mt-0.5 leading-tight text-right">
+                        {formatTime(event.occurred_at)}
+                        {formatEventSummary(event) ? ` · ${formatEventSummary(event)}` : ''}
+                      </p>
+                      {event.member && (
+                        <p className="font-rubik text-brown-300 text-xs mt-0.5 text-right truncate">{event.member.display_name}</p>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -399,16 +399,17 @@ export function ProfilePage() {
 
       <Link
         to="/privacy"
-        className="block text-center font-rubik text-brown-400 text-xs py-2 active:opacity-70"
+        className="flex items-center justify-center gap-2 w-full bg-white border border-cream-300 rounded-2xl py-3 font-rubik font-medium text-brown-500 text-sm shadow-soft active:scale-[0.99] transition-all"
       >
         🔐 מדיניות פרטיות
       </Link>
 
-      <div>
-        <Button variant="ghost" className="w-full text-red-400 text-sm" onClick={() => setSignOutConfirm(true)}>
-          {t('profile.signOut')}
-        </Button>
-      </div>
+      <button
+        onClick={() => setSignOutConfirm(true)}
+        className="w-full flex items-center justify-center gap-2 bg-red-50 border border-red-200 rounded-2xl py-3.5 font-rubik font-semibold text-red-500 text-sm active:scale-[0.99] transition-all"
+      >
+        🚪 {t('profile.signOut')}
+      </button>
 
       {/* ── Dialogs ── */}
       <ConfirmDialog
