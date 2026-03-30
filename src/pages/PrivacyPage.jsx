@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 
 const LAST_UPDATED = '6 במרץ 2026'
-const CONTACT_EMAIL = 'hananel12345@gmail.com'
+const CONTACT_EMAIL = 'hananelsabag1@gmail.com'
 
 const sections = [
   {
