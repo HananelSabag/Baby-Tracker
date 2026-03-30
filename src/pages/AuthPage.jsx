@@ -210,29 +210,6 @@ export function AuthPage() {
         </div>
 
         {/* ══════════════════════════════
-            BOTTOM CTA
-        ══════════════════════════════ */}
-        <div
-          className="mx-5 mb-5 rounded-3xl overflow-hidden"
-          style={{
-            background: 'linear-gradient(135deg, #FFF2DE 0%, #FFE8C8 55%, #FFD8A8 100%)',
-            border: '1px solid #E8C898',
-            boxShadow: '0 4px 20px rgba(139,94,60,0.10)',
-          }}
-        >
-          <div className="px-6 py-7 text-center">
-            <div className="text-3xl mb-3">✨</div>
-            <p className="font-rubik font-black text-2xl text-brown-800 mb-2 leading-tight">
-              מוכנים לעשות סדר בשגרה?
-            </p>
-            <p className="font-rubik text-brown-500 text-sm leading-relaxed mb-6">
-              המידע נשמר בצורה מאובטחת ופרטית עבור המשפחה שלכם בלבד.
-            </p>
-            <GoogleSignInButton onClick={handleGoogleSignIn} loading={loading} />
-          </div>
-        </div>
-
-        {/* ══════════════════════════════
             ABOUT
         ══════════════════════════════ */}
         <SectionDivider label="מי אני?" />
@@ -250,12 +227,14 @@ export function AuthPage() {
             </div>
             <div>
               <p className="font-rubik font-bold text-brown-800 text-sm leading-tight">חננאל סבג</p>
-              <p className="font-rubik text-brown-400 text-xs mt-0.5">מהנדס תוכנה</p>
+              <p className="font-rubik text-brown-400 text-xs mt-0.5">יוצר BabyTracker</p>
             </div>
           </div>
+          <p className="font-rubik text-brown-500 text-sm leading-relaxed mb-2">
+            בניתי את BabyTracker כשהבן שלי נולד, פשוט כי חיפשתי פתרון חכם, מהיר ומדויק יותר ממה שהיה קיים בחוץ. אחרי שראיתי כמה סדר ושקט המערכת הזו נתנה לנו בשגרה, החלטתי לפתוח אותה בחינם כדי לעזור להורים נוספים.
+          </p>
           <p className="font-rubik text-brown-500 text-sm leading-relaxed mb-4">
-            פיתחתי את BabyTracker כשנולד הבן שלי — כלי שאני עצמי הייתי צריך. ראיתי שזה עובד טוב ושמחתי לחלוק אותו.
-            השימוש שלכם עוזר לי להתפתח, ואני שמח לשמוע רעיונות ובאגים. אנסה לממש את מה שנראה שימושי.
+            האפליקציה הזו היא פרויקט שנבנה ומתוחזק באהבה. הפידבק שלכם הוא הדלק שמניע את הפיתוח קדימה – אני קורא כל הודעה ותמיד מחפש דרכים לשפר, לתקן באגים ולהוסיף את הפיצ'רים שהכי חסרים לכם ביומיום.
           </p>
           <a
             href="mailto:hananel12345@gmail.com"
