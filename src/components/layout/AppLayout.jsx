@@ -45,7 +45,7 @@ export function AppLayout({ children }) {
 
   return (
     <div className="min-h-screen bg-cream-100 flex justify-center">
-      <div className="w-full max-w-[480px] min-h-screen flex flex-col">
+      <div className="w-full max-w-[480px] min-h-screen">
         <ToastContainer toasts={toasts} onDismiss={dismissToast} />
         <UpgradePopup />
         {isWife && (
@@ -60,7 +60,7 @@ export function AppLayout({ children }) {
             name={identity.memberName}
           />
         )}
-        <main className="flex-1 pb-24" style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehaviorY: 'contain' }}>
+        <main className="pb-24">
           {children}
         </main>
         <BottomNav />
