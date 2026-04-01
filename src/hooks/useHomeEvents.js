@@ -16,7 +16,7 @@ export function useHomeEvents(familyId, viewDate, childId) {
       .lte('occurred_at', endOfDay(viewDate).toISOString())
       .order('occurred_at', { ascending: false })
 
-    if (childId) query = query.or(`child_id.eq.${childId},child_id.is.null`)
+    if (childId) query = query.eq('child_id', childId)
 
     const { data } = await query
     const grouped = {}

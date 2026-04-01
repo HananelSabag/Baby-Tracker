@@ -5,6 +5,7 @@ import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications'
 import { ToastContainer } from '../ui/Toast'
 import { LovePopup } from '../ui/LovePopup'
 import { SisterPopup } from '../ui/SisterPopup'
+import { UpgradePopup } from '../ui/UpgradePopup'
 import { BottomNav } from './BottomNav'
 import { STORAGE_KEYS } from '../../lib/constants'
 import { t } from '../../lib/strings'
@@ -46,6 +47,7 @@ export function AppLayout({ children }) {
     <div className="min-h-screen bg-cream-100 flex justify-center">
       <div className="w-full max-w-[480px] min-h-screen flex flex-col">
         <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+        <UpgradePopup />
         {isWife && (
           <LovePopup
             avatarUrl={identity.memberAvatarUrl ?? identity.googleAvatarUrl}
@@ -58,7 +60,7 @@ export function AppLayout({ children }) {
             name={identity.memberName}
           />
         )}
-        <main className="flex-1 overflow-y-auto pb-[72px]">
+        <main className="flex-1 pb-24" style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehaviorY: 'contain' }}>
           {children}
         </main>
         <BottomNav />

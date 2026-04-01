@@ -1,10 +1,9 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
-import { usePushNotifications, DEFAULT_PREFS } from '../hooks/usePushNotifications'
-import { TRACKER_COLORS, TRACKER_ICONS, FIELD_TYPES, TRACKER_ARCHETYPES, STORAGE_KEYS } from '../lib/constants'
+import { TRACKER_COLORS, TRACKER_ICONS, FIELD_TYPES, TRACKER_ARCHETYPES } from '../lib/constants'
 import { Button } from '../components/ui/Button'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
@@ -15,69 +14,16 @@ import { cn } from '../lib/utils'
 // Wizard steps
 const WIZARD_STEPS = { ARCHETYPE: 'archetype', IDENTITY: 'identity', DOSE_CONFIG: 'dose_config', DISPLAY_MODE: 'display_mode', FIELDS: 'fields' }
 const DOSE_EMOJIS = ['☀️', '🌙', '🌅', '🌤', '⭐', '💫']
-const DIAPER_HOUR_OPTIONS = [3, 4, 5]
-
-// ─── Toggle component ─────────────────────────────────────────────────────────
-function Toggle({ on, onChange, disabled }) {
-  return (
-    <button
-      onClick={() => !disabled && onChange(!on)}
-      disabled={disabled}
-      className="relative w-12 h-6 rounded-full transition-colors duration-200 flex-shrink-0 disabled:opacity-40"
-      style={{ backgroundColor: on ? '#22C55E' : '#D6C4B0' }}
-    >
-      <span
-        className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
-        style={{ transform: on ? 'translateX(26px)' : 'translateX(2px)' }}
-      />
-    </button>
-  )
-}
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export function ControlCenterPage() {
   const { identity } = useApp()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const initialTab = searchParams.get('tab') === 'notifications' ? 'notifications' : 'trackers'
-  const [activeTab, setActiveTab] = useState(initialTab)
-
-  function switchTab(tab) {
-    setActiveTab(tab)
-    setSearchParams(tab === 'notifications' ? { tab: 'notifications' } : {}, { replace: true })
-  }
+  const [searchParams] = useSearchParams()
+  const openAdd = searchParams.get('action') === 'add'
 
   return (
-    <div className="pb-4">
-      {/* Header */}
-      <div className="px-4 pt-6 mb-4">
-        <h1 className="font-rubik font-bold text-2xl text-brown-800 leading-tight">מרכז שליטה</h1>
-        <p className="font-rubik text-brown-400 text-sm mt-1">מעקבים, התראות והגדרות</p>
-      </div>
-
-      {/* Tab bar */}
-      <div className="mx-4 mb-5 flex gap-1 bg-cream-200 rounded-2xl p-1">
-        {[
-          { id: 'trackers', label: 'מעקבים', icon: '📋' },
-          { id: 'notifications', label: 'התראות', icon: '🔔' },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => switchTab(tab.id)}
-            className={cn(
-              'flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-rubik font-semibold text-sm transition-all',
-              activeTab === tab.id ? 'bg-white shadow-soft text-brown-800' : 'text-brown-400'
-            )}
-          >
-            <span>{tab.icon}</span>
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === 'trackers'
-        ? <TrackersTab familyId={identity.familyId} />
-        : <NotificationsTab familyId={identity.familyId} memberId={identity.memberId} />
-      }
+    <div className="pb-24">
+      <TrackersTab familyId={identity.familyId} openAdd={openAdd} />
     </div>
   )
 }
@@ -86,182 +32,100 @@ export function ControlCenterPage() {
 // TAB 1 — TRACKERS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function TrackersTab({ familyId }) {
+function TrackersTab({ familyId, openAdd }) {
   const { toasts, showToast, dismissToast } = useToast()
   const { trackers, addTracker, updateTracker, deleteTracker } = useTrackers(familyId)
   const [addSheetOpen, setAddSheetOpen] = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState(null)
-  const [editTarget, setEditTarget] = useState(null)
-  const [editTrackerTarget, setEditTrackerTarget] = useState(null)
-
-  // ── Reorder state ──────────────────────────────────────────────────────────
-  const [localTrackers, setLocalTrackers] = useState([])
-  const [dragId, setDragId] = useState(null)
-  const [overId, setOverId] = useState(null)
-  const touchRef = useRef({ active: false, id: null })
 
   useEffect(() => {
-    if (dragId) return
-    setLocalTrackers([...trackers].sort((a, b) => a.display_order - b.display_order))
-  }, [trackers, dragId])
+    if (openAdd) setAddSheetOpen(true)
+  }, [openAdd])
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [editTarget, setEditTarget] = useState(null)       // DoseConfigSheet
+  const [editTrackerTarget, setEditTrackerTarget] = useState(null) // EditTrackerSheet
 
-  function moveItem(fromId, toId) {
-    if (!fromId || !toId || fromId === toId) return
-    setLocalTrackers(prev => {
-      const arr = [...prev]
-      const fromIdx = arr.findIndex(t => t.id === fromId)
-      const toIdx = arr.findIndex(t => t.id === toId)
-      if (fromIdx === -1 || toIdx === -1) return prev
-      const [item] = arr.splice(fromIdx, 1)
-      arr.splice(toIdx, 0, item)
-      arr.forEach((tr, i) => {
-        if (tr.display_order !== i) updateTracker(tr.id, { display_order: i })
-      })
-      return arr
-    })
-  }
-
-  function onDragStart(e, id) { setDragId(id); e.dataTransfer.effectAllowed = 'move' }
-  function onDragOver(e, id) { e.preventDefault(); if (id !== dragId) setOverId(id) }
-  function onDrop(id) { moveItem(dragId, id); setDragId(null); setOverId(null) }
-  function onDragEnd() { setDragId(null); setOverId(null) }
-
-  function onHandleTouchStart(e, id) {
-    e.preventDefault()
-    touchRef.current = { active: true, id }
-    setDragId(id)
-  }
-  function onListTouchMove(e) {
-    if (!touchRef.current.active) return
-    e.preventDefault()
-    const touch = e.touches[0]
-    const el = document.elementFromPoint(touch.clientX, touch.clientY)
-    const row = el?.closest('[data-tid]')
-    const tid = row?.getAttribute('data-tid')
-    if (tid && tid !== touchRef.current.id) setOverId(tid)
-  }
-  function onListTouchEnd() {
-    if (touchRef.current.active) {
-      moveItem(touchRef.current.id, overId)
-      touchRef.current = { active: false, id: null }
-      setDragId(null)
-      setOverId(null)
-    }
-  }
-
-  function toggleTrackerActive(tracker) {
-    updateTracker(tracker.id, { is_active: tracker.is_active === false ? true : false })
-  }
+  const sorted = [...trackers].sort((a, b) => a.display_order - b.display_order)
 
   return (
     <div className="px-4">
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-      <div className="mb-5">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <p className="font-rubik font-semibold text-brown-500 text-xs uppercase tracking-wide">{t('settings.myTrackers')}</p>
-            <p className="font-rubik text-brown-400 text-xs mt-0.5">☰ {t('settings.dragToReorder')}</p>
-          </div>
-          <button
-            onClick={() => setAddSheetOpen(true)}
-            className="text-sm font-rubik font-semibold text-white bg-amber-600 px-4 py-1.5 rounded-full active:scale-95 transition-transform shadow-soft"
-          >
-            + {t('settings.addTracker')}
-          </button>
-        </div>
+      {/* Header + add button — always at top, never fixed */}
+      <div className="flex items-center justify-between pt-6 mb-4">
+        <h1 className="font-rubik font-bold text-2xl text-brown-800 leading-tight">המעקבים שלי</h1>
+        <Button onClick={() => setAddSheetOpen(true)} className="shadow-soft text-sm px-4 py-2">
+          + {t('settings.addTracker')}
+        </Button>
+      </div>
 
-        <div
-          className="space-y-2"
-          onTouchMove={onListTouchMove}
-          onTouchEnd={onListTouchEnd}
-        >
-          {localTrackers.map(tr => {
-            const isDose = tr.tracker_type === 'vitamin_d' || tr.tracker_type === 'dose'
-            const hasActions = true
-            return (
-              <div
-                key={tr.id}
-                data-tid={tr.id}
-                draggable
-                onDragStart={e => onDragStart(e, tr.id)}
-                onDragOver={e => onDragOver(e, tr.id)}
-                onDrop={() => onDrop(tr.id)}
-                onDragEnd={onDragEnd}
-                className={cn(
-                  'bg-white rounded-2xl shadow-soft overflow-hidden transition-all select-none',
-                  tr.is_active === false ? 'opacity-50' : '',
-                  dragId === tr.id ? 'opacity-40 scale-[0.98]' : '',
-                  overId === tr.id && dragId !== tr.id ? 'ring-2 ring-brown-400 ring-offset-1' : ''
-                )}
-              >
-                <div className="h-1 w-full" style={{ backgroundColor: tr.color }} />
-                <div className="px-3 py-3 flex items-center gap-3">
-                  <div
-                    className="text-brown-300 hover:text-brown-500 flex-shrink-0 px-1 text-base cursor-grab active:cursor-grabbing touch-none"
-                    onTouchStart={e => onHandleTouchStart(e, tr.id)}
-                    title={t('settings.dragToReorder')}
-                  >
-                    ☰
+      <div className="space-y-2 mb-28">
+        {sorted.map(tr => {
+          const isDefault = tr.is_builtin
+          const isDose = tr.tracker_type === 'vitamin_d' || tr.tracker_type === 'dose'
+
+          return (
+            <div key={tr.id} className="bg-white rounded-2xl shadow-soft overflow-hidden">
+              <div className="h-1 w-full" style={{ backgroundColor: tr.color }} />
+
+              {/* Main row */}
+              <div className="px-4 py-3 flex items-center gap-3">
+                <span className="text-2xl flex-shrink-0">{tr.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-rubik font-medium text-brown-800">{tr.name}</p>
+                    <span className={cn(
+                      'text-xs font-rubik px-2 py-0.5 rounded-full flex-shrink-0',
+                      isDefault ? 'bg-cream-200 text-brown-400' : 'bg-amber-50 text-amber-700'
+                    )}>
+                      {isDefault ? 'ברירת מחדל' : 'מותאם אישית'}
+                    </span>
                   </div>
-                  <span className="text-2xl flex-shrink-0">{tr.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-rubik font-medium text-brown-800 truncate">{tr.name}</p>
-                    {tr.is_builtin && (
-                      <span className="text-xs font-rubik text-brown-400">{t('settings.builtin')}</span>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => toggleTrackerActive(tr)}
-                    className="relative w-14 h-7 rounded-full transition-colors duration-200 flex-shrink-0"
-                    style={{ backgroundColor: tr.is_active === false ? '#D6C4B0' : '#22C55E' }}
-                    title={tr.is_active === false ? t('settings.showTracker') : t('settings.hideTracker')}
-                  >
-                    <span className="absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform duration-200"
-                      style={{ transform: tr.is_active === false ? 'translateX(2px)' : 'translateX(28px)' }} />
-                  </button>
+                  {isDefault && (
+                    <p className="text-xs font-rubik text-brown-300 mt-0.5">ניתן לערוך שם, אייקון וצבע</p>
+                  )}
                 </div>
+              </div>
 
-                {hasActions && (
-                  <div className="px-3 pb-3 flex items-center gap-2 border-t border-cream-100 pt-2">
-                    {isDose && (
-                      <button
-                        onClick={() => setEditTarget(tr)}
-                        className="flex items-center gap-1 text-xs font-rubik text-brown-500 bg-cream-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
-                      >
-                        ⚙️ {t('settings.dosesButton')}
-                      </button>
-                    )}
-                    {!tr.is_builtin && (
-                      <button
-                        onClick={() => setEditTrackerTarget(tr)}
-                        className="flex items-center gap-1 text-xs font-rubik text-brown-500 bg-cream-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
-                      >
-                        ✏️ {t('common.edit')}
-                      </button>
-                    )}
-                    <button
-                      onClick={() => setDeleteTarget(tr.id)}
-                      className="flex items-center gap-1 text-xs font-rubik text-red-400 bg-red-50 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
-                    >
-                      🗑 {t('common.delete')}
-                    </button>
-                  </div>
+              {/* Action row */}
+              <div className="px-4 pb-3 flex items-center gap-2 border-t border-cream-100 pt-2 flex-wrap">
+                {isDose && (
+                  <button
+                    onClick={() => setEditTarget(tr)}
+                    className="flex items-center gap-1 text-xs font-rubik text-brown-500 bg-cream-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
+                  >
+                    ⚙️ {t('settings.dosesButton')}
+                  </button>
+                )}
+                <button
+                  onClick={() => setEditTrackerTarget(tr)}
+                  className="flex items-center gap-1 text-xs font-rubik text-brown-500 bg-cream-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
+                >
+                  ✏️ {t('common.edit')}
+                </button>
+                {!isDefault ? (
+                  <button
+                    onClick={() => setDeleteTarget(tr.id)}
+                    className="flex items-center gap-1 text-xs font-rubik text-red-400 bg-red-50 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
+                  >
+                    🗑 {t('common.delete')}
+                  </button>
+                ) : (
+                  <span className="text-xs font-rubik text-brown-300 mr-auto">לא ניתן למחיקה</span>
                 )}
               </div>
-            )
-          })}
+            </div>
+          )
+        })}
 
-          {localTrackers.length === 0 && (
-            <button
-              onClick={() => setAddSheetOpen(true)}
-              className="w-full py-8 rounded-3xl border-2 border-dashed border-cream-300 text-brown-400 font-rubik text-sm active:scale-95 transition-transform"
-            >
-              <div className="text-3xl mb-1">➕</div>
-              {t('settings.addTracker')}
-            </button>
-          )}
-        </div>
+        {sorted.length === 0 && (
+          <button
+            onClick={() => setAddSheetOpen(true)}
+            className="w-full py-8 rounded-3xl border-2 border-dashed border-cream-300 text-brown-400 font-rubik text-sm active:scale-95 transition-transform"
+          >
+            <div className="text-3xl mb-1">➕</div>
+            {t('settings.addTracker')}
+          </button>
+        )}
       </div>
 
       <AddTrackerWizard
@@ -302,332 +166,6 @@ function TrackersTab({ familyId }) {
         onConfirm={async () => { await deleteTracker(deleteTarget); setDeleteTarget(null) }}
         onCancel={() => setDeleteTarget(null)}
       />
-    </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// TAB 2 — NOTIFICATIONS
-// ═══════════════════════════════════════════════════════════════════════════════
-
-function NotificationsTab({ familyId, memberId }) {
-  const { trackers, updateTracker } = useTrackers(familyId)
-
-  const {
-    supported,
-    permission,
-    isSubscribed,
-    prefs,
-    loading,
-    subscribe,
-    unsubscribe,
-    updatePrefs,
-  } = usePushNotifications({ familyId, memberId })
-
-  // In-app notifications (realtime bell/toast)
-  const [inAppOn, setInAppOn] = useState(
-    () => localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS) === null
-      ? true
-      : localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS) === 'true'
-  )
-
-  function toggleInApp(val) {
-    setInAppOn(val)
-    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, String(val))
-  }
-
-  const doseTrackers = trackers.filter(
-    t => (t.tracker_type === 'vitamin_d' || t.tracker_type === 'dose')
-      && t.is_active !== false
-      && !t.is_deleted
-  )
-
-  const [localTimes, setLocalTimes] = useState({})
-  const [dirty, setDirty] = useState({})
-  const [saving, setSaving] = useState({})
-  const [subscribeStatus, setSubscribeStatus] = useState(null)
-
-  function getDisplayTimes(tracker) {
-    if (localTimes[tracker.id]) return localTimes[tracker.id]
-    const config = tracker.config ?? {}
-    const count = config.daily_doses ?? 1
-    const stored = config.notification_times ?? []
-    return Array.from({ length: count }, (_, i) => stored[i] ?? '')
-  }
-
-  function handleTimeChange(trackerId, doseIndex, value) {
-    setLocalTimes(prev => {
-      const tracker = doseTrackers.find(t => t.id === trackerId)
-      const current = prev[trackerId] ?? getDisplayTimes(tracker)
-      const next = [...current]
-      next[doseIndex] = value
-      return { ...prev, [trackerId]: next }
-    })
-    setDirty(prev => ({ ...prev, [trackerId]: true }))
-  }
-
-  async function saveTrackerTimes(tracker) {
-    setSaving(prev => ({ ...prev, [tracker.id]: true }))
-    const times = localTimes[tracker.id] ?? []
-    await updateTracker(tracker.id, {
-      config: { ...tracker.config, notification_times: times },
-    })
-    setSaving(prev => ({ ...prev, [tracker.id]: false }))
-    setDirty(prev => ({ ...prev, [tracker.id]: false }))
-  }
-
-  function isTrackerEnabled(trackerId) {
-    return prefs.dose_trackers?.[trackerId] !== false
-  }
-
-  async function toggleTracker(trackerId, enabled) {
-    await updatePrefs({
-      ...prefs,
-      dose_trackers: { ...prefs.dose_trackers, [trackerId]: enabled },
-    })
-  }
-
-  async function handleEnable() {
-    const result = await subscribe(DEFAULT_PREFS)
-    setSubscribeStatus(result === 'granted' ? 'success' : result === 'denied' ? 'denied' : 'error')
-  }
-
-  return (
-    <div className="px-4 space-y-4" dir="rtl">
-
-      {/* ── In-app notifications ─────────────────────────────────────────── */}
-      <div>
-        <p className="font-rubik font-semibold text-brown-400 text-xs uppercase tracking-wider px-1 mb-2">
-          התראות בתוך האפליקציה
-        </p>
-        <div className="bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center justify-between">
-          <div>
-            <p className="font-rubik font-semibold text-brown-800 text-sm">🔔 עדכונים בזמן אמת</p>
-            <p className="font-rubik text-brown-400 text-xs mt-0.5">
-              Toast ופעמון כשבני משפחה רושמים אירועים
-            </p>
-          </div>
-          <Toggle on={inAppOn} onChange={toggleInApp} />
-        </div>
-      </div>
-
-      {/* ── Push notifications ───────────────────────────────────────────── */}
-      <div>
-        <p className="font-rubik font-semibold text-brown-400 text-xs uppercase tracking-wider px-1 mb-2">
-          התראות Push
-        </p>
-
-        {!supported ? (
-          <div className="bg-white rounded-2xl shadow-soft px-4 py-4 flex items-start gap-3">
-            <span className="text-2xl">🔕</span>
-            <div>
-              <p className="font-rubik font-semibold text-brown-800 text-sm">לא נתמך בדפדפן זה</p>
-              <p className="font-rubik text-brown-400 text-xs mt-0.5 leading-relaxed">
-                פתח את האפליקציה כ-PWA מהמסך הראשי של הטלפון כדי להפעיל התראות.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-white rounded-2xl shadow-soft px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-rubik font-semibold text-brown-800 text-sm">
-                  📲 התראות גם כשהאפליקציה סגורה
-                </p>
-                <p className="font-rubik text-brown-400 text-xs mt-0.5">
-                  {isSubscribed ? 'פועל' : 'כבוי — לחץ הפעל כדי להתחיל'}
-                </p>
-              </div>
-              {isSubscribed ? (
-                <button
-                  onClick={unsubscribe}
-                  disabled={loading}
-                  className="text-xs font-rubik text-red-400 bg-red-50 px-3 py-1.5 rounded-full active:scale-95 transition-transform disabled:opacity-40"
-                >
-                  {loading ? '...' : 'כבה'}
-                </button>
-              ) : (
-                <button
-                  onClick={handleEnable}
-                  disabled={loading || permission === 'denied'}
-                  className="text-xs font-rubik text-white bg-green-500 px-3 py-1.5 rounded-full active:scale-95 transition-transform disabled:opacity-40"
-                >
-                  {loading ? '...' : 'הפעל'}
-                </button>
-              )}
-            </div>
-            {subscribeStatus === 'success' && (
-              <p className="mt-2 text-xs font-rubik text-green-600 bg-green-50 rounded-xl px-3 py-1.5">
-                ✅ הופעל בהצלחה!
-              </p>
-            )}
-            {subscribeStatus === 'denied' && (
-              <p className="mt-2 text-xs font-rubik text-red-500 bg-red-50 rounded-xl px-3 py-1.5">
-                🚫 הרשאה נדחתה — לשנות בהגדרות הדפדפן
-              </p>
-            )}
-            {permission === 'denied' && !isSubscribed && (
-              <p className="mt-2 text-xs font-rubik text-amber-700 bg-amber-50 rounded-xl px-3 py-1.5">
-                ⚠️ הרשאה חסומה בדפדפן — לאפשר בהגדרות
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* ── Dose trackers ────────────────────────────────────────────────── */}
-      {doseTrackers.length > 0 && (
-        <div className="space-y-3">
-          <p className="font-rubik font-semibold text-brown-400 text-xs uppercase tracking-wider px-1">
-            מינונים ותרופות
-          </p>
-
-          {doseTrackers.map(tracker => {
-            const config = tracker.config ?? {}
-            const doseCount = config.daily_doses ?? 1
-            const doseLabels = config.dose_labels ?? []
-            const displayTimes = getDisplayTimes(tracker)
-            const enabled = isTrackerEnabled(tracker.id)
-            const isDirty = dirty[tracker.id]
-            const isSaving = saving[tracker.id]
-
-            return (
-              <div key={tracker.id} className="bg-white rounded-2xl shadow-soft overflow-hidden">
-                <div className="h-1 w-full" style={{ backgroundColor: tracker.color }} />
-                <div className="px-4 py-3">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">{tracker.icon}</span>
-                      <div>
-                        <p className="font-rubik font-semibold text-brown-800 text-sm">{tracker.name}</p>
-                        <p className="font-rubik text-brown-400 text-xs">
-                          {doseCount === 1 ? 'מינון אחד ביום' : `${doseCount} מינונים ביום`}
-                        </p>
-                      </div>
-                    </div>
-                    <Toggle
-                      on={enabled}
-                      onChange={v => toggleTracker(tracker.id, v)}
-                      disabled={!isSubscribed}
-                    />
-                  </div>
-
-                  {enabled && (
-                    <div className="space-y-2 border-t border-cream-100 pt-3">
-                      <p className="font-rubik text-xs text-brown-400 mb-2">
-                        שעת תזכורת לכל מינון (אם לא ניתן עד השעה הזו):
-                      </p>
-                      {Array.from({ length: doseCount }, (_, i) => {
-                        const label = doseLabels[i] || `מינון ${i + 1}`
-                        const timeVal = displayTimes[i] ?? ''
-                        return (
-                          <div key={i} className="flex items-center gap-3 bg-cream-100 rounded-2xl px-3 py-2.5">
-                            <span className="text-lg flex-shrink-0">{DOSE_EMOJIS[i]}</span>
-                            <p className="font-rubik text-sm text-brown-700 flex-1">{label}</p>
-                            <input
-                              type="time"
-                              value={timeVal}
-                              onChange={e => handleTimeChange(tracker.id, i, e.target.value)}
-                              className="bg-white rounded-xl px-2 py-1 font-rubik text-brown-700 text-sm outline-none flex-shrink-0 w-[90px] border border-cream-200"
-                            />
-                          </div>
-                        )
-                      })}
-
-                      {isDirty && (
-                        <button
-                          onClick={() => saveTrackerTimes(tracker)}
-                          disabled={isSaving}
-                          className="w-full mt-1 py-2 rounded-xl font-rubik font-semibold text-sm text-white active:scale-95 transition-all disabled:opacity-50"
-                          style={{ backgroundColor: tracker.color }}
-                        >
-                          {isSaving ? '...' : '💾 שמור שעות'}
-                        </button>
-                      )}
-
-                      {!isDirty && displayTimes.every(t => !t) && (
-                        <p className="text-xs font-rubik text-amber-600 bg-amber-50 rounded-xl px-3 py-1.5 text-center">
-                          הגדר שעה לכל מינון כדי לקבל תזכורות
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {!isSubscribed && (
-                    <p className="text-xs font-rubik text-brown-300 mt-2 text-center">
-                      הפעל התראות Push כדי להגדיר שעות
-                    </p>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* ── Diaper ───────────────────────────────────────────────────────── */}
-      <div className="space-y-3">
-        <p className="font-rubik font-semibold text-brown-400 text-xs uppercase tracking-wider px-1">
-          חיתול
-        </p>
-        <div className="bg-white rounded-2xl shadow-soft px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">👶</span>
-              <div>
-                <p className="font-rubik font-semibold text-brown-800 text-sm">תזכורת חיתול</p>
-                <p className="font-rubik text-brown-400 text-xs">
-                  התראה אם לא הוחלף תוך כמה שעות
-                </p>
-              </div>
-            </div>
-            <Toggle
-              on={prefs.diaper}
-              onChange={v => updatePrefs({ ...prefs, diaper: v })}
-              disabled={!isSubscribed}
-            />
-          </div>
-
-          {prefs.diaper && (
-            <div className="mt-3 border-t border-cream-100 pt-3">
-              <p className="font-rubik text-xs text-brown-400 mb-2">שלח תזכורת אחרי:</p>
-              <div className="flex gap-2">
-                {DIAPER_HOUR_OPTIONS.map(h => (
-                  <button
-                    key={h}
-                    onClick={() => updatePrefs({ ...prefs, diaper_hours: h })}
-                    className={cn(
-                      'flex-1 py-2 rounded-xl text-sm font-rubik font-semibold transition-all active:scale-95',
-                      prefs.diaper_hours === h ? 'text-white shadow-soft' : 'bg-cream-100 text-brown-500'
-                    )}
-                    style={prefs.diaper_hours === h ? { backgroundColor: '#9B8EC4' } : {}}
-                  >
-                    {h} שעות
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {!isSubscribed && (
-            <p className="text-xs font-rubik text-brown-300 mt-2 text-center">
-              הפעל התראות Push כדי להגדיר
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Empty state — no dose trackers */}
-      {doseTrackers.length === 0 && (
-        <div className="text-center py-6 text-brown-400">
-          <div className="text-4xl mb-2">💊</div>
-          <p className="font-rubik text-sm">אין מעקבי מינון פעילים</p>
-          <p className="font-rubik text-xs mt-1">הוסף מעקב מינון בטאב המעקבים</p>
-        </div>
-      )}
-
-      {/* bottom padding for nav */}
-      <div className="h-4" />
     </div>
   )
 }

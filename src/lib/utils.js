@@ -50,3 +50,12 @@ export function groupEventsByDay(events) {
 export function cn(...classes) {
   return classes.filter(Boolean).join(' ')
 }
+
+// Safe back navigation — goes back in history if possible, otherwise navigates to fallback
+export function goBack(navigate, fallback = '/') {
+  if (window.history.length > 1) {
+    navigate(-1)
+  } else {
+    navigate(fallback, { replace: true })
+  }
+}

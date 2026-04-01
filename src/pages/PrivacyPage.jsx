@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { goBack } from '../lib/utils'
 
 const LAST_UPDATED = '6 במרץ 2026'
 const CONTACT_EMAIL = 'hananelsabag1@gmail.com'
@@ -178,7 +179,7 @@ export function PrivacyPage() {
 
         {/* Back button */}
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => goBack(navigate, '/')}
           className="flex items-center gap-2 text-brown-500 font-rubik text-sm mb-5 active:opacity-70"
         >
           ← חזרה

@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { he } from 'date-fns/locale'
+import { useNavigate } from 'react-router-dom'
 import { useEvents } from '../../hooks/useEvents'
 import { BottomSheet } from '../ui/BottomSheet'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
-import { ageInMonths } from '../../lib/whoGrowthData'
+import { ageInMonths, getWeightPercentileLabel, getHeightPercentileLabel } from '../../lib/whoGrowthData'
 
 export function GrowthCard({ tracker, familyId, memberId, childId, child }) {
+  const navigate = useNavigate()
   const { events, loading, addEvent } = useEvents(familyId, { trackerId: tracker.id, childId })
   const [sheetOpen, setSheetOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -20,7 +22,7 @@ export function GrowthCard({ tracker, familyId, memberId, childId, child }) {
   const lastEvent = events[0]
   const lastWeight = lastEvent?.data?.weight_kg ? parseFloat(lastEvent.data.weight_kg) : null
   const lastHeight = lastEvent?.data?.height_cm ? parseFloat(lastEvent.data.height_cm) : null
-  const lastHead = lastEvent?.data?.head_cm ? parseFloat(lastEvent.data.head_cm) : null
+  const lastHead   = lastEvent?.data?.head_cm   ? parseFloat(lastEvent.data.head_cm)   : null
 
   // Age at last measurement
   const birthDate = child?.birth_date
@@ -32,6 +34,26 @@ export function GrowthCard({ tracker, familyId, memberId, childId, child }) {
       const w = Math.round((months - m) * 4.33)
       ageLabel = m === 0 ? `${w} שבועות` : w > 0 ? `${m} חודשים ו-${w} שבועות` : `${m} חודשים`
     }
+  }
+
+  // WHO percentile for badge
+  let percentileResult = null
+  if (birthDate && lastEvent) {
+    const months = ageInMonths(birthDate, lastEvent.occurred_at)
+    if (months !== null) {
+      percentileResult = lastWeight != null
+        ? getWeightPercentileLabel(lastWeight, months, child?.gender ?? 'male')
+        : lastHeight != null
+          ? getHeightPercentileLabel(lastHeight, months, child?.gender ?? 'male')
+          : null
+    }
+  }
+
+  let percentileBadgeColor = '#5BAD6F'
+  if (percentileResult) {
+    const p = percentileResult.percentile
+    if (p < 3 || p > 97) percentileBadgeColor = '#E05A4B'
+    else if (p < 15 || p > 85) percentileBadgeColor = '#E8B84B'
   }
 
   async function handleSave() {
@@ -71,49 +93,73 @@ export function GrowthCard({ tracker, familyId, memberId, childId, child }) {
               {ageLabel && <p className="font-rubik text-xs text-brown-400">{ageLabel}</p>}
             </div>
           </div>
-          <button
-            onClick={() => setSheetOpen(true)}
-            className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-soft active:scale-95 transition-transform"
-            style={{ backgroundColor: tracker.color }}
-          >+</button>
+          <div className="flex items-center gap-2">
+            {/* Reports link */}
+            <button
+              onClick={() => navigate('/reports')}
+              className="px-2.5 py-1 rounded-full font-rubik text-xs font-semibold active:scale-95 transition-transform"
+              style={{ backgroundColor: `${tracker.color}18`, color: tracker.color }}
+            >
+              גרף ›
+            </button>
+            <button
+              onClick={() => setSheetOpen(true)}
+              className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-soft active:scale-95 transition-transform"
+              style={{ backgroundColor: tracker.color }}
+            >+</button>
+          </div>
         </div>
 
         {/* Last measurement */}
         {loading ? (
           <p className="font-rubik text-brown-400 text-sm">טוען...</p>
         ) : lastWeight || lastHeight || lastHead ? (
-          <div className="flex gap-2">
+          <div
+            className="rounded-xl px-3 py-2.5 flex items-center gap-3 flex-wrap"
+            style={{ backgroundColor: `${tracker.color}12` }}
+          >
             {lastWeight && (
-              <div className="flex-1 bg-cream-100 rounded-2xl px-2 py-2.5 text-center">
-                <p className="font-rubik font-bold text-xl text-brown-800">{lastWeight}</p>
-                <p className="font-rubik text-brown-400 text-xs">ק"ג</p>
-              </div>
+              <span className="font-rubik text-sm">
+                <span className="font-bold text-brown-800">{lastWeight}</span>
+                <span className="text-brown-400 text-xs"> ק"ג</span>
+              </span>
             )}
             {lastHeight && (
-              <div className="flex-1 bg-cream-100 rounded-2xl px-2 py-2.5 text-center">
-                <p className="font-rubik font-bold text-xl text-brown-800">{lastHeight}</p>
-                <p className="font-rubik text-brown-400 text-xs">ס"מ גובה</p>
-              </div>
+              <span className="font-rubik text-sm">
+                <span className="font-bold text-brown-800">{lastHeight}</span>
+                <span className="text-brown-400 text-xs"> ס"מ</span>
+              </span>
             )}
             {lastHead && (
-              <div className="flex-1 bg-cream-100 rounded-2xl px-2 py-2.5 text-center">
-                <p className="font-rubik font-bold text-xl text-brown-800">{lastHead}</p>
-                <p className="font-rubik text-brown-400 text-xs">ס"מ ראש</p>
-              </div>
+              <span className="font-rubik text-sm">
+                <span className="font-bold text-brown-800">{lastHead}</span>
+                <span className="text-brown-400 text-xs"> ס"מ ראש</span>
+              </span>
+            )}
+            {/* WHO percentile badge */}
+            {percentileResult && (
+              <span
+                className="font-rubik text-xs font-bold px-2 py-0.5 rounded-full text-white mr-auto"
+                style={{ backgroundColor: percentileBadgeColor }}
+              >
+                P{percentileResult.percentile}
+              </span>
+            )}
+            {lastDateLabel && !percentileResult && (
+              <span className="font-rubik text-brown-400 text-xs mr-auto">{lastDateLabel}</span>
+            )}
+            {lastDateLabel && percentileResult && (
+              <span className="font-rubik text-brown-400 text-xs">{lastDateLabel}</span>
             )}
           </div>
         ) : (
           <button
             onClick={() => setSheetOpen(true)}
-            className="w-full py-4 rounded-2xl border-2 border-dashed text-brown-400 font-rubik text-sm active:scale-95 transition-transform"
+            className="w-full py-3 rounded-2xl border-2 border-dashed text-brown-400 font-rubik text-sm active:scale-95 transition-transform"
             style={{ borderColor: `${tracker.color}60` }}
           >
             הוסף מדידה ראשונה
           </button>
-        )}
-
-        {lastDateLabel && (
-          <p className="font-rubik text-brown-400 text-xs mt-2 text-center">{lastDateLabel}</p>
         )}
       </Card>
 
