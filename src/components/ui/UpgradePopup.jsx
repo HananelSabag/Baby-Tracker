@@ -98,6 +98,23 @@ export function UpgradePopup() {
             ))}
           </div>
 
+          {/* Share nudge */}
+          <div className="flex items-center gap-2 bg-amber-50 rounded-2xl px-3 py-2.5 mb-3">
+            <span className="text-lg flex-shrink-0">🔗</span>
+            <div className="flex-1 min-w-0">
+              <p className="font-rubik text-brown-700 text-xs leading-tight">אהבת את האפליקציה? שתף עם הורים וקבוצות!</p>
+              <button
+                onClick={() => {
+                  navigator.clipboard?.writeText('https://baby-tracker-two-liart.vercel.app')
+                  alert('הקישור הועתק! 🎉')
+                }}
+                className="font-rubik text-amber-700 font-semibold text-[11px] underline mt-0.5 active:opacity-60"
+              >
+                baby-tracker-two-liart.vercel.app
+              </button>
+            </div>
+          </div>
+
           {/* CTA */}
           <button
             onClick={() => setVisible(false)}
