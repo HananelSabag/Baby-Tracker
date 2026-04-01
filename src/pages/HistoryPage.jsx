@@ -55,11 +55,11 @@ export function HistoryPage() {
     setLoadingMore(false)
   }, [events])
 
-  // Filter by tracker type client-side
-  const filtered = useMemo(
-    () => filterTrackerId ? events.filter(e => e.tracker_id === filterTrackerId) : events,
-    [events, filterTrackerId]
-  )
+  // Filter by tracker type client-side; always exclude events from hidden trackers
+  const filtered = useMemo(() => {
+    const visible = events.filter(e => e.tracker?.is_active !== false)
+    return filterTrackerId ? visible.filter(e => e.tracker_id === filterTrackerId) : visible
+  }, [events, filterTrackerId])
 
   // Group by local date key (yyyy-MM-dd), sorted newest first
   const grouped = useMemo(() => {
@@ -176,7 +176,17 @@ export function HistoryPage() {
       return map[data.type] ?? ''
     }
     if (type === 'sleep') return data.type === 'start' ? '💤 הלך לישון' : '☀️ התעורר'
-    return Object.values(data).filter(Boolean).join(', ')
+    const schema = event.tracker?.field_schema ?? []
+    if (schema.length === 0) return Object.values(data).filter(v => v !== null && v !== undefined && v !== '').join(', ')
+    return schema
+      .map(f => {
+        const v = data[f.key]
+        if (v === null || v === undefined || v === '') return null
+        if (f.type === 'boolean') return v ? 'כן' : 'לא'
+        return String(v)
+      })
+      .filter(Boolean)
+      .join(', ')
   }
 
   // Active filter label for the filter row

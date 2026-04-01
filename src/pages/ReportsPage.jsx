@@ -92,11 +92,16 @@ export function ReportsPage() {
           map[tr.id] = { value: total, unit: "שע' שינה" }
           break
         }
-        case TRACKER_TYPES.VITAMIN_D: {
+        case TRACKER_TYPES.VITAMIN_D:
+        case TRACKER_TYPES.DOSE: {
           const config = tr.config ?? {}
-          const doses = config.daily_doses ?? 2
-          const given = trEvents.length
-          map[tr.id] = { value: `${given}/${doses * 7}`, unit: 'מינונים' }
+          if (tr.tracker_type === TRACKER_TYPES.DOSE && config.display_mode === 'simple') {
+            map[tr.id] = { value: trEvents.length, unit: 'אירועים' }
+          } else {
+            const doses = config.daily_doses ?? 2
+            const given = trEvents.length
+            map[tr.id] = { value: `${given}/${doses * 7}`, unit: 'מינונים' }
+          }
           break
         }
         case TRACKER_TYPES.GROWTH: {
@@ -298,16 +303,19 @@ function TrackerChartContent({ tracker, weekEvents, weekDays }) {
 
   // Sleep
   if (type === TRACKER_TYPES.SLEEP) {
-    const data = weekDays.map(day => {
-      const de = [...weekEvents.filter(e => isSameDay(new Date(e.occurred_at), day))]
-        .sort((a,b) => new Date(a.occurred_at) - new Date(b.occurred_at))
-      let ms = 0
-      for (let i = 0; i < de.length; i++) {
-        if (de[i].data?.type === 'start' && de[i+1]?.data?.type === 'end') {
-          ms += new Date(de[i+1].occurred_at) - new Date(de[i].occurred_at)
-          i++
-        }
+    // Pair across the full week first so cross-midnight sessions are not lost
+    const allSorted = [...weekEvents].sort((a, b) => new Date(a.occurred_at) - new Date(b.occurred_at))
+    const weekPairs = []
+    for (let i = 0; i < allSorted.length; i++) {
+      if (allSorted[i].data?.type === 'start' && allSorted[i + 1]?.data?.type === 'end') {
+        weekPairs.push({ start: allSorted[i], end: allSorted[i + 1] })
+        i++
       }
+    }
+    const data = weekDays.map(day => {
+      const ms = weekPairs
+        .filter(p => isSameDay(new Date(p.start.occurred_at), day))
+        .reduce((sum, p) => sum + (new Date(p.end.occurred_at) - new Date(p.start.occurred_at)), 0)
       return { day: dayLabel(day), hours: Math.round(ms / 3600000 * 10) / 10 }
     }).reverse()
     const total = Math.round(data.reduce((s,d) => s + d.hours, 0) * 10) / 10
@@ -335,8 +343,9 @@ function TrackerChartContent({ tracker, weekEvents, weekDays }) {
     )
   }
 
-  // Vitamin D — compliance grid
-  if (type === TRACKER_TYPES.VITAMIN_D) {
+  // Vitamin D / Dose — compliance grid (skip for simple-mode dose trackers)
+  const isSimpleDose = type === TRACKER_TYPES.DOSE && (tracker.config?.display_mode === 'simple')
+  if ((type === TRACKER_TYPES.VITAMIN_D || type === TRACKER_TYPES.DOSE) && !isSimpleDose) {
     const config     = tracker.config ?? {}
     const doseCount  = config.daily_doses ?? 2
     const doseLabels = config.dose_labels ?? ['בוקר', 'ערב']

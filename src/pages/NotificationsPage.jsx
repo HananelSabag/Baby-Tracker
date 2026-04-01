@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { goBack } from '../lib/utils'
 import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
 import { usePushNotifications, DEFAULT_PREFS } from '../hooks/usePushNotifications'
@@ -104,7 +105,7 @@ export function NotificationsPage() {
 
       {/* Header */}
       <div className="flex items-center gap-3 mb-1">
-        <button onClick={() => navigate(-1)} className="text-brown-400 text-xl active:opacity-60">←</button>
+        <button onClick={() => goBack(navigate, '/')} className="w-9 h-9 rounded-full bg-cream-100 flex items-center justify-center text-brown-600 text-lg active:scale-95 transition-transform flex-shrink-0">›</button>
         <div>
           <h1 className="font-rubik font-bold text-2xl text-brown-800">מרכז התראות</h1>
           <p className="font-rubik text-brown-400 text-sm">הגדר מתי לקבל תזכורות</p>

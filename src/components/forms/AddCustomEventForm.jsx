@@ -31,6 +31,7 @@ export function AddCustomEventForm({ tracker, onSave, onCancel, loading, initial
           {field.type === 'number' && (
             <input
               type="number"
+              value={fieldValues[field.key] ?? ''}
               onChange={e => setField(field.key, e.target.value)}
               placeholder={field.label}
               className="w-full bg-cream-200 rounded-2xl px-4 py-3 text-brown-800 font-rubik outline-none"
@@ -40,6 +41,7 @@ export function AddCustomEventForm({ tracker, onSave, onCancel, loading, initial
           {field.type === 'text' && (
             <textarea
               rows={2}
+              value={fieldValues[field.key] ?? ''}
               onChange={e => setField(field.key, e.target.value)}
               placeholder={field.label}
               className="w-full bg-cream-200 rounded-2xl px-4 py-3 text-brown-800 font-rubik outline-none resize-none"
