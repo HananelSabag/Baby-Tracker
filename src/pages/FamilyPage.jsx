@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { goBack } from '../lib/utils'
 import { t } from '../lib/strings'
@@ -13,8 +13,10 @@ import { Button } from '../components/ui/Button'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { ToastContainer } from '../components/ui/Toast'
+import { PhotoSourceSheet } from '../components/ui/PhotoSourceSheet'
 import { useToast } from '../hooks/useToast'
 import { cn } from '../lib/utils'
+import { pickAndCompressImage, uploadAvatar } from '../lib/imageUpload'
 
 export function FamilyPage() {
   const { identity } = useApp()
@@ -37,11 +39,19 @@ export function FamilyPage() {
 
   const isParent = PARENT_ROLES.includes(identity.memberName)
 
-  useState(() => {
+  // BUG FIX: previously this used `useState(() => {...})` as a side effect,
+  // which is the wrong primitive and never re-runs if familyId changes.
+  useEffect(() => {
     if (!identity.familyId) return
+    let cancelled = false
     supabase.from('families').select().eq('id', identity.familyId).single()
-      .then(({ data }) => { if (data) { setFamily(data); setFamilyNameEdit(data.name) } })
-  })
+      .then(({ data }) => {
+        if (cancelled || !data) return
+        setFamily(data)
+        setFamilyNameEdit(data.name)
+      })
+    return () => { cancelled = true }
+  }, [identity.familyId])
 
   async function handleSaveFamilyName() {
     if (!familyNameEdit.trim() || familyNameEdit === family?.name) return
@@ -75,15 +85,20 @@ export function FamilyPage() {
     }
   }
 
-  async function handleChildSave({ name, avatarFile, birthDate, gender }, isEdit) {
+  async function handleChildSave({ name, photo, birthDate, gender }, isEdit) {
     let uploadedUrl = isEdit ? editChildTarget.avatar_url : null
-    if (avatarFile) {
-      const ext = avatarFile.name.split('.').pop()
-      const path = `children/${Date.now()}.${ext}`
-      const { error } = await supabase.storage.from('avatars').upload(path, avatarFile)
-      if (!error) {
-        const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-        uploadedUrl = data.publicUrl
+    // photo is { blob, ext, mime } from pickAndCompressImage, or null
+    if (photo?.blob) {
+      try {
+        const subjectId = isEdit ? editChildTarget.id : `new-${Date.now()}`
+        uploadedUrl = await uploadAvatar({
+          folder: 'children',
+          subjectId,
+          ...photo,
+        })
+      } catch (err) {
+        showToast({ message: 'העלאת התמונה נכשלה', emoji: '⚠️' })
+        // Fall through — still save the rest of the changes
       }
     }
     if (isEdit) {
@@ -316,27 +331,34 @@ export function FamilyPage() {
 function ChildFormSheet({ isOpen, onClose, title, initialName = '', initialAvatar = null, initialBirthDate = '', initialGender = '', onSave }) {
   const [name, setName] = useState(initialName)
   const [avatarPreview, setAvatarPreview] = useState(initialAvatar)
-  const [avatarFile, setAvatarFile] = useState(null)
+  // photo is { blob, ext, mime } — null means "no change" (edit) or "no photo" (add)
+  const [photo, setPhoto] = useState(null)
   const [birthDate, setBirthDate] = useState(initialBirthDate)
   const [gender, setGender] = useState(initialGender)
   const [saving, setSaving] = useState(false)
+  const [photoBusy, setPhotoBusy] = useState(false)
   const [error, setError] = useState('')
-  const fileRef = useRef(null)
+  const [photoSourceOpen, setPhotoSourceOpen] = useState(false)
 
-  function handleFileChange(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setAvatarFile(file)
-    const reader = new FileReader()
-    reader.onload = ev => setAvatarPreview(ev.target.result)
-    reader.readAsDataURL(file)
+  async function handlePickPhoto(mode) {
+    setPhotoBusy(true)
+    try {
+      const picked = await pickAndCompressImage({ mode })
+      if (!picked) return
+      setPhoto(picked)
+      setAvatarPreview(URL.createObjectURL(picked.blob))
+    } catch (err) {
+      setError(err?.message ?? t('errors.saveFailed'))
+    } finally {
+      setPhotoBusy(false)
+    }
   }
 
   async function handleSave() {
     if (!name.trim()) { setError(t('children.nameRequired')); return }
     setSaving(true)
     try {
-      await onSave({ name: name.trim(), avatarFile, birthDate: birthDate || null, gender: gender || null })
+      await onSave({ name: name.trim(), photo, birthDate: birthDate || null, gender: gender || null })
     } catch {
       setError(t('errors.saveFailed'))
     } finally {
@@ -349,18 +371,26 @@ function ChildFormSheet({ isOpen, onClose, title, initialName = '', initialAvata
       <div className="space-y-4">
         <div className="flex flex-col items-center gap-2">
           <button
-            onClick={() => fileRef.current?.click()}
-            className="w-20 h-20 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center active:scale-95 transition-transform border-4 border-white shadow-soft"
+            onClick={() => setPhotoSourceOpen(true)}
+            disabled={photoBusy}
+            className="w-20 h-20 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center active:scale-95 transition-transform border-4 border-white shadow-soft disabled:opacity-60"
           >
-            {avatarPreview
-              ? <img src={avatarPreview} alt="avatar" className="w-full h-full object-cover" />
-              : <span className="text-4xl">👶</span>
+            {photoBusy
+              ? <span className="text-2xl">⏳</span>
+              : avatarPreview
+                ? <img src={avatarPreview} alt="avatar" className="w-full h-full object-cover" />
+                : <span className="text-4xl">👶</span>
             }
           </button>
-          <button onClick={() => fileRef.current?.click()} className="text-xs font-rubik text-brown-500 bg-cream-200 px-3 py-1.5 rounded-full">
+          <button onClick={() => setPhotoSourceOpen(true)} disabled={photoBusy} className="text-xs font-rubik text-brown-500 bg-cream-200 px-3 py-1.5 rounded-full disabled:opacity-60">
             {t('children.addPhoto')}
           </button>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+          <PhotoSourceSheet
+            isOpen={photoSourceOpen}
+            onClose={() => setPhotoSourceOpen(false)}
+            onPick={handlePickPhoto}
+            title={t('children.addPhoto')}
+          />
         </div>
 
         <div>

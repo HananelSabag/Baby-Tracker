@@ -146,7 +146,9 @@ export const STORAGE_KEYS = {
   NOTIFICATIONS: 'bt_notifications',
 }
 
-// Admin configuration — keep secret
+// Admin configuration — admin status is enforced server-side via the
+// `is_admin()` SQL function and the admin RLS policies. The email here is
+// only used as a UI gate (to show the /admin link). Do NOT add a password
+// or any other secret in this bundle — anything exported here ships to
+// every browser via the JS bundle.
 export const ADMIN_EMAIL = 'hananel12345@gmail.com'
-export const ADMIN_TAP_COUNT = 7   // taps on logo to trigger admin prompt
-export const ADMIN_PASSWORD = '123456'

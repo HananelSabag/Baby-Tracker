@@ -36,35 +36,32 @@ export async function getMemberByAuthUser(authUserId) {
   return data ?? null
 }
 
-// Create a new family + seed built-in trackers + register member
+// Create a new family + seed built-in trackers + register member.
+//
+// PII note: a previous version logged auth user IDs, session token presence,
+// family codes and family names to console.log on every signup. Browser
+// console output is observable via extensions and is sometimes captured by
+// observability tooling. Don't add such logs back; if you need to debug
+// signup, gate behind `import.meta.env.DEV`.
 export async function createFamily({ familyName, role, customRole, authUserId, avatarUrl }) {
   const code = generateFamilyCode()
   const displayName = role === 'אחר' ? (customRole || 'אחר') : role
 
-  // Debug: verify session is active before any DB call
+  // Verify session is active before any DB call.
   const { data: { session } } = await supabase.auth.getSession()
-  console.log('[createFamily] session check — access_token exists:', !!session?.access_token, 'user:', session?.user?.id ?? 'NONE')
   if (!session?.access_token) {
-    // Try to refresh the session first
     const { data: refreshed } = await supabase.auth.refreshSession()
-    console.log('[createFamily] refreshed session:', !!refreshed?.session?.access_token)
     if (!refreshed?.session?.access_token) throw new Error('no-session: user not authenticated')
   }
 
-  console.log('[createFamily] step 1 — insert family, code:', code, 'name:', familyName, 'authUserId:', authUserId)
   const { data: family, error: familyErr } = await supabase
     .from('families')
     .insert({ code, name: familyName || 'המשפחה שלנו' })
     .select()
     .single()
-  if (familyErr) {
-    console.error('[createFamily] families insert failed:', familyErr)
-    throw new Error(`families: ${familyErr.message} (${familyErr.code})`)
-  }
-  console.log('[createFamily] step 1 OK — family.id:', family.id)
+  if (familyErr) throw new Error(`families: ${familyErr.message} (${familyErr.code})`)
 
   // Register member first so RLS (get_my_family_id) resolves before seeding trackers
-  console.log('[createFamily] step 2 — insert member, role:', displayName)
   const { data: member, error: memberErr } = await supabase
     .from('family_members')
     .insert({
@@ -76,19 +73,17 @@ export async function createFamily({ familyName, role, customRole, authUserId, a
     })
     .select()
     .single()
-  if (memberErr) {
-    console.error('[createFamily] family_members insert failed:', memberErr)
-    throw new Error(`members: ${memberErr.message} (${memberErr.code})`)
-  }
-  console.log('[createFamily] step 2 OK — member.id:', member.id)
+  if (memberErr) throw new Error(`members: ${memberErr.message} (${memberErr.code})`)
 
-  // Seed built-in trackers for this family
-  console.log('[createFamily] step 3 — seed trackers')
+  // Seed built-in trackers for this family. Failure here is non-fatal — the
+  // user can still add trackers from the trackers page.
   const { error: trackersErr } = await supabase.from('trackers').insert(
     BUILTIN_TRACKERS.map(t => ({ ...t, family_id: family.id }))
   )
-  if (trackersErr) console.warn('[createFamily] trackers seed failed (non-fatal):', trackersErr)
-  else console.log('[createFamily] step 3 OK')
+  if (trackersErr && import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.warn('[createFamily] trackers seed failed (non-fatal):', trackersErr)
+  }
 
   return { family, member }
 }
