@@ -7,6 +7,7 @@ import { useChildren } from '../hooks/useChildren'
 import { TRACKER_TYPES } from '../lib/constants'
 import {
   format, startOfWeek, endOfWeek, addWeeks, eachDayOfInterval, isSameDay,
+  differenceInCalendarDays,
 } from 'date-fns'
 import { he } from 'date-fns/locale'
 import {
@@ -38,6 +39,38 @@ function dayLabel(date) {
   return format(date, 'EEE', { locale: he })
 }
 
+// Pair sleep `start` / `end` events robustly.
+//
+// The naive version assumed strict alternation: start, end, start, end, …
+// In real usage parents sometimes log two consecutive starts (forgot to
+// end the first session) or an end with no matching start. The naive code
+// silently dropped the whole pair. Behaviour we want:
+//   • multiple consecutive starts: pair the LATEST one with the next end
+//     (assume the user re-tapped because they forgot, not because there
+//     were two simultaneous sleeps)
+//   • ends without a preceding start: ignore them
+//   • a final unmatched start: ignored here (caller can show "still asleep")
+function pairSleepEvents(events) {
+  const sorted = [...events].sort(
+    (a, b) => new Date(a.occurred_at) - new Date(b.occurred_at)
+  )
+  const pairs = []
+  let openStart = null
+  for (const ev of sorted) {
+    const type = ev.data?.type
+    if (type === 'start') {
+      // If there's already an open start, the previous one is replaced —
+      // treated as a duplicate tap, not a new session.
+      openStart = ev
+    } else if (type === 'end' && openStart) {
+      pairs.push({ start: openStart, end: ev })
+      openStart = null
+    }
+    // Orphan ends with no openStart are dropped.
+  }
+  return pairs
+}
+
 // ── Main page ────────────────────────────────────────────────────────────────
 export function ReportsPage() {
   const { identity } = useApp()
@@ -65,6 +98,16 @@ export function ReportsPage() {
   const activeChild = children.find(c => c.id === identity.activeChildId) ?? children[0] ?? null
   const activeTackers = trackers.filter(tr => tr.is_active !== false)
 
+  // For the current week the denominator should reflect days elapsed, not 7.
+  // Returns the number of calendar days from weekStart up to and including today,
+  // capped at 7. For past weeks always returns 7.
+  const elapsedDaysInWeek = (() => {
+    const today = new Date()
+    if (today < weekStart) return 0
+    if (today > weekEnd)   return 7
+    return differenceInCalendarDays(today, weekStart) + 1
+  })()
+
   // Compute per-tracker weekly summary for the grid tiles
   const summaries = useMemo(() => {
     const map = {}
@@ -80,16 +123,14 @@ export function ReportsPage() {
           map[tr.id] = { value: trEvents.length, unit: 'החלפות' }
           break
         case TRACKER_TYPES.SLEEP: {
-          const pairs = []
-          const sorted = [...trEvents].sort((a, b) => new Date(a.occurred_at) - new Date(b.occurred_at))
-          for (let i = 0; i < sorted.length; i++) {
-            if (sorted[i].data?.type === 'start' && sorted[i+1]?.data?.type === 'end') {
-              pairs.push((new Date(sorted[i+1].occurred_at) - new Date(sorted[i].occurred_at)) / 3600000)
-              i++
-            }
-          }
-          const total = Math.round(pairs.reduce((s, h) => s + h, 0) * 10) / 10
-          map[tr.id] = { value: total, unit: "שע' שינה" }
+          // Robust pairing — see pairSleepEvents() helper. Tolerates orphan
+          // starts/ends so a missed "end" doesn't drop the whole session.
+          const pairs = pairSleepEvents(trEvents)
+          const totalHours = pairs.reduce(
+            (s, p) => s + (new Date(p.end.occurred_at) - new Date(p.start.occurred_at)) / 3600000,
+            0
+          )
+          map[tr.id] = { value: Math.round(totalHours * 10) / 10, unit: "שע' שינה" }
           break
         }
         case TRACKER_TYPES.VITAMIN_D:
@@ -100,7 +141,8 @@ export function ReportsPage() {
           } else {
             const doses = config.daily_doses ?? 2
             const given = trEvents.length
-            map[tr.id] = { value: `${given}/${doses * 7}`, unit: 'מינונים' }
+            // Use elapsed days for partial weeks so the ratio is honest
+            map[tr.id] = { value: `${given}/${doses * elapsedDaysInWeek}`, unit: 'מינונים' }
           }
           break
         }
@@ -303,15 +345,9 @@ function TrackerChartContent({ tracker, weekEvents, weekDays }) {
 
   // Sleep
   if (type === TRACKER_TYPES.SLEEP) {
-    // Pair across the full week first so cross-midnight sessions are not lost
-    const allSorted = [...weekEvents].sort((a, b) => new Date(a.occurred_at) - new Date(b.occurred_at))
-    const weekPairs = []
-    for (let i = 0; i < allSorted.length; i++) {
-      if (allSorted[i].data?.type === 'start' && allSorted[i + 1]?.data?.type === 'end') {
-        weekPairs.push({ start: allSorted[i], end: allSorted[i + 1] })
-        i++
-      }
-    }
+    // Pair across the full week (so cross-midnight sessions aren't lost) and
+    // tolerate orphan events — see pairSleepEvents() above.
+    const weekPairs = pairSleepEvents(weekEvents)
     const data = weekDays.map(day => {
       const ms = weekPairs
         .filter(p => isSameDay(new Date(p.start.occurred_at), day))

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { t } from '../lib/strings'
 import { ROLES, PARENT_ROLES } from '../lib/constants'
 import { createFamily, joinFamily, lookupFamilyByCode } from '../hooks/useFamily'
@@ -9,6 +9,8 @@ import { cn } from '../lib/utils'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../hooks/useToast'
 import { ToastContainer } from '../components/ui/Toast'
+import { PhotoSourceSheet } from '../components/ui/PhotoSourceSheet'
+import { pickAndCompressImage, uploadAvatar } from '../lib/imageUpload'
 
 // Join path:   CHOOSE → CODE_JOIN → ROLE_JOIN  (then handleJoin)
 // Create path: CHOOSE → ROLE_AND_NAME → CHILD → DONE
@@ -40,13 +42,14 @@ export function SetupPage() {
   const [pendingMember, setPendingMember]   = useState(null)
   const [pendingChildId, setPendingChildId] = useState(null)
   const [childName, setChildName]           = useState('')
-  const [childAvatar, setChildAvatar]       = useState(null)
-  const [childAvatarFile, setChildAvatarFile] = useState(null)
+  const [childAvatar, setChildAvatar]       = useState(null)        // preview URL
+  const [childPhoto, setChildPhoto]         = useState(null)        // { blob, ext, mime }
   const [childBirthDate, setChildBirthDate] = useState('')
   const [childGender, setChildGender]       = useState('')
   const [error, setError]                   = useState('')
   const [loading, setLoading]               = useState(false)
-  const fileRef = useRef(null)
+  const [photoSourceOpen, setPhotoSourceOpen] = useState(false)
+  const [photoBusy, setPhotoBusy]           = useState(false)
 
   const avatarUrl  = user?.user_metadata?.avatar_url ?? null
   const googleName = user?.user_metadata?.full_name ?? ''
@@ -129,14 +132,19 @@ export function SetupPage() {
     setStep(STEPS.CHILD)
   }
 
-  // ── Create path: avatar file picker ────────────────────────────────────────
-  function handleAvatarChange(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setChildAvatarFile(file)
-    const reader = new FileReader()
-    reader.onload = ev => setChildAvatar(ev.target.result)
-    reader.readAsDataURL(file)
+  // ── Create path: avatar pick (camera or gallery) ───────────────────────────
+  async function handlePickAvatar(mode) {
+    setPhotoBusy(true)
+    try {
+      const picked = await pickAndCompressImage({ mode })
+      if (!picked) return
+      setChildPhoto(picked)
+      setChildAvatar(URL.createObjectURL(picked.blob))
+    } catch (err) {
+      setError(err?.message ?? 'העלאת התמונה נכשלה')
+    } finally {
+      setPhotoBusy(false)
+    }
   }
 
   // ── Create path: create family + child → DONE ──────────────────────────────
@@ -146,13 +154,18 @@ export function SetupPage() {
     setError('')
     try {
       let uploadedUrl = null
-      if (childAvatarFile) {
-        const ext  = childAvatarFile.name.split('.').pop()
-        const path = `children/${Date.now()}.${ext}`
-        const { error: uploadErr } = await supabase.storage.from('avatars').upload(path, childAvatarFile)
-        if (uploadErr) { setError(`שגיאת העלאת תמונה: ${uploadErr.message}`); setLoading(false); return }
-        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
-        uploadedUrl = urlData.publicUrl
+      if (childPhoto?.blob) {
+        try {
+          uploadedUrl = await uploadAvatar({
+            folder: 'children',
+            subjectId: `new-${Date.now()}`,
+            ...childPhoto,
+          })
+        } catch (uploadErr) {
+          setError(`שגיאת העלאת תמונה: ${uploadErr?.message ?? 'unknown'}`)
+          setLoading(false)
+          return
+        }
       }
 
       let family, member
@@ -435,18 +448,26 @@ export function SetupPage() {
 
             <div className="flex flex-col items-center gap-3">
               <button
-                onClick={() => fileRef.current?.click()}
-                className="w-24 h-24 rounded-full bg-cream-200 shadow-soft flex items-center justify-center overflow-hidden active:scale-95 transition-transform border-4 border-white"
+                onClick={() => setPhotoSourceOpen(true)}
+                disabled={photoBusy}
+                className="w-24 h-24 rounded-full bg-cream-200 shadow-soft flex items-center justify-center overflow-hidden active:scale-95 transition-transform border-4 border-white disabled:opacity-60"
               >
-                {childAvatar
-                  ? <img src={childAvatar} alt="avatar" className="w-full h-full object-cover" />
-                  : <span className="text-5xl">👶</span>
+                {photoBusy
+                  ? <span className="text-3xl">⏳</span>
+                  : childAvatar
+                    ? <img src={childAvatar} alt="avatar" className="w-full h-full object-cover" />
+                    : <span className="text-5xl">👶</span>
                 }
               </button>
-              <button onClick={() => fileRef.current?.click()} className="text-xs font-rubik text-brown-500 bg-cream-200 px-4 py-2 rounded-full">
+              <button onClick={() => setPhotoSourceOpen(true)} disabled={photoBusy} className="text-xs font-rubik text-brown-500 bg-cream-200 px-4 py-2 rounded-full disabled:opacity-60">
                 {t('children.addPhoto')}
               </button>
-              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+              <PhotoSourceSheet
+                isOpen={photoSourceOpen}
+                onClose={() => setPhotoSourceOpen(false)}
+                onPick={handlePickAvatar}
+                title={t('children.addPhoto')}
+              />
             </div>
 
             <input

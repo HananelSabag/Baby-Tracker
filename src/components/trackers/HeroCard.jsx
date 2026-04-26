@@ -24,22 +24,25 @@ function formatDur(ms) {
   return `${m} דק'`
 }
 
+// Same robust pairing semantics as ReportsPage.pairSleepEvents:
+//   • duplicate starts overwrite the open start (treated as a re-tap)
+//   • orphan ends without a start are ignored
+//   • a final unmatched start = currently sleeping
 function getSleepStats(events, now) {
   const sorted = [...events].sort((a, b) => new Date(a.occurred_at) - new Date(b.occurred_at))
-  const sessions = []
-  for (let i = 0; i < sorted.length; i++) {
-    if (sorted[i].data?.type === 'start') {
-      const end = sorted[i + 1]?.data?.type === 'end' ? sorted[i + 1] : null
-      sessions.push({ start: sorted[i], end })
-      if (end) i++
+  let totalMs = 0
+  let openStart = null
+  for (const ev of sorted) {
+    const type = ev.data?.type
+    if (type === 'start') {
+      openStart = ev
+    } else if (type === 'end' && openStart) {
+      totalMs += new Date(ev.occurred_at) - new Date(openStart.occurred_at)
+      openStart = null
     }
   }
-  const isSleeping = sessions.length > 0 && sessions[sessions.length - 1].end === null
-  const currentMs = isSleeping ? now - new Date(sessions[sessions.length - 1].start.occurred_at).getTime() : 0
-  const totalMs = sessions.reduce((sum, s) => {
-    if (s.end) return sum + (new Date(s.end.occurred_at) - new Date(s.start.occurred_at))
-    return sum + currentMs
-  }, 0)
+  const isSleeping = openStart !== null
+  if (isSleeping) totalMs += now - new Date(openStart.occurred_at).getTime()
   return { isSleeping, totalMs }
 }
 

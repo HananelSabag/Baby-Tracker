@@ -1,17 +1,18 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { updateMember, useFamilyMembers } from '../hooks/useFamily'
 import { ROLES, ADMIN_EMAIL, PARENT_ROLES } from '../lib/constants'
 import { useNavigate, Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { ToastContainer } from '../components/ui/Toast'
+import { PhotoSourceSheet } from '../components/ui/PhotoSourceSheet'
 import { useToast } from '../hooks/useToast'
 import { cn } from '../lib/utils'
+import { pickAndCompressImage, uploadAvatar } from '../lib/imageUpload'
 
 export function ProfilePage() {
   const { identity, user, signOut, saveIdentity, setMemberAvatarUrl } = useApp()
@@ -26,11 +27,11 @@ export function ProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState(identity.memberAvatarUrl ?? identity.googleAvatarUrl ?? null)
   const [saving, setSaving] = useState(false)
   const [uploadStatus, setUploadStatus] = useState(null)
-  const fileInputRef = useRef(null)
 
   // ── Dialogs ───────────────────────────────────────────────────────────────
   const [signOutConfirm, setSignOutConfirm] = useState(false)
   const [avatarSheetOpen, setAvatarSheetOpen] = useState(false)
+  const [photoSourceOpen, setPhotoSourceOpen] = useState(false)
 
   const isParent = PARENT_ROLES.includes(identity.memberName)
   const selectedRole = ROLES.find(r => r.value === role) ?? ROLES.find(r => r.value === 'אחר')
@@ -59,23 +60,26 @@ export function ProfilePage() {
     }
   }
 
-  async function handleAvatarChange(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
+  async function handleAvatarChange(mode) {
     setUploadStatus('uploading')
     try {
-      const ext = file.name.split('.').pop()
-      const path = `members/${identity.memberId}.${ext}`
-      const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
-      if (error) throw error
-      const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-      const url = data.publicUrl
+      const picked = await pickAndCompressImage({ mode })
+      if (!picked) {
+        setUploadStatus(null)
+        return
+      }
+      const url = await uploadAvatar({
+        folder: 'members',
+        subjectId: identity.memberId,
+        ...picked,
+      })
       setAvatarUrl(url)
       setMemberAvatarUrl(url)
       await updateMember(identity.memberId, { avatar_url: url })
       setUploadStatus('success')
       setTimeout(() => setUploadStatus(null), 2500)
-    } catch {
+    } catch (err) {
+      console.error('avatar upload failed:', err)
       setUploadStatus('error')
       setTimeout(() => setUploadStatus(null), 3000)
     }
@@ -84,7 +88,6 @@ export function ProfilePage() {
   return (
     <div className="px-4 pt-6 pb-8 space-y-4">
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
 
       {/* Profile card */}
       <Card>
@@ -238,7 +241,7 @@ export function ProfilePage() {
           </div>
           <div className="px-4 pt-4">
             <button
-              onClick={() => { setAvatarSheetOpen(false); fileInputRef.current?.click() }}
+              onClick={() => { setAvatarSheetOpen(false); setPhotoSourceOpen(true) }}
               disabled={uploadStatus === 'uploading'}
               className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-cream-100 active:bg-cream-200 transition-colors disabled:opacity-60"
             >
@@ -248,6 +251,14 @@ export function ProfilePage() {
           </div>
         </div>
       </BottomSheet>
+
+      {/* Camera vs gallery picker */}
+      <PhotoSourceSheet
+        isOpen={photoSourceOpen}
+        onClose={() => setPhotoSourceOpen(false)}
+        onPick={handleAvatarChange}
+        title="תמונת פרופיל"
+      />
     </div>
   )
 }

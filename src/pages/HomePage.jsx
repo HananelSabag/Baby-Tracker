@@ -5,6 +5,7 @@ import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
 import { useChildren } from '../hooks/useChildren'
 import { useHomeEvents } from '../hooks/useHomeEvents'
+import { useToast } from '../hooks/useToast'
 import { TRACKER_TYPES } from '../lib/constants'
 import { FeedingCard } from '../components/trackers/FeedingCard'
 import { VitaminDCard } from '../components/trackers/VitaminDCard'
@@ -15,10 +16,13 @@ import { GrowthCard } from '../components/trackers/GrowthCard'
 import { HeroCard } from '../components/trackers/HeroCard'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { Spinner } from '../components/ui/Spinner'
+import { PhotoSourceSheet } from '../components/ui/PhotoSourceSheet'
+import { ToastContainer } from '../components/ui/Toast'
 import { format, addDays, subDays, isSameDay } from 'date-fns'
 import { he } from 'date-fns/locale'
 import { formatTime, cn } from '../lib/utils'
 import { supabase } from '../lib/supabase'
+import { pickAndCompressImage, uploadAvatar } from '../lib/imageUpload'
 
 export function HomePage() {
   const { identity, setActiveChildId, notifications, unreadCount, markNotificationsRead, setMemberAvatarUrl } = useApp()
@@ -33,7 +37,9 @@ export function HomePage() {
   const [localOrder, setLocalOrder] = useState([])
   const [saving, setSaving] = useState(false)
   const [profileSheetOpen, setProfileSheetOpen] = useState(false)
-  const avatarFileRef = useRef(null)
+  const [photoSourceOpen, setPhotoSourceOpen] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const { toasts, showToast, dismissToast } = useToast()
 
   // Long-press
   const longPressTimer = useRef(null)
@@ -70,14 +76,29 @@ export function HomePage() {
   async function saveAndExit() {
     setSaving(true)
     try {
-      await Promise.all(
+      // Use Promise.allSettled so a single failure doesn't drop the rest, and
+      // surface a toast if any update fails — previously errors were silently
+      // swallowed by the .finally and the user thought everything saved.
+      const results = await Promise.allSettled(
         localOrder.map((tracker, index) =>
-          supabase.from('trackers').update({ display_order: index, is_active: tracker._visible }).eq('id', tracker.id)
+          supabase
+            .from('trackers')
+            .update({ display_order: index, is_active: tracker._visible })
+            .eq('id', tracker.id)
+            .then(({ error }) => { if (error) throw error })
         )
       )
+      const failures = results.filter(r => r.status === 'rejected').length
+      if (failures > 0) {
+        showToast({
+          message: `שמירת ${failures} מעקב${failures > 1 ? 'ים' : ''} נכשלה — נסה שוב`,
+          emoji: '⚠️',
+        })
+        return // keep edit mode open so the user can retry
+      }
+      setEditMode(false)
     } finally {
       setSaving(false)
-      setEditMode(false)
     }
   }
 
@@ -86,19 +107,33 @@ export function HomePage() {
     setBellOpen(prev => !prev)
   }
 
-  async function handleAvatarUpload(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
+  async function handleAvatarUpload(mode) {
+    if (uploadingAvatar) return
+    setUploadingAvatar(true)
     try {
-      const ext = file.name.split('.').pop()
-      const path = `members/${identity.memberId}.${ext}`
-      const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
+      const picked = await pickAndCompressImage({ mode })
+      if (!picked) return // user cancelled
+      const url = await uploadAvatar({
+        folder: 'members',
+        subjectId: identity.memberId,
+        ...picked,
+      })
+      setMemberAvatarUrl(url)
+      // NOTE: previous version wrote to a non-existent `members` table; the
+      // real table is `family_members`. That silent bug meant the URL was
+      // only persisted via setMemberAvatarUrl (localStorage), not the DB.
+      const { error } = await supabase
+        .from('family_members')
+        .update({ avatar_url: url })
+        .eq('id', identity.memberId)
       if (error) throw error
-      const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-      setMemberAvatarUrl(data.publicUrl)
-      await supabase.from('members').update({ avatar_url: data.publicUrl }).eq('id', identity.memberId)
-    } catch { /* silent */ }
-    setProfileSheetOpen(false)
+      showToast({ message: 'התמונה עודכנה', emoji: '✅' })
+    } catch (err) {
+      showToast({ message: err?.message ?? 'העלאת התמונה נכשלה', emoji: '⚠️' })
+    } finally {
+      setUploadingAvatar(false)
+      setProfileSheetOpen(false)
+    }
   }
 
   // Long-press to enter edit mode
@@ -211,48 +246,50 @@ export function HomePage() {
 
   return (
     <div className="px-4 pt-6 pb-4">
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       {/* Backdrop to close bell dropdown */}
       {bellOpen && (
         <div className="fixed inset-0 z-40" onClick={() => setBellOpen(false)} />
       )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <p className="font-rubik text-brown-400 text-sm capitalize">{todayLabel}</p>
-          <h1 className="font-rubik font-bold text-3xl text-brown-800">
+      {/* ── Header row: greeting (right) + icon buttons + avatar (left) ─── */}
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="min-w-0 flex-1">
+          <p className="font-rubik text-brown-400 text-xs capitalize">{todayLabel}</p>
+          <h1 className="font-rubik font-bold text-2xl text-brown-800 truncate">
             שלום, {identity.memberName} 👋
           </h1>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Edit / Done button */}
+
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           {editMode && (
             <button
               onClick={saveAndExit}
               disabled={saving}
-              className="px-3 py-1.5 rounded-full bg-brown-800 text-white font-rubik font-semibold text-sm active:scale-95 transition-transform disabled:opacity-60"
+              className="px-3 h-10 rounded-full bg-brown-800 text-white font-rubik font-semibold text-sm active:scale-95 transition-transform disabled:opacity-60"
             >
               {saving ? '...' : 'סיום'}
             </button>
           )}
 
-          {/* Notification bell + edit button stacked */}
-          <div className="relative flex flex-col items-center gap-0.5">
+          {/* Notification bell — same size as edit button, no vertical stacking */}
+          <div className="relative">
             <button
               onClick={handleBellClick}
-              className="w-9 h-9 rounded-full bg-white shadow-soft flex items-center justify-center text-lg active:scale-95 transition-transform relative"
+              aria-label={t('notifications.title')}
+              className="w-10 h-10 rounded-full bg-white shadow-soft flex items-center justify-center text-lg active:scale-95 transition-transform relative"
             >
               🔔
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-white text-xs font-bold flex items-center justify-center font-rubik">
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center font-rubik">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
             </button>
 
-            {/* Notifications dropdown */}
+            {/* Notifications dropdown — RTL: anchor to start of button (right) */}
             {bellOpen && (
-              <div className="absolute left-0 top-12 w-72 bg-white rounded-2xl shadow-lg z-50 overflow-hidden border border-cream-200">
+              <div className="absolute right-0 top-12 w-72 bg-white rounded-2xl shadow-lg z-50 overflow-hidden border border-cream-200">
                 <div className="px-4 py-3 border-b border-cream-200">
                   <p className="font-rubik font-semibold text-brown-800 text-sm">{t('notifications.title')}</p>
                 </div>
@@ -281,24 +318,24 @@ export function HomePage() {
                 )}
               </div>
             )}
-            {!editMode && (
-              <button
-                onClick={enterEditMode}
-                className="w-9 h-9 rounded-full bg-white shadow-soft flex items-center justify-center text-base active:scale-95 transition-transform"
-                aria-label="עריכת תצוגה"
-              >
-                ✏️
-              </button>
-            )}
-            <span className="font-rubik text-[9px] text-brown-300 leading-none">
-              {editMode ? '' : 'עריכת תצוגה'}
-            </span>
           </div>
 
-          {/* Avatar — tap to open profile sheet */}
+          {/* Edit-view button — sibling of bell, not stacked */}
+          {!editMode && (
+            <button
+              onClick={enterEditMode}
+              className="w-10 h-10 rounded-full bg-white shadow-soft flex items-center justify-center text-base active:scale-95 transition-transform"
+              aria-label="עריכת תצוגה"
+              title="עריכת תצוגה"
+            >
+              ✏️
+            </button>
+          )}
+
+          {/* User avatar — tap opens profile sheet */}
           <button
             onClick={() => setProfileSheetOpen(true)}
-            className="w-12 h-12 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center flex-shrink-0 shadow-soft border-2 border-white active:scale-95 transition-transform"
+            className="w-11 h-11 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center flex-shrink-0 shadow-soft border-2 border-white active:scale-95 transition-transform"
           >
             {(identity.memberAvatarUrl || identity.googleAvatarUrl)
               ? <img
@@ -307,29 +344,31 @@ export function HomePage() {
                   className="w-full h-full object-cover"
                   onError={(e) => { e.target.style.display = 'none' }}
                 />
-              : <span className="text-2xl">👤</span>
+              : <span className="text-xl">👤</span>
             }
           </button>
         </div>
       </div>
 
-      {/* Child + inline date nav bar */}
-      <div className="flex items-center gap-2 bg-white rounded-2xl shadow-soft px-3 py-2.5 mb-4">
+      {/* ── Child card — bigger photo, breathable layout ────────────────── */}
+      <div className="flex items-center gap-3 bg-white rounded-3xl shadow-soft p-3 mb-4">
         {activeChild ? (
           <button
-            className="flex items-center gap-2 flex-1 min-w-0 text-right active:opacity-70 transition-opacity"
+            className="flex items-center gap-3 flex-1 min-w-0 text-right active:opacity-80 transition-opacity"
             onClick={() => children.length > 1 && setChildPickerOpen(true)}
             style={{ cursor: children.length > 1 ? 'pointer' : 'default' }}
           >
-            <div className="w-8 h-8 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center flex-shrink-0">
+            <div className="w-14 h-14 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center flex-shrink-0 ring-2 ring-cream-200">
               {activeChild.avatar_url
                 ? <img src={activeChild.avatar_url} alt={activeChild.name} className="w-full h-full object-cover" />
-                : <span className="text-sm">👶</span>
+                : <span className="text-3xl">👶</span>
               }
             </div>
-            <div className="min-w-0">
-              <p className="font-rubik font-semibold text-brown-800 text-sm leading-tight truncate">{activeChild.name}</p>
-              <p className="font-rubik text-brown-400 text-xs leading-tight">מעקב עבור{children.length > 1 ? ' · החלף ›' : ''}</p>
+            <div className="min-w-0 flex-1">
+              <p className="font-rubik font-bold text-brown-800 text-base leading-tight truncate">{activeChild.name}</p>
+              <p className="font-rubik text-brown-400 text-xs leading-tight mt-0.5">
+                מעקב עבור{children.length > 1 ? ' · הקש להחלפה' : ''}
+              </p>
             </div>
           </button>
         ) : (
@@ -339,12 +378,13 @@ export function HomePage() {
         <div className="flex items-center gap-1 flex-shrink-0">
           <button
             onClick={() => setViewDate(d => subDays(d, 1))}
-            className="w-7 h-7 rounded-full bg-cream-100 text-brown-600 font-bold flex items-center justify-center active:scale-95 transition-transform text-lg leading-none"
+            aria-label="יום קודם"
+            className="w-8 h-8 rounded-full bg-cream-100 text-brown-600 font-bold flex items-center justify-center active:scale-95 transition-transform text-lg leading-none"
           >‹</button>
           <button
             onClick={() => !isToday && setViewDate(new Date())}
             className={cn(
-              'font-rubik font-medium text-sm px-2 py-0.5 rounded-full transition-colors min-w-[44px] text-center',
+              'font-rubik font-medium text-sm px-3 h-8 rounded-full transition-colors min-w-[52px] text-center',
               isToday ? 'text-brown-600' : 'text-amber-700 bg-amber-50'
             )}
           >
@@ -353,7 +393,8 @@ export function HomePage() {
           <button
             onClick={() => setViewDate(d => addDays(d, 1))}
             disabled={isToday}
-            className="w-7 h-7 rounded-full bg-cream-100 text-brown-600 font-bold flex items-center justify-center active:scale-95 transition-transform text-lg leading-none disabled:opacity-25"
+            aria-label="יום הבא"
+            className="w-8 h-8 rounded-full bg-cream-100 text-brown-600 font-bold flex items-center justify-center active:scale-95 transition-transform text-lg leading-none disabled:opacity-25"
           >›</button>
         </div>
       </div>
@@ -480,7 +521,6 @@ export function HomePage() {
       </BottomSheet>
 
       {/* Profile quick sheet */}
-      <input ref={avatarFileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
       <BottomSheet isOpen={profileSheetOpen} onClose={() => setProfileSheetOpen(false)} title="">
         <div className="flex flex-col pb-2 -mx-4 -mt-2">
           {/* Hero banner photo */}
@@ -507,10 +547,11 @@ export function HomePage() {
           {/* Action buttons */}
           <div className="flex gap-3 px-4 pt-4">
             <button
-              onClick={() => avatarFileRef.current?.click()}
-              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-cream-100 active:bg-cream-200 transition-colors"
+              onClick={() => setPhotoSourceOpen(true)}
+              disabled={uploadingAvatar}
+              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-cream-100 active:bg-cream-200 transition-colors disabled:opacity-60"
             >
-              <span className="text-lg">📷</span>
+              <span className="text-lg">{uploadingAvatar ? '⏳' : '📷'}</span>
               <span className="font-rubik font-medium text-brown-700 text-sm">החלף תמונה</span>
             </button>
             <button
@@ -523,6 +564,14 @@ export function HomePage() {
           </div>
         </div>
       </BottomSheet>
+
+      {/* Camera vs gallery picker */}
+      <PhotoSourceSheet
+        isOpen={photoSourceOpen}
+        onClose={() => setPhotoSourceOpen(false)}
+        onPick={handleAvatarUpload}
+        title="תמונת פרופיל"
+      />
     </div>
   )
 }

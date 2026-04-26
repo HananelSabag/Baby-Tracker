@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import { t } from '../../lib/strings'
-import { formatMl } from '../../lib/utils'
+import { formatMl, formatTime } from '../../lib/utils'
 import { useEvents } from '../../hooks/useEvents'
 import { BottomSheet } from '../ui/BottomSheet'
 import { AddFeedingForm } from '../forms/AddFeedingForm'
 import { Card } from '../ui/Card'
-import { FEEDING_PRESETS } from '../../lib/constants'
 
 export function FeedingCard({ tracker, familyId, memberId, childId, viewDate, compact = false }) {
   const { events, loading, addEvent } = useEvents(familyId, { trackerId: tracker.id, date: viewDate, childId })
@@ -13,23 +12,13 @@ export function FeedingCard({ tracker, familyId, memberId, childId, viewDate, co
   const [saving, setSaving] = useState(false)
 
   const todayTotal = events.reduce((sum, e) => sum + (e.data?.amount_ml ?? 0), 0)
+  const lastEvent = events[0]
 
   async function handleSave(data, occurredAt) {
     setSaving(true)
     try {
       await addEvent({ trackerId: tracker.id, memberId, childId, data, occurredAt: occurredAt.toISOString() })
       setSheetOpen(false)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  // One-tap save with current time — no sheet needed
-  async function handleQuickSave(ml) {
-    if (saving) return
-    setSaving(true)
-    try {
-      await addEvent({ trackerId: tracker.id, memberId, childId, data: { amount_ml: ml }, occurredAt: new Date().toISOString() })
     } finally {
       setSaving(false)
     }
@@ -88,43 +77,39 @@ export function FeedingCard({ tracker, familyId, memberId, childId, viewDate, co
             <span className="text-2xl">{tracker.icon}</span>
             <span className="font-rubik font-semibold text-brown-800">{tracker.name}</span>
           </div>
-          {/* "+" opens sheet for custom amount / time adjustment */}
+          {/* "+" opens sheet for custom amount / time */}
           <button
             onClick={() => setSheetOpen(true)}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-soft active:scale-95 transition-transform"
+            disabled={saving}
+            className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-soft active:scale-95 transition-transform disabled:opacity-60"
             style={{ backgroundColor: tracker.color }}
+            aria-label={t('feeding.addFeeding')}
           >+</button>
         </div>
 
-        {/* Quick preset buttons — 1-tap save with current time */}
-        <div className="flex gap-1.5 mb-3">
-          {FEEDING_PRESETS.map(ml => (
-            <button
-              key={ml}
-              onClick={() => handleQuickSave(ml)}
-              disabled={saving}
-              className="flex-1 py-2.5 rounded-xl font-rubik font-bold text-sm active:scale-95 transition-all disabled:opacity-40"
-              style={{
-                backgroundColor: `${tracker.color}1A`,
-                color: tracker.color,
-                border: `1.5px solid ${tracker.color}45`,
-              }}
-            >
-              {ml}
-            </button>
-          ))}
-        </div>
+        {/*
+          Quick-amount preset row was removed: it saved with the current time,
+          but parents only enter amounts AFTER feeding ends, so the time was
+          almost always wrong and users opened the bottom sheet anyway.
+          The bottom sheet still exposes the same presets with a time picker.
+        */}
 
-        {/* Today's totals */}
+        {/* Totals row — total ml + feeding count + last feeding time */}
         <div className="flex gap-2">
           <div className="flex-1 rounded-xl px-3 py-2 text-center bg-cream-100">
             <p className="text-xs text-brown-400 font-rubik">{t('home.totalMl')}</p>
-            <p className="font-rubik font-semibold text-brown-700 text-sm">{loading ? '...' : formatMl(todayTotal)}</p>
+            <p className="font-rubik font-bold text-brown-800 text-sm">{loading ? '...' : formatMl(todayTotal)}</p>
           </div>
           <div className="flex-1 rounded-xl px-3 py-2 text-center bg-cream-100">
             <p className="text-xs text-brown-400 font-rubik">{t('home.feedings')}</p>
-            <p className="font-rubik font-semibold text-brown-700 text-sm">{loading ? '...' : events.length}</p>
+            <p className="font-rubik font-bold text-brown-800 text-sm">{loading ? '...' : events.length}</p>
           </div>
+          {lastEvent && (
+            <div className="flex-1 rounded-xl px-3 py-2 text-center bg-cream-100">
+              <p className="text-xs text-brown-400 font-rubik">אחרונה</p>
+              <p className="font-rubik font-bold text-brown-800 text-sm">{formatTime(lastEvent.occurred_at)}</p>
+            </div>
+          )}
         </div>
       </Card>
 
