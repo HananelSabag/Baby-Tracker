@@ -1,10 +1,12 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
 import { useEvents } from '../hooks/useEvents'
 import { useChildren } from '../hooks/useChildren'
 import { TRACKER_TYPES } from '../lib/constants'
+import { supabase } from '../lib/supabase'
+import { formatAge } from '../lib/utils'
 import {
   format, startOfWeek, endOfWeek, addWeeks, eachDayOfInterval, isSameDay,
   differenceInCalendarDays,
@@ -37,6 +39,49 @@ const AXIS = {
 
 function dayLabel(date) {
   return format(date, 'EEE', { locale: he })
+}
+
+// ── Insight helpers ──────────────────────────────────────────────────────────
+
+// Bucket an ISO timestamp into morning/afternoon/evening/night.
+// Local time of the user's browser is used (matches what the parent saw on
+// the wall clock when they tapped).
+function timeOfDayBucket(iso) {
+  const h = new Date(iso).getHours()
+  if (h >= 6  && h < 12) return 'morning'
+  if (h >= 12 && h < 18) return 'afternoon'
+  if (h >= 18 && h < 24) return 'evening'
+  return 'night'
+}
+
+const TOD_LABEL = {
+  morning:   '🌅 בוקר',
+  afternoon: '☀️ צהריים',
+  evening:   '🌇 ערב',
+  night:     '🌙 לילה',
+}
+
+// Returns { morning, afternoon, evening, night } counts.
+function countByTimeOfDay(events) {
+  const c = { morning: 0, afternoon: 0, evening: 0, night: 0 }
+  for (const e of events) c[timeOfDayBucket(e.occurred_at)] += 1
+  return c
+}
+
+// Format a week-over-week delta as a small object the UI can render.
+// Returns null when the previous week had zero baseline (would divide by 0).
+function deltaVs(thisWeek, lastWeek) {
+  if (lastWeek === 0) {
+    if (thisWeek === 0) return { dir: 'flat', text: 'ללא שינוי', pct: 0 }
+    return { dir: 'up', text: 'חדש השבוע', pct: null }
+  }
+  const pct = Math.round(((thisWeek - lastWeek) / lastWeek) * 100)
+  if (pct === 0) return { dir: 'flat', text: 'ללא שינוי', pct: 0 }
+  return {
+    dir: pct > 0 ? 'up' : 'down',
+    text: `${pct > 0 ? '+' : ''}${pct}% מהשבוע שעבר`,
+    pct,
+  }
 }
 
 // Pair sleep `start` / `end` events robustly.
@@ -84,6 +129,13 @@ export function ReportsPage() {
   const weekEnd   = endOfWeek(weekBase,   { weekStartsOn: 0 })
   const weekDays  = eachDayOfInterval({ start: weekStart, end: weekEnd })
 
+  // Previous-week range — used for the "vs last week" insight strip and
+  // for delta arrows on each tracker tile. We fetch this separately from
+  // useEvents so we don't disturb the existing query/realtime channel.
+  const prevWeekBase  = addWeeks(weekBase, -1)
+  const prevWeekStart = startOfWeek(prevWeekBase, { weekStartsOn: 0 })
+  const prevWeekEnd   = endOfWeek(prevWeekBase,   { weekStartsOn: 0 })
+
   const weekLabel   = `${format(weekStart, 'd בMMM', { locale: he })} — ${format(weekEnd, 'd בMMM', { locale: he })}`
   const weekContext = weekOffset === 0 ? 'שבוע זה' : weekOffset === -1 ? 'שבוע שעבר' : `לפני ${Math.abs(weekOffset)} שבועות`
 
@@ -92,6 +144,23 @@ export function ReportsPage() {
     endDate:   weekEnd,
     childId:   identity.activeChildId,
   })
+
+  // Previous-week one-shot fetch — no realtime channel needed since past
+  // weeks are immutable (events for last week aren't being inserted now).
+  const [prevEvents, setPrevEvents] = useState([])
+  useEffect(() => {
+    if (!identity.familyId) return
+    let cancelled = false
+    let q = supabase
+      .from('events')
+      .select('*')
+      .eq('family_id', identity.familyId)
+      .gte('occurred_at', prevWeekStart.toISOString())
+      .lte('occurred_at', prevWeekEnd.toISOString())
+    if (identity.activeChildId) q = q.eq('child_id', identity.activeChildId)
+    q.then(({ data }) => { if (!cancelled) setPrevEvents(data ?? []) })
+    return () => { cancelled = true }
+  }, [identity.familyId, identity.activeChildId, prevWeekStart.toISOString()])
 
   const loading = trackersLoading || eventsLoading
 
@@ -108,19 +177,68 @@ export function ReportsPage() {
     return differenceInCalendarDays(today, weekStart) + 1
   })()
 
+  // Numeric "primary metric" per tracker — the thing we compare week-over-week.
+  // Returns { num, unit } where num is the number to compare (mL, count, hours).
+  function rawWeeklyTotal(tr, trEvents) {
+    switch (tr.tracker_type) {
+      case TRACKER_TYPES.FEEDING: {
+        const ml = trEvents.reduce((s, e) => s + (e.data?.amount_ml ?? 0), 0)
+        return ml > 0
+          ? { num: ml, unit: 'mL' }
+          : { num: trEvents.length, unit: 'count' }
+      }
+      case TRACKER_TYPES.DIAPER:
+        return { num: trEvents.length, unit: 'count' }
+      case TRACKER_TYPES.SLEEP: {
+        const pairs = pairSleepEvents(trEvents)
+        const hours = pairs.reduce(
+          (s, p) => s + (new Date(p.end.occurred_at) - new Date(p.start.occurred_at)) / 3600000,
+          0
+        )
+        return { num: Math.round(hours * 10) / 10, unit: 'hours' }
+      }
+      case TRACKER_TYPES.VITAMIN_D:
+      case TRACKER_TYPES.DOSE:
+      case TRACKER_TYPES.GROWTH:
+      default:
+        return { num: trEvents.length, unit: 'count' }
+    }
+  }
+
   // Compute per-tracker weekly summary for the grid tiles
   const summaries = useMemo(() => {
     const map = {}
     activeTackers.forEach(tr => {
-      const trEvents = events.filter(e => e.tracker_id === tr.id)
+      const trEvents     = events.filter(e => e.tracker_id === tr.id)
+      const trPrevEvents = prevEvents.filter(e => e.tracker_id === tr.id)
+
+      const cur  = rawWeeklyTotal(tr, trEvents)
+      const prev = rawWeeklyTotal(tr, trPrevEvents)
+
+      // Delta is meaningful only when the current week is "complete-ish" and
+      // both weeks share the same unit. Skip deltas for trackers whose unit
+      // we can't compare (e.g. growth measurements aren't a "weekly total").
+      let delta = null
+      if (
+        cur.unit === prev.unit &&
+        tr.tracker_type !== TRACKER_TYPES.GROWTH &&
+        weekOffset <= 0 // only show deltas for current or past weeks; future weeks make no sense
+      ) {
+        delta = deltaVs(cur.num, prev.num)
+      }
+
       switch (tr.tracker_type) {
         case TRACKER_TYPES.FEEDING: {
           const ml = trEvents.reduce((s, e) => s + (e.data?.amount_ml ?? 0), 0)
-          map[tr.id] = { value: ml > 0 ? `${ml}` : trEvents.length, unit: ml > 0 ? 'מ"ל' : 'האכלות' }
+          map[tr.id] = {
+            value: ml > 0 ? `${ml}` : trEvents.length,
+            unit: ml > 0 ? 'מ"ל' : 'האכלות',
+            delta,
+          }
           break
         }
         case TRACKER_TYPES.DIAPER:
-          map[tr.id] = { value: trEvents.length, unit: 'החלפות' }
+          map[tr.id] = { value: trEvents.length, unit: 'החלפות', delta }
           break
         case TRACKER_TYPES.SLEEP: {
           // Robust pairing — see pairSleepEvents() helper. Tolerates orphan
@@ -130,19 +248,23 @@ export function ReportsPage() {
             (s, p) => s + (new Date(p.end.occurred_at) - new Date(p.start.occurred_at)) / 3600000,
             0
           )
-          map[tr.id] = { value: Math.round(totalHours * 10) / 10, unit: "שע' שינה" }
+          map[tr.id] = { value: Math.round(totalHours * 10) / 10, unit: "שע' שינה", delta }
           break
         }
         case TRACKER_TYPES.VITAMIN_D:
         case TRACKER_TYPES.DOSE: {
           const config = tr.config ?? {}
           if (tr.tracker_type === TRACKER_TYPES.DOSE && config.display_mode === 'simple') {
-            map[tr.id] = { value: trEvents.length, unit: 'אירועים' }
+            map[tr.id] = { value: trEvents.length, unit: 'אירועים', delta }
           } else {
             const doses = config.daily_doses ?? 2
             const given = trEvents.length
             // Use elapsed days for partial weeks so the ratio is honest
-            map[tr.id] = { value: `${given}/${doses * elapsedDaysInWeek}`, unit: 'מינונים' }
+            map[tr.id] = {
+              value: `${given}/${doses * elapsedDaysInWeek}`,
+              unit: 'מינונים',
+              delta,
+            }
           }
           break
         }
@@ -151,24 +273,100 @@ export function ReportsPage() {
           const lastW = lastGrowth?.data?.weight_kg
           const lastH = lastGrowth?.data?.height_cm
           if (lastW != null) {
-            map[tr.id] = { value: `${parseFloat(lastW)}`, unit: 'ק"ג השבוע' }
+            map[tr.id] = { value: `${parseFloat(lastW)}`, unit: 'ק"ג השבוע', delta: null }
           } else if (lastH != null) {
-            map[tr.id] = { value: `${parseFloat(lastH)}`, unit: 'ס"מ גובה השבוע' }
+            map[tr.id] = { value: `${parseFloat(lastH)}`, unit: 'ס"מ גובה השבוע', delta: null }
           } else {
-            map[tr.id] = { value: '—', unit: 'הקש לגרף גדילה' }
+            map[tr.id] = { value: '—', unit: 'הקש לגרף גדילה', delta: null }
           }
           break
         }
         default:
-          map[tr.id] = { value: trEvents.length, unit: 'אירועים' }
+          map[tr.id] = { value: trEvents.length, unit: 'אירועים', delta }
       }
     })
     return map
-  }, [events, activeTackers])
+  }, [events, prevEvents, activeTackers, weekOffset, elapsedDaysInWeek])
+
+  // ── Top-level insights (3-card strip) ─────────────────────────────────────
+  // Each card surfaces ONE numeric insight + its week-over-week delta.
+  // We deliberately keep these factual, not medical — no recommendations,
+  // no "this is healthy/unhealthy" colouring.
+  const insights = useMemo(() => {
+    const out = []
+
+    const feedingTracker = activeTackers.find(t => t.tracker_type === TRACKER_TYPES.FEEDING)
+    const diaperTracker  = activeTackers.find(t => t.tracker_type === TRACKER_TYPES.DIAPER)
+    const sleepTracker   = activeTackers.find(t => t.tracker_type === TRACKER_TYPES.SLEEP)
+
+    // Feeding total mL — most parents check this first
+    if (feedingTracker) {
+      const cur  = events.filter(e => e.tracker_id === feedingTracker.id)
+      const prev = prevEvents.filter(e => e.tracker_id === feedingTracker.id)
+      const curMl  = cur.reduce((s, e) => s + (e.data?.amount_ml ?? 0), 0)
+      const prevMl = prev.reduce((s, e) => s + (e.data?.amount_ml ?? 0), 0)
+      out.push({
+        key: 'feeding',
+        emoji: feedingTracker.icon ?? '🍼',
+        label: 'מ"ל השבוע',
+        value: curMl,
+        delta: weekOffset <= 0 ? deltaVs(curMl, prevMl) : null,
+        color: feedingTracker.color,
+      })
+    }
+
+    // Diaper count + best time-of-day
+    if (diaperTracker) {
+      const cur  = events.filter(e => e.tracker_id === diaperTracker.id)
+      const prev = prevEvents.filter(e => e.tracker_id === diaperTracker.id)
+      out.push({
+        key: 'diaper',
+        emoji: diaperTracker.icon ?? '👶',
+        label: 'חיתולים השבוע',
+        value: cur.length,
+        delta: weekOffset <= 0 ? deltaVs(cur.length, prev.length) : null,
+        color: diaperTracker.color,
+      })
+    }
+
+    // Sleep hours
+    if (sleepTracker) {
+      const cur  = events.filter(e => e.tracker_id === sleepTracker.id)
+      const prev = prevEvents.filter(e => e.tracker_id === sleepTracker.id)
+      const curH  = pairSleepEvents(cur).reduce(
+        (s, p) => s + (new Date(p.end.occurred_at) - new Date(p.start.occurred_at)) / 3600000, 0
+      )
+      const prevH = pairSleepEvents(prev).reduce(
+        (s, p) => s + (new Date(p.end.occurred_at) - new Date(p.start.occurred_at)) / 3600000, 0
+      )
+      out.push({
+        key: 'sleep',
+        emoji: sleepTracker.icon ?? '🌙',
+        label: "שע' שינה השבוע",
+        value: Math.round(curH * 10) / 10,
+        delta: weekOffset <= 0 ? deltaVs(Math.round(curH * 10) / 10, Math.round(prevH * 10) / 10) : null,
+        color: sleepTracker.color,
+      })
+    }
+
+    return out
+  }, [events, prevEvents, activeTackers, weekOffset])
 
   return (
     <div className="px-4 pt-6 pb-6">
-      <h1 className="font-rubik font-bold text-2xl text-brown-800 mb-4">{t('reports.title')}</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="font-rubik font-bold text-2xl text-brown-800">{t('reports.title')}</h1>
+        {activeChild?.birth_date && (
+          <p className="font-rubik text-brown-400 text-xs">
+            {activeChild.name} · {formatAge(activeChild.birth_date)}
+          </p>
+        )}
+      </div>
+
+      {/* Smart insights strip — week-over-week deltas, factual only */}
+      {insights.length > 0 && !loading && (
+        <InsightsStrip insights={insights} />
+      )}
 
       {/* Week navigator */}
       <div className="flex items-center gap-2 bg-white rounded-2xl shadow-soft px-3 py-3 mb-5">
@@ -223,6 +421,41 @@ export function ReportsPage() {
   )
 }
 
+// ── Insights strip (top of Reports) ──────────────────────────────────────────
+function InsightsStrip({ insights }) {
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-2 mb-3 -mx-1 px-1 scrollbar-hide">
+      {insights.map(ins => (
+        <div
+          key={ins.key}
+          className="flex-shrink-0 w-40 rounded-2xl bg-white shadow-soft p-3"
+          style={{ borderTop: `3px solid ${ins.color}` }}
+        >
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="text-base">{ins.emoji}</span>
+            <p className="font-rubik text-brown-400 text-[11px] leading-tight">{ins.label}</p>
+          </div>
+          <p className="font-rubik font-bold text-brown-800 text-2xl leading-none">{ins.value}</p>
+          {ins.delta && <DeltaPill delta={ins.delta} />}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Compact delta indicator: ▲ / ▼ / — plus % text. Color is intentionally
+// muted (brown-500) — going UP isn't always good (more diapers ≠ better)
+// and going DOWN isn't always bad (less feeding ≠ worse). Keep it factual.
+function DeltaPill({ delta, className = '' }) {
+  if (!delta) return null
+  const arrow = delta.dir === 'up' ? '▲' : delta.dir === 'down' ? '▼' : '—'
+  return (
+    <p className={`font-rubik text-brown-500 text-[11px] mt-1 leading-tight ${className}`}>
+      <span className="font-bold">{arrow}</span> {delta.text}
+    </p>
+  )
+}
+
 // ── Tracker grid tile ────────────────────────────────────────────────────────
 function TrackerTile({ tracker, summary, onClick }) {
   return (
@@ -238,6 +471,7 @@ function TrackerTile({ tracker, summary, onClick }) {
         </div>
         <p className="font-rubik font-bold text-2xl text-brown-800 leading-none">{summary.value}</p>
         <p className="font-rubik text-brown-400 text-xs mt-0.5">{summary.unit}</p>
+        {summary.delta && <DeltaPill delta={summary.delta} />}
       </div>
     </button>
   )
@@ -309,6 +543,7 @@ function TrackerChartContent({ tracker, weekEvents, weekDays }) {
             </BarChart>
           </ResponsiveContainer>
         )}
+        <TimeOfDayBreakdown events={weekEvents} color={tracker.color} />
         <DryEvents events={weekEvents} tracker={tracker} />
       </>
     )
@@ -338,6 +573,7 @@ function TrackerChartContent({ tracker, weekEvents, weekDays }) {
             </BarChart>
           </ResponsiveContainer>
         )}
+        <TimeOfDayBreakdown events={weekEvents} color={tracker.color} />
         <DryEvents events={weekEvents} tracker={tracker} />
       </>
     )
@@ -730,6 +966,54 @@ function GrowthDetailContent({ events, child, tracker }) {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Time-of-day breakdown (used in feeding + diaper detail sheets) ───────────
+//
+// Shows a 4-bucket bar (morning/afternoon/evening/night) so parents can see
+// "when did most of these happen this week". Pure data view — no advice.
+function TimeOfDayBreakdown({ events, color, title = 'מתי קרה השבוע' }) {
+  if (!events.length) return null
+  const counts = countByTimeOfDay(events)
+  const total  = events.length
+  const order  = ['morning', 'afternoon', 'evening', 'night']
+  const max    = Math.max(...order.map(k => counts[k]))
+
+  // Find the dominant bucket for the headline
+  const top = order.reduce((a, b) => counts[a] >= counts[b] ? a : b)
+  const topPct = Math.round((counts[top] / total) * 100)
+
+  return (
+    <div>
+      <p className="font-rubik font-semibold text-brown-600 text-xs uppercase tracking-wide mb-2">
+        {title}
+      </p>
+      <div className="bg-cream-100 rounded-2xl p-3 space-y-2">
+        <p className="font-rubik text-sm text-brown-700">
+          רוב הפעילות ({topPct}%) ב{TOD_LABEL[top].replace(/^.+?\s/, '')}
+        </p>
+        <div className="space-y-1.5">
+          {order.map(k => (
+            <div key={k} className="flex items-center gap-2">
+              <span className="font-rubik text-xs text-brown-500 w-20 flex-shrink-0">{TOD_LABEL[k]}</span>
+              <div className="flex-1 h-2 bg-cream-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: max > 0 ? `${(counts[k] / max) * 100}%` : '0%',
+                    backgroundColor: color,
+                  }}
+                />
+              </div>
+              <span className="font-rubik text-xs font-semibold text-brown-700 w-6 text-left flex-shrink-0">
+                {counts[k]}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

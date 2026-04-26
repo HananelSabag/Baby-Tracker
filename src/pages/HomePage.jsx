@@ -20,7 +20,7 @@ import { PhotoSourceSheet } from '../components/ui/PhotoSourceSheet'
 import { ToastContainer } from '../components/ui/Toast'
 import { format, addDays, subDays, isSameDay } from 'date-fns'
 import { he } from 'date-fns/locale'
-import { formatTime, cn } from '../lib/utils'
+import { formatTime, formatAge, cn } from '../lib/utils'
 import { supabase } from '../lib/supabase'
 import { pickAndCompressImage, uploadAvatar } from '../lib/imageUpload'
 
@@ -365,10 +365,19 @@ export function HomePage() {
               }
             </div>
             <div className="min-w-0 flex-1">
-              <p className="font-rubik font-bold text-brown-800 text-base leading-tight truncate">{activeChild.name}</p>
-              <p className="font-rubik text-brown-400 text-xs leading-tight mt-0.5">
+              {/* Caption ABOVE name (per Hananel) */}
+              <p className="font-rubik text-brown-400 text-[11px] leading-tight">
                 מעקב עבור{children.length > 1 ? ' · הקש להחלפה' : ''}
               </p>
+              <p className="font-rubik font-bold text-brown-800 text-base leading-tight truncate mt-0.5">
+                {activeChild.name}
+              </p>
+              {/* Age — months + weeks under 1y, years + months from 1y */}
+              {activeChild.birth_date && (
+                <p className="font-rubik text-brown-500 text-xs leading-tight mt-0.5">
+                  {formatAge(activeChild.birth_date)}
+                </p>
+              )}
             </div>
           </button>
         ) : (

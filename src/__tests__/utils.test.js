@@ -6,6 +6,7 @@ import {
   formatDateLabel,
   formatTime,
   groupEventsByDay,
+  formatAge,
   cn,
 } from '../lib/utils'
 
@@ -166,5 +167,80 @@ describe('groupEventsByDay', () => {
   it('returns an empty Map for an empty events array', () => {
     const groups = groupEventsByDay([])
     expect(groups.size).toBe(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// formatAge — Hebrew age formatter for the home page kid card
+// ---------------------------------------------------------------------------
+describe('formatAge', () => {
+  // Fixed clock so the assertions below are deterministic regardless of when
+  // the test runs.
+  const NOW = new Date('2024-06-17T12:00:00.000Z')
+
+  it('returns null for missing input', () => {
+    expect(formatAge(null, NOW)).toBeNull()
+    expect(formatAge(undefined, NOW)).toBeNull()
+    expect(formatAge('', NOW)).toBeNull()
+  })
+
+  it('returns null when birth date is in the future', () => {
+    expect(formatAge('2099-01-01', NOW)).toBeNull()
+  })
+
+  it('returns null for an invalid date string', () => {
+    expect(formatAge('not-a-date', NOW)).toBeNull()
+  })
+
+  it('newborn under a week shows days', () => {
+    // 2 days old
+    expect(formatAge('2024-06-15', NOW)).toBe('2 ימים')
+  })
+
+  it('newborn at 1 day shows the singular form', () => {
+    expect(formatAge('2024-06-16', NOW)).toBe('יום')
+  })
+
+  it('under a month, exactly N weeks shows weeks only', () => {
+    // 14 days = 2 weeks
+    expect(formatAge('2024-06-03', NOW)).toBe('2 שבועות')
+  })
+
+  it('under a month, exactly 1 week shows the singular', () => {
+    expect(formatAge('2024-06-10', NOW)).toBe('שבוע')
+  })
+
+  it('months + leftover weeks under 1 year', () => {
+    // Born 2024-03-04 → on 2024-06-17: 3 months and ~2 weeks
+    const result = formatAge('2024-03-04', NOW)
+    expect(result).toMatch(/^3 חודשים ו-/)
+    expect(result).toContain('שבוע')
+  })
+
+  it('months only when no leftover weeks under 1 year', () => {
+    // Born 2024-03-17 → on 2024-06-17: exactly 3 months
+    expect(formatAge('2024-03-17', NOW)).toBe('3 חודשים')
+  })
+
+  it('singular חודש at 1 month with no leftover weeks', () => {
+    expect(formatAge('2024-05-17', NOW)).toBe('חודש')
+  })
+
+  it('1 year exactly → "שנה"', () => {
+    expect(formatAge('2023-06-17', NOW)).toBe('שנה')
+  })
+
+  it('1 year + months → "שנה ו-X חודשים", no weeks', () => {
+    // Born 2023-04-17 → 1 year + 2 months on 2024-06-17
+    expect(formatAge('2023-04-17', NOW)).toBe('שנה ו-2 חודשים')
+  })
+
+  it('multi-year ages drop weeks and pluralise correctly', () => {
+    // Born 2022-04-17 → 2 years + 2 months on 2024-06-17
+    expect(formatAge('2022-04-17', NOW)).toBe('2 שנים ו-2 חודשים')
+  })
+
+  it('whole years with no leftover months → years only', () => {
+    expect(formatAge('2022-06-17', NOW)).toBe('2 שנים')
   })
 })
