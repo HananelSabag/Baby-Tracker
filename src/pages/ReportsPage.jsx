@@ -14,7 +14,7 @@ import {
 import { he } from 'date-fns/locale'
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  CartesianGrid, ReferenceLine,
+  CartesianGrid, ReferenceLine, Cell,
 } from 'recharts'
 import { Spinner } from '../components/ui/Spinner'
 import { BottomSheet } from '../components/ui/BottomSheet'
@@ -63,15 +63,18 @@ function countByTimeOfDay(events) {
   return c
 }
 
-// weekOffset drives the comparison label so "% מהשבוע שעבר" only appears
-// when viewing the current week. Past-week navigation uses "מהשבוע הקודם".
-function deltaVs(thisWeek, lastWeek, weekOffset = 0) {
+// Compare this week vs last week normalised to daily averages so a partial
+// current week (e.g. Monday) doesn't produce a misleading −80% figure.
+function deltaVs(thisTotal, lastTotal, weekOffset = 0, elapsedDays = 7) {
   const vsLabel = weekOffset === 0 ? 'מהשבוע שעבר' : 'מהשבוע הקודם'
-  if (lastWeek === 0) {
-    if (thisWeek === 0) return { dir: 'flat', text: 'ללא שינוי', pct: 0 }
+  if (lastTotal === 0) {
+    if (thisTotal === 0) return { dir: 'flat', text: 'ללא שינוי', pct: 0 }
     return { dir: 'up', text: 'חדש בשבוע זה', pct: null }
   }
-  const pct = Math.round(((thisWeek - lastWeek) / lastWeek) * 100)
+  const days = weekOffset === 0 && elapsedDays > 0 ? elapsedDays : 7
+  const thisAvg = thisTotal / days
+  const lastAvg = lastTotal / 7
+  const pct = Math.round(((thisAvg - lastAvg) / lastAvg) * 100)
   if (pct === 0) return { dir: 'flat', text: 'ללא שינוי', pct: 0 }
   return {
     dir: pct > 0 ? 'up' : 'down',
@@ -143,6 +146,24 @@ export function ReportsPage() {
     return () => { cancelled = true }
   }, [identity.familyId, identity.activeChildId, prevWeekStart.toISOString()])
 
+  // Last growth measurement ever — shown on the tile regardless of current week
+  const [lastGrowthEvent, setLastGrowthEvent] = useState(null)
+  useEffect(() => {
+    const growthTracker = trackers.find(t => t.tracker_type === TRACKER_TYPES.GROWTH)
+    if (!growthTracker || !identity.familyId) return
+    let cancelled = false
+    let q = supabase
+      .from('events')
+      .select('occurred_at, data')
+      .eq('family_id', identity.familyId)
+      .eq('tracker_id', growthTracker.id)
+      .order('occurred_at', { ascending: false })
+      .limit(1)
+    if (identity.activeChildId) q = q.eq('child_id', identity.activeChildId)
+    q.then(({ data }) => { if (!cancelled && data?.[0]) setLastGrowthEvent(data[0]) })
+    return () => { cancelled = true }
+  }, [identity.familyId, identity.activeChildId, trackers])
+
   const loading = trackersLoading || eventsLoading
 
   const activeChild    = children.find(c => c.id === identity.activeChildId) ?? children[0] ?? null
@@ -186,7 +207,7 @@ export function ReportsPage() {
       const prev = rawWeeklyTotal(tr, trPrevEvents)
       let delta = null
       if (cur.unit === prev.unit && tr.tracker_type !== TRACKER_TYPES.GROWTH && weekOffset <= 0) {
-        delta = deltaVs(cur.num, prev.num, weekOffset)
+        delta = deltaVs(cur.num, prev.num, weekOffset, elapsedDaysInWeek)
       }
       switch (tr.tracker_type) {
         case TRACKER_TYPES.FEEDING: {
@@ -217,12 +238,17 @@ export function ReportsPage() {
           break
         }
         case TRACKER_TYPES.GROWTH: {
-          const lastGrowth = [...trEvents].sort((a, b) => new Date(b.occurred_at) - new Date(a.occurred_at))[0]
-          const lastW = lastGrowth?.data?.weight_kg
-          const lastH = lastGrowth?.data?.height_cm
-          if (lastW != null)      map[tr.id] = { value: `${parseFloat(lastW)}`, unit: 'ק"ג', delta: null }
-          else if (lastH != null) map[tr.id] = { value: `${parseFloat(lastH)}`, unit: 'ס"מ גובה', delta: null }
-          else                    map[tr.id] = { value: '—', unit: 'גרף גדילה', delta: null }
+          const e = lastGrowthEvent
+          const lastW = e?.data?.weight_kg
+          const lastH = e?.data?.height_cm
+          if (lastW != null) {
+            const date = e?.occurred_at ? format(new Date(e.occurred_at), 'd/M', { locale: he }) : null
+            map[tr.id] = { value: parseFloat(lastW), unit: `ק"ג${date ? ` · ${date}` : ''}`, delta: null }
+          } else if (lastH != null) {
+            map[tr.id] = { value: parseFloat(lastH), unit: 'ס"מ גובה', delta: null }
+          } else {
+            map[tr.id] = { value: '📊', unit: 'הקש לגרף גדילה', delta: null }
+          }
           break
         }
         default:
@@ -230,7 +256,7 @@ export function ReportsPage() {
       }
     })
     return map
-  }, [events, prevEvents, activeTrackers, weekOffset, elapsedDaysInWeek])
+  }, [events, prevEvents, activeTrackers, weekOffset, elapsedDaysInWeek, lastGrowthEvent])
 
   const feedingTracker     = activeTrackers.find(t => t.tracker_type === TRACKER_TYPES.FEEDING)
   const nonFeedingTrackers = activeTrackers.filter(t => t.tracker_type !== TRACKER_TYPES.FEEDING)
@@ -315,6 +341,7 @@ export function ReportsPage() {
           childId={identity.activeChildId}
           child={activeChild}
           weekOffset={weekOffset}
+          elapsedDays={elapsedDaysInWeek}
           onClose={() => setSelectedTracker(null)}
         />
       )}
@@ -337,7 +364,7 @@ function FeedingHeroCard({ tracker, events, prevEvents, weekDays, elapsedDays, w
   const projected = weekOffset === 0 && elapsedDays > 0 && elapsedDays < 7
     ? Math.round((totalMl / elapsedDays) * 7) : null
 
-  const delta = weekOffset <= 0 ? deltaVs(totalMl, prevMl, weekOffset) : null
+  const delta = weekOffset <= 0 ? deltaVs(totalMl, prevMl, weekOffset, elapsedDays) : null
 
   // Mini sparkline data (Sun→Sat reversed for RTL reading: recent on right)
   const sparkData = weekDays.map(day => ({
@@ -502,7 +529,7 @@ function TrackerTile({ tracker, summary, onClick }) {
 // ── Tracker detail bottom sheet ──────────────────────────────────────────────
 function TrackerDetailSheet({
   tracker, weekEvents, prevWeekEvents, weekDays, prevWeekDays,
-  familyId, childId, child, weekOffset, onClose,
+  familyId, childId, child, weekOffset, elapsedDays, onClose,
 }) {
   const isGrowth = tracker.tracker_type === TRACKER_TYPES.GROWTH
 
@@ -526,6 +553,9 @@ function TrackerDetailSheet({
             weekDays={weekDays}
             prevWeekDays={prevWeekDays}
             weekOffset={weekOffset}
+            elapsedDays={elapsedDays}
+            familyId={familyId}
+            childId={childId}
           />
         )}
       </div>
@@ -534,42 +564,57 @@ function TrackerDetailSheet({
 }
 
 // ── Comparison banner (this week vs previous week) ───────────────────────────
-function ComparisonBanner({ tracker, thisValue, prevValue, unit, weekOffset }) {
+function ComparisonBanner({ tracker, thisValue, prevValue, unit, weekOffset, elapsedDays = 7 }) {
   if (prevValue === 0) return null
-  const delta = deltaVs(thisValue, prevValue, weekOffset)
+  const isPartial = weekOffset === 0 && elapsedDays > 0 && elapsedDays < 7
+  const delta = deltaVs(thisValue, prevValue, weekOffset, elapsedDays)
   const arrowColor = delta.dir === 'up' ? '#22C55E' : delta.dir === 'down' ? '#EF4444' : '#A87048'
+
+  // Show daily averages when the current week is partial for a fair comparison
+  const displayThis = isPartial && typeof thisValue === 'number'
+    ? Math.round(thisValue / elapsedDays) : thisValue
+  const displayPrev = isPartial && typeof prevValue === 'number'
+    ? Math.round(prevValue / 7) : prevValue
+  const displayUnit = isPartial ? `${unit}/יום` : unit
 
   return (
     <div
-      className="rounded-2xl px-4 py-3 flex items-center gap-2"
+      className="rounded-2xl px-4 py-3 flex flex-col gap-2"
       style={{ backgroundColor: `${tracker.color}12` }}
     >
-      <div className="flex-1 text-center">
-        <p className="font-rubik text-[11px] text-brown-400 mb-1">שבוע זה</p>
-        <p className="font-rubik font-bold text-2xl text-brown-800">
-          {typeof thisValue === 'number' ? thisValue.toLocaleString() : thisValue}
-        </p>
-        <p className="font-rubik text-[11px] text-brown-400">{unit}</p>
-      </div>
-      <div className="flex flex-col items-center gap-0.5 px-1 flex-shrink-0">
-        <p className="font-rubik font-bold text-base" style={{ color: arrowColor }}>
-          {delta.dir === 'up' ? '▲' : delta.dir === 'down' ? '▼' : '—'}
-        </p>
-        {delta.pct !== null && delta.pct !== 0 && (
-          <p className="font-rubik text-xs font-semibold" style={{ color: arrowColor }}>
-            {Math.abs(delta.pct)}%
+      <div className="flex items-center gap-2">
+        <div className="flex-1 text-center">
+          <p className="font-rubik text-[11px] text-brown-400 mb-1">שבוע זה</p>
+          <p className="font-rubik font-bold text-2xl text-brown-800">
+            {typeof displayThis === 'number' ? displayThis.toLocaleString() : displayThis}
           </p>
-        )}
+          <p className="font-rubik text-[11px] text-brown-400">{displayUnit}</p>
+        </div>
+        <div className="flex flex-col items-center gap-0.5 px-1 flex-shrink-0">
+          <p className="font-rubik font-bold text-base" style={{ color: arrowColor }}>
+            {delta.dir === 'up' ? '▲' : delta.dir === 'down' ? '▼' : '—'}
+          </p>
+          {delta.pct !== null && delta.pct !== 0 && (
+            <p className="font-rubik text-xs font-semibold" style={{ color: arrowColor }}>
+              {Math.abs(delta.pct)}%
+            </p>
+          )}
+        </div>
+        <div className="flex-1 text-center opacity-55">
+          <p className="font-rubik text-[11px] text-brown-400 mb-1">
+            {weekOffset === 0 ? 'שבוע שעבר' : 'שבוע קודם'}
+          </p>
+          <p className="font-rubik font-bold text-2xl text-brown-600">
+            {typeof displayPrev === 'number' ? displayPrev.toLocaleString() : displayPrev}
+          </p>
+          <p className="font-rubik text-[11px] text-brown-400">{displayUnit}</p>
+        </div>
       </div>
-      <div className="flex-1 text-center opacity-55">
-        <p className="font-rubik text-[11px] text-brown-400 mb-1">
-          {weekOffset === 0 ? 'שבוע שעבר' : 'שבוע קודם'}
+      {isPartial && (
+        <p className="font-rubik text-[10px] text-brown-400 text-center">
+          ממוצע יומי — {elapsedDays} ימים מתוך 7 בשבוע זה
         </p>
-        <p className="font-rubik font-bold text-2xl text-brown-600">
-          {typeof prevValue === 'number' ? prevValue.toLocaleString() : prevValue}
-        </p>
-        <p className="font-rubik text-[11px] text-brown-400">{unit}</p>
-      </div>
+      )}
     </div>
   )
 }
@@ -591,7 +636,7 @@ function DualBarLegend({ color, weekOffset }) {
 }
 
 // ── Standard weekly chart + stats ────────────────────────────────────────────
-function TrackerChartContent({ tracker, weekEvents, prevWeekEvents, weekDays, prevWeekDays, weekOffset }) {
+function TrackerChartContent({ tracker, weekEvents, prevWeekEvents, weekDays, prevWeekDays, weekOffset, elapsedDays = 7, familyId, childId }) {
   const type = tracker.tracker_type
 
   // ── Feeding ─────────────────────────────────────────────────────────────
@@ -624,6 +669,7 @@ function TrackerChartContent({ tracker, weekEvents, prevWeekEvents, weekDays, pr
           prevValue={prevTotalMl}
           unit='מ"ל'
           weekOffset={weekOffset}
+          elapsedDays={elapsedDays}
         />
 
         <div className="grid grid-cols-2 gap-2">
@@ -663,6 +709,7 @@ function TrackerChartContent({ tracker, weekEvents, prevWeekEvents, weekDays, pr
           </div>
         )}
 
+        <WeeklyTrendSection tracker={tracker} familyId={familyId} childId={childId} />
         <TimeOfDayBreakdown events={weekEvents} color={tracker.color} />
         <DryEvents events={weekEvents} tracker={tracker} />
       </>
@@ -692,6 +739,7 @@ function TrackerChartContent({ tracker, weekEvents, prevWeekEvents, weekDays, pr
           prevValue={prevTotal}
           unit="החלפות"
           weekOffset={weekOffset}
+          elapsedDays={elapsedDays}
         />
 
         <div className="grid grid-cols-2 gap-2">
@@ -728,6 +776,7 @@ function TrackerChartContent({ tracker, weekEvents, prevWeekEvents, weekDays, pr
           </div>
         )}
 
+        <WeeklyTrendSection tracker={tracker} familyId={familyId} childId={childId} />
         <TimeOfDayBreakdown events={weekEvents} color={tracker.color} />
         <DryEvents events={weekEvents} tracker={tracker} />
       </>
@@ -1108,6 +1157,85 @@ function GrowthDetailContent({ events, child, tracker }) {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── 8-week trend chart ────────────────────────────────────────────────────────
+function WeeklyTrendSection({ tracker, familyId, childId }) {
+  const [data, setData] = useState([])
+  const [trendLoading, setTrendLoading] = useState(true)
+
+  useEffect(() => {
+    if (!familyId) return
+    const WEEKS = 8
+    const start = startOfWeek(addWeeks(new Date(), -(WEEKS - 1)), { weekStartsOn: 0 })
+    let q = supabase
+      .from('events')
+      .select('occurred_at, data')
+      .eq('family_id', familyId)
+      .eq('tracker_id', tracker.id)
+      .gte('occurred_at', start.toISOString())
+      .order('occurred_at')
+    if (childId) q = q.eq('child_id', childId)
+
+    q.then(({ data: rows }) => {
+      const weeks = Array.from({ length: WEEKS }, (_, i) => {
+        const ws = startOfWeek(addWeeks(new Date(), -(WEEKS - 1 - i)), { weekStartsOn: 0 })
+        const we = endOfWeek(ws, { weekStartsOn: 0 })
+        const isCurrent = i === WEEKS - 1
+        const elapsed = isCurrent
+          ? Math.max(1, differenceInCalendarDays(new Date(), ws) + 1)
+          : 7
+        const wEvents = (rows ?? []).filter(e => {
+          const d = new Date(e.occurred_at)
+          return d >= ws && d <= we
+        })
+        let value = 0
+        if (tracker.tracker_type === TRACKER_TYPES.FEEDING) {
+          const ml = wEvents.reduce((s, e) => s + (e.data?.amount_ml ?? 0), 0)
+          value = elapsed > 0 ? Math.round(ml / elapsed) : 0
+        } else {
+          value = elapsed > 0 ? Math.round(wEvents.length / elapsed * 10) / 10 : 0
+        }
+        return { label: format(ws, 'd/M', { locale: he }), value, isCurrent }
+      })
+      setData(weeks)
+      setTrendLoading(false)
+    })
+  }, [tracker.id, familyId, childId])
+
+  if (trendLoading) return <div className="flex justify-center py-3"><Spinner size="sm" /></div>
+  if (!data.some(w => w.value > 0)) return null
+
+  const unit = tracker.tracker_type === TRACKER_TYPES.FEEDING ? 'מ"ל' : ''
+
+  return (
+    <div>
+      <p className="font-rubik font-semibold text-brown-600 text-xs uppercase tracking-wide mb-2">
+        טרנד 8 שבועות — ממוצע ליום
+      </p>
+      <ResponsiveContainer width="100%" height={140}>
+        <BarChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#F5E6D3" vertical={false} />
+          <XAxis dataKey="label" {...AXIS} />
+          <YAxis {...AXIS} width={42} orientation="left"
+            tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(1)}k` : `${v}`}
+          />
+          <Tooltip
+            {...CHART_TOOLTIP}
+            formatter={v => [`${v} ${unit}/יום`, '']}
+          />
+          <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={24}>
+            {data.map((entry, i) => (
+              <Cell key={i} fill={entry.isCurrent ? tracker.color : `${tracker.color}60`} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+      <p className="font-rubik text-[10px] text-brown-300 text-center mt-1">
+        עמוד כהה = שבוע זה
+      </p>
     </div>
   )
 }

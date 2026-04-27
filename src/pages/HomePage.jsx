@@ -272,7 +272,7 @@ export function HomePage() {
             </button>
           )}
 
-          {/* Notification bell — same size as edit button, no vertical stacking */}
+          {/* Notification bell */}
           <div className="relative">
             <button
               onClick={handleBellClick}
@@ -286,38 +286,6 @@ export function HomePage() {
                 </span>
               )}
             </button>
-
-            {/* Notifications dropdown — RTL: anchor to start of button (right) */}
-            {bellOpen && (
-              <div className="absolute right-0 top-12 w-72 bg-white rounded-2xl shadow-lg z-50 overflow-hidden border border-cream-200">
-                <div className="px-4 py-3 border-b border-cream-200">
-                  <p className="font-rubik font-semibold text-brown-800 text-sm">{t('notifications.title')}</p>
-                </div>
-                {notifications.length === 0 ? (
-                  <p className="text-center text-brown-400 font-rubik text-sm py-6">{t('notifications.noNotifications')}</p>
-                ) : (
-                  <>
-                    {notifications.slice(0, 3).map(n => (
-                      <div key={n.id} className="px-4 py-3 flex items-start gap-3 border-b border-cream-100 last:border-0">
-                        <span className="text-xl flex-shrink-0">{n.emoji}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-rubik text-sm text-brown-700 leading-tight">{n.message}</p>
-                          <p className="font-rubik text-xs text-brown-400 mt-0.5">{formatTime(n.timestamp)}</p>
-                        </div>
-                      </div>
-                    ))}
-                    {notifications.length > 3 && (
-                      <button
-                        onClick={() => { setBellOpen(false); navigate('/history') }}
-                        className="w-full py-3 text-center font-rubik text-sm font-semibold text-brown-600 hover:bg-cream-100 transition-colors"
-                      >
-                        {t('notifications.showAll')} ›
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Edit-view button — sibling of bell, not stacked */}
@@ -581,6 +549,35 @@ export function HomePage() {
         onPick={handleAvatarUpload}
         title="תמונת פרופיל"
       />
+
+      {/* Notifications bottom sheet */}
+      <BottomSheet isOpen={bellOpen} onClose={() => setBellOpen(false)} title={t('notifications.title')}>
+        <div className="space-y-1 pb-2" dir="rtl">
+          {notifications.length === 0 ? (
+            <p className="text-center text-brown-400 font-rubik text-sm py-8">{t('notifications.noNotifications')}</p>
+          ) : (
+            <>
+              {notifications.slice(0, 10).map(n => (
+                <div key={n.id} className="flex items-start gap-3 px-1 py-2.5 border-b border-cream-100 last:border-0">
+                  <span className="text-xl flex-shrink-0 mt-0.5">{n.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-rubik text-sm text-brown-700 leading-snug">{n.message}</p>
+                    <p className="font-rubik text-xs text-brown-400 mt-0.5">{formatTime(n.timestamp)}</p>
+                  </div>
+                </div>
+              ))}
+              {notifications.length > 10 && (
+                <button
+                  onClick={() => { setBellOpen(false); navigate('/history') }}
+                  className="w-full pt-3 text-center font-rubik text-sm font-semibold text-brown-500 active:opacity-70"
+                >
+                  {t('notifications.showAll')} ›
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </BottomSheet>
     </div>
   )
 }
