@@ -262,22 +262,28 @@ export function ProfilePage() {
       </BottomSheet>
 
       {/* Avatar sheet */}
-      <BottomSheet isOpen={avatarSheetOpen} onClose={() => setAvatarSheetOpen(false)} title="">
-        <div className="flex flex-col pb-2 -mx-4 -mt-2">
-          <div className="relative w-full h-72 bg-gradient-to-br from-amber-100 to-cream-200 overflow-hidden">
+      <BottomSheet isOpen={avatarSheetOpen} onClose={() => setAvatarSheetOpen(false)} hero>
+        <div className="rounded-t-4xl overflow-hidden">
+          {/* Floating handle */}
+          <div className="absolute top-3 left-0 right-0 flex justify-center pointer-events-none">
+            <div className="w-10 h-1 bg-white/50 rounded-full" />
+          </div>
+          {/* Hero photo */}
+          <div className="relative w-full h-72 bg-gradient-to-br from-amber-100 to-cream-200">
             {avatarUrl
               ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover object-center" />
               : <div className="w-full h-full flex items-center justify-center">
                   <span className="text-8xl opacity-40">{selectedRole?.emoji ?? '👤'}</span>
                 </div>
             }
-            <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-white/90 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white/90 to-transparent" />
             <div className="absolute bottom-3 right-4 text-right">
               <p className="font-rubik font-bold text-brown-800 text-2xl leading-tight">{user?.user_metadata?.full_name}</p>
               <p className="font-rubik text-brown-500 text-xs">{user?.email}</p>
             </div>
           </div>
-          <div className="px-4 pt-4">
+          {/* Action button */}
+          <div className="px-4 pt-4 pb-6">
             <button
               onClick={() => { setAvatarSheetOpen(false); setPhotoSourceOpen(true) }}
               disabled={uploadStatus === 'uploading'}
