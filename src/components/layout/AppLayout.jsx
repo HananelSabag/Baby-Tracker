@@ -7,6 +7,7 @@ import { LovePopup } from '../ui/LovePopup'
 import { SisterPopup } from '../ui/SisterPopup'
 import { UpgradePopup } from '../ui/UpgradePopup'
 import { BottomNav } from './BottomNav'
+import { InstallBanner } from '../ui/InstallBanner'
 import { STORAGE_KEYS } from '../../lib/constants'
 import { t } from '../../lib/strings'
 
@@ -60,6 +61,7 @@ export function AppLayout({ children }) {
             name={identity.memberName}
           />
         )}
+        <InstallBanner />
         <main className="pb-24">
           {children}
         </main>
