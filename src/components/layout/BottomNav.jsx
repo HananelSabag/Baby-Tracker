@@ -123,7 +123,9 @@ export function BottomNav() {
   function openHelp() {
     closeSheet()
     setHelpStep(0)
-    setHelpOpen(true)
+    // Delay slightly so the FAB sheet's history.back() cleanup fires and
+    // settles before the help sheet pushes its own history entry.
+    setTimeout(() => setHelpOpen(true), 80)
   }
 
   function handleMenuNav(path) {
@@ -267,11 +269,11 @@ export function BottomNav() {
             onClick={openHelp}
             className="flex items-center justify-between w-full px-1 py-2.5 rounded-2xl active:bg-cream-100 transition-colors"
           >
-            <span className="text-brown-300 text-sm">›</span>
             <div className="flex items-center gap-2">
-              <span className="font-rubik text-brown-500 font-medium text-sm">עזרה</span>
-              <span className="text-base">❓</span>
+              <span className="text-lg">❓</span>
+              <span className="font-rubik text-brown-600 font-medium text-sm">עזרה</span>
             </div>
+            <span className="text-brown-300 text-sm">›</span>
           </button>
 
           <div className="border-t border-cream-200" />
