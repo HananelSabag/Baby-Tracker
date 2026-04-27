@@ -92,10 +92,13 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="px-4 pt-6 pb-8 space-y-4">
+    <div className="px-4 pt-6 pb-8 space-y-5">
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-      {/* Profile card */}
+      {/* Page title */}
+      <h1 className="font-rubik font-bold text-2xl text-brown-800">הפרופיל שלי</h1>
+
+      {/* ── My profile card ── */}
       <Card>
         {/* Avatar row */}
         <div className="flex items-center gap-4 mb-4">
@@ -129,7 +132,7 @@ export function ProfilePage() {
           </div>
         </div>
 
-        {/* Role — compact display row */}
+        {/* Role row */}
         <p className="text-xs font-medium text-brown-400 font-rubik mb-2">{t('profile.myRole')}</p>
         <div className="flex items-center gap-2 bg-cream-100 rounded-2xl px-4 py-3">
           <span className="text-xl">{displayedRoleEmoji}</span>
@@ -143,51 +146,62 @@ export function ProfilePage() {
         </div>
       </Card>
 
-      {/* Family profile shortcut — parents only */}
-      {isParent && (
-        <button
-          onClick={() => navigate('/family')}
-          className="w-full bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center justify-between active:scale-[0.99] transition-transform"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-xl">👨‍👩‍👧</div>
-            <div className="text-right">
-              <p className="font-rubik font-semibold text-brown-800 text-sm">פרופיל משפחה</p>
-              <p className="font-rubik text-brown-400 text-xs mt-0.5">ילדים, חברי משפחה, קוד הצטרפות</p>
+      {/* ── Settings group ── */}
+      <div>
+        <p className="text-xs font-semibold text-brown-400 font-rubik uppercase tracking-wider mb-2 px-1">הגדרות</p>
+        <div className="bg-white rounded-3xl shadow-card overflow-hidden">
+          {isParent && (
+            <>
+              <button
+                onClick={() => navigate('/family')}
+                className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-cream-50 transition-colors"
+              >
+                <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center text-lg flex-shrink-0">👨‍👩‍👧</div>
+                <div className="flex-1 text-right min-w-0">
+                  <p className="font-rubik font-semibold text-brown-800 text-sm">פרופיל משפחה</p>
+                  <p className="font-rubik text-brown-400 text-xs mt-0.5">ילדים, חברי משפחה, קוד הצטרפות</p>
+                </div>
+                <span className="text-brown-300 text-lg flex-shrink-0">‹</span>
+              </button>
+              <div className="h-px bg-cream-100 mx-4" />
+            </>
+          )}
+          <button
+            onClick={() => navigate('/notifications')}
+            className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-cream-50 transition-colors"
+          >
+            <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center text-lg flex-shrink-0">🔔</div>
+            <div className="flex-1 text-right min-w-0">
+              <p className="font-rubik font-semibold text-brown-800 text-sm">התראות</p>
+              <p className="font-rubik text-brown-400 text-xs mt-0.5">Push, מינונים, חיתול</p>
             </div>
-          </div>
-          <span className="text-brown-400 text-lg">‹</span>
-        </button>
-      )}
-
-      {/* Notifications */}
-      <button
-        onClick={() => navigate('/notifications')}
-        className="w-full bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center justify-between active:scale-[0.99] transition-transform"
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-xl">🔔</div>
-          <div className="text-right">
-            <p className="font-rubik font-semibold text-brown-800 text-sm">הגדרות התראות</p>
-            <p className="font-rubik text-brown-400 text-xs mt-0.5">Push, שעות מינונים, חיתול</p>
-          </div>
+            <span className="text-brown-300 text-lg flex-shrink-0">‹</span>
+          </button>
         </div>
-        <span className="text-brown-400 text-lg">‹</span>
-      </button>
+      </div>
 
-      <Link
-        to="/privacy"
-        className="flex items-center justify-center gap-2 w-full bg-white border border-cream-300 rounded-2xl py-3 font-rubik font-medium text-brown-500 text-sm shadow-soft active:scale-[0.99] transition-all"
-      >
-        🔐 מדיניות פרטיות
-      </Link>
+      {/* ── Danger zone ── */}
+      <div>
+        <p className="text-xs font-semibold text-brown-400 font-rubik uppercase tracking-wider mb-2 px-1">חשבון</p>
+        <div className="bg-white rounded-3xl shadow-card overflow-hidden">
+          <button
+            onClick={() => setSignOutConfirm(true)}
+            className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-red-50 transition-colors"
+          >
+            <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center text-lg flex-shrink-0">🚪</div>
+            <div className="flex-1 text-right">
+              <p className="font-rubik font-semibold text-red-500 text-sm">{t('profile.signOut')}</p>
+            </div>
+          </button>
+        </div>
+      </div>
 
-      <button
-        onClick={() => setSignOutConfirm(true)}
-        className="w-full flex items-center justify-center gap-2 bg-red-50 border border-red-200 rounded-2xl py-3.5 font-rubik font-semibold text-red-500 text-sm active:scale-[0.99] transition-all"
-      >
-        🚪 {t('profile.signOut')}
-      </button>
+      {/* Privacy — legal footnote */}
+      <div className="text-center pb-1">
+        <Link to="/privacy" className="font-rubik text-brown-300 text-xs active:opacity-60 transition-opacity">
+          🔐 מדיניות פרטיות
+        </Link>
+      </div>
 
       {/* ── Dialogs ── */}
       <ConfirmDialog
