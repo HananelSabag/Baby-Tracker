@@ -363,13 +363,12 @@ export function HistoryPage() {
                           </p>
                         ) : null}
 
-                        {/* Bottom row: pencil hint (left) ↔ member name (right, only multi-member days) */}
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="text-sm" style={{ opacity: 0.22 }}>✏️</span>
-                          {showMember && event.member && (
-                            <span className="font-rubik text-brown-300 text-xs truncate">{event.member.display_name}</span>
-                          )}
-                        </div>
+                        {/* Member — right-aligned, only when multiple members log this day */}
+                        {showMember && event.member && (
+                          <p className="font-rubik text-brown-300 text-xs text-right mt-1.5 truncate">
+                            {event.member.display_name}
+                          </p>
+                        )}
                       </div>
                     )
                   })}
