@@ -927,6 +927,71 @@ function MetricCard({ icon, label, value, unit, pLabel }) {
   )
 }
 
+// ── Combined percentile overview chart (all 3 metrics, same 0-100 Y axis) ────
+function CombinedPercentileChart({ measurements, gender, hasHead, childName }) {
+  const whoWeightTable = gender === 'female' ? WHO_WEIGHT_GIRLS : WHO_WEIGHT_BOYS
+  const whoHeightTable = gender === 'female' ? WHO_HEIGHT_GIRLS : WHO_HEIGHT_BOYS
+  const whoHeadTable   = gender === 'female' ? WHO_HEAD_GIRLS   : WHO_HEAD_BOYS
+
+  const data = useMemo(() => {
+    return measurements
+      .filter(m => m.age != null && m.age >= 0)
+      .map(m => {
+        const wp = m.weight != null ? getWeightPercentileLabel(m.weight, m.age, gender)?.percentile : null
+        const hp = m.height != null ? getHeightPercentileLabel(m.height, m.age, gender)?.percentile : null
+        const cp = m.head   != null ? getHeadPercentileLabel(m.head,   m.age, gender)?.percentile : null
+        return { age: Math.round(m.age * 10) / 10, weightPct: wp, heightPct: hp, headPct: cp }
+      })
+      .filter(d => d.weightPct != null || d.heightPct != null || d.headPct != null)
+  }, [measurements, gender, whoWeightTable, whoHeightTable, whoHeadTable])
+
+  if (data.length < 2) return null
+
+  return (
+    <div className="bg-white rounded-2xl p-3 shadow-soft">
+      <p className="font-rubik font-semibold text-brown-600 text-xs mb-3 text-center">גרף אחוזונים משולב</p>
+      <ResponsiveContainer width="100%" height={200}>
+        <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 16 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#F5E6D3" />
+          <XAxis dataKey="age" {...AXIS}
+            label={{ value: 'גיל (חודשים)', position: 'insideBottom', offset: -8, fontFamily: 'Rubik', fontSize: 10, fill: '#A87048' }}
+            tickFormatter={v => `${v}`} height={32}
+          />
+          <YAxis {...AXIS} width={28} domain={[0, 100]} ticks={[3, 15, 50, 85, 97]} />
+          <Tooltip
+            {...CHART_TOOLTIP}
+            formatter={(v, name) => {
+              if (v == null) return [null, name]
+              const labels = { weightPct: '⚖️ משקל', heightPct: '📏 גובה', headPct: '🔵 ראש' }
+              return [`P${v}`, labels[name] ?? name]
+            }}
+            labelFormatter={v => `גיל: ${v} חודשים`}
+          />
+          <ReferenceLine y={50} stroke="#A87048" strokeOpacity={0.5} strokeWidth={1} strokeDasharray="6 3" />
+          <ReferenceLine y={15} stroke="#D6C4B0" strokeOpacity={0.7} strokeWidth={1} strokeDasharray="3 4" />
+          <ReferenceLine y={85} stroke="#D6C4B0" strokeOpacity={0.7} strokeWidth={1} strokeDasharray="3 4" />
+          <ReferenceLine y={3}  stroke="#F5E6D3" strokeOpacity={0.9} strokeWidth={1} strokeDasharray="2 5" />
+          <ReferenceLine y={97} stroke="#F5E6D3" strokeOpacity={0.9} strokeWidth={1} strokeDasharray="2 5" />
+          <Line dataKey="weightPct" stroke="#E8B84B" strokeWidth={2.5}
+            dot={{ fill: '#E8B84B', r: 3.5, strokeWidth: 0 }} activeDot={{ r: 6 }} connectNulls={false} name="weightPct" />
+          <Line dataKey="heightPct" stroke="#6B9E8C" strokeWidth={2.5}
+            dot={{ fill: '#6B9E8C', r: 3.5, strokeWidth: 0 }} activeDot={{ r: 6 }} connectNulls={false} name="heightPct" />
+          {hasHead && (
+            <Line dataKey="headPct" stroke="#7BA7E8" strokeWidth={2.5}
+              dot={{ fill: '#7BA7E8', r: 3.5, strokeWidth: 0 }} activeDot={{ r: 6 }} connectNulls={false} name="headPct" />
+          )}
+        </LineChart>
+      </ResponsiveContainer>
+      <div className="flex gap-4 justify-center text-xs font-rubik mt-1">
+        <span style={{ color: '#E8B84B' }}>⚖️ משקל</span>
+        <span style={{ color: '#6B9E8C' }}>📏 גובה</span>
+        {hasHead && <span style={{ color: '#7BA7E8' }}>🔵 ראש</span>}
+        <span className="text-brown-300">— P50 · · P15/85</span>
+      </div>
+    </div>
+  )
+}
+
 // ── Growth detail with WHO curves ────────────────────────────────────────────
 function GrowthDetailContent({ events, child, tracker }) {
   const [metric, setMetric] = useState('weight')
@@ -1036,6 +1101,15 @@ function GrowthDetailContent({ events, child, tracker }) {
             <p className="font-rubik text-xs text-brown-500 mt-0.5">{overallStatus.sub}</p>
           </div>
         </div>
+      )}
+
+      {birthDate && measurements.length >= 2 && (
+        <CombinedPercentileChart
+          measurements={measurements}
+          gender={gender}
+          hasHead={hasHead}
+          childName={child?.name}
+        />
       )}
 
       {measurements.length > 0 && (
