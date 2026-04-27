@@ -78,12 +78,29 @@ const HELP_SLIDES = [
       {
         icon: '🏠',
         label: 'מסך הבית',
-        desc: 'לחצו + ליד כל מעקב לדיווח מהיר. לחצו ✏️ בפינה העליונה לשינוי סדר והסתרת מעקבים.',
+        bullets: [
+          'לחצו + ליד כל מעקב לדיווח מהיר',
+          'לחצו ✏️ בפינה לשינוי סדר והסתרת מעקבים',
+          'ניווט בין תאריכים עם החצים בראש המסך',
+        ],
       },
       {
         icon: '📋',
         label: 'היסטוריה',
-        desc: 'הקישו על כל כרטיסיה לעריכה או מחיקה. ניתן לסנן לפי מעקב או לקפוץ לתאריך.',
+        bullets: [
+          'הקישו על כרטיסיה לעריכה או מחיקה',
+          'סננו לפי סוג מעקב בשורת הפילטרים',
+          'לחצו על התאריך לקפיצה לתאריך ספציפי',
+        ],
+      },
+      {
+        icon: '🔔',
+        label: 'התראות',
+        bullets: [
+          'הפעילו Push כדי לקבל תזכורות',
+          'הגדירו תזכורות מינון לפי תרופה ומרווח',
+          'התראות חיתול — אחרי כמה שעות להזכיר',
+        ],
       },
     ],
   },
@@ -92,13 +109,30 @@ const HELP_SLIDES = [
     items: [
       {
         icon: '☰',
-        label: 'התפריט הראשי',
-        desc: 'הלחצן הגדול באמצע: הוספת מעקבים, ניהול משפחה, התראות Push ונגישות.',
+        label: 'תפריט ראשי',
+        bullets: [
+          'הוסיפו מעקב מותאם אישית — שנה שינה, תרופה, חיתול ועוד',
+          'נהלו חברי משפחה ושתפו קוד הצטרפות',
+          'כל בני המשפחה רואים עדכונים בזמן אמת',
+        ],
       },
       {
         icon: '📊',
         label: 'דוחות',
-        desc: 'גרפים שבועיים עם השוואה לשבוע הקודם. מעקב גדילה — עקומות WHO עם אחוזונים לפי גיל ומין.',
+        bullets: [
+          'גרפים שבועיים עם השוואה לשבוע הקודם',
+          'טרנד של 8 שבועות לכל מעקב',
+          'מעקב גדילה: עקומות WHO עם אחוזונים לפי גיל ומין',
+        ],
+      },
+      {
+        icon: '💡',
+        label: 'טיפים',
+        bullets: [
+          'הגדירו תאריך לידה בפרופיל המשפחה לאחוזוני WHO',
+          'ניתן לדווח על תאריכים שעברו בהיסטוריה',
+          'לחצו על גרף גדילה לפירוט מלא עם עקומות',
+        ],
       },
     ],
   },
@@ -313,13 +347,20 @@ export function BottomNav() {
       <BottomSheet isOpen={helpOpen} onClose={() => setHelpOpen(false)} title="מדריך קצר">
         <div className="space-y-4 pb-2">
           {/* Slide content */}
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {HELP_SLIDES[helpStep].items.map(item => (
               <div key={item.label} className="flex gap-3 bg-cream-100 rounded-2xl px-4 py-3">
-                <span className="text-2xl mt-0.5 flex-shrink-0">{item.icon}</span>
-                <div>
-                  <p className="font-rubik font-semibold text-brown-800 text-sm">{item.label}</p>
-                  <p className="font-rubik text-brown-500 text-xs mt-0.5 leading-relaxed">{item.desc}</p>
+                <span className="text-xl mt-0.5 flex-shrink-0">{item.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-rubik font-semibold text-brown-800 text-sm mb-1">{item.label}</p>
+                  <ul className="space-y-0.5">
+                    {item.bullets.map((b, i) => (
+                      <li key={i} className="flex items-start gap-1.5">
+                        <span className="text-amber-400 text-[10px] mt-[3px] flex-shrink-0">●</span>
+                        <span className="font-rubik text-brown-500 text-xs leading-relaxed">{b}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             ))}
