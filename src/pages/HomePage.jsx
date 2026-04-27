@@ -15,6 +15,7 @@ import { CustomTrackerCard } from '../components/trackers/CustomTrackerCard'
 import { GrowthCard } from '../components/trackers/GrowthCard'
 import { HeroCard } from '../components/trackers/HeroCard'
 import { BottomSheet } from '../components/ui/BottomSheet'
+import { ChildFormSheet } from '../components/ui/ChildFormSheet'
 import { Spinner } from '../components/ui/Spinner'
 import { PhotoSourceSheet } from '../components/ui/PhotoSourceSheet'
 import { ToastContainer } from '../components/ui/Toast'
@@ -29,8 +30,10 @@ export function HomePage() {
   const navigate = useNavigate()
   const { trackers: allTrackers, loading } = useTrackers(identity.familyId)
   const trackers = allTrackers.filter(t => t.is_active !== false)
-  const { children } = useChildren(identity.familyId)
+  const { children, updateChild } = useChildren(identity.familyId)
   const [childPickerOpen, setChildPickerOpen] = useState(false)
+  const [childDetailOpen, setChildDetailOpen] = useState(false)
+  const [childEditOpen, setChildEditOpen] = useState(false)
   const [viewDate, setViewDate] = useState(() => new Date())
   const [bellOpen, setBellOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
@@ -134,6 +137,21 @@ export function HomePage() {
       setUploadingAvatar(false)
       setProfileSheetOpen(false)
     }
+  }
+
+  async function handleChildEditSave({ name, photo, birthDate, gender }) {
+    if (!activeChild) return
+    let uploadedUrl = activeChild.avatar_url ?? null
+    if (photo?.blob) {
+      try {
+        uploadedUrl = await uploadAvatar({ folder: 'children', subjectId: activeChild.id, ...photo })
+      } catch (err) {
+        showToast({ message: 'העלאת התמונה נכשלה', emoji: '⚠️' })
+      }
+    }
+    await updateChild(activeChild.id, { name, avatar_url: uploadedUrl, birth_date: birthDate || null, gender: gender || null })
+    setChildEditOpen(false)
+    showToast({ message: 'פרטי הילד עודכנו', emoji: '✅' })
   }
 
   // Long-press to enter edit mode
@@ -318,62 +336,92 @@ export function HomePage() {
         </div>
       </div>
 
-      {/* ── Child card — bigger photo, breathable layout ────────────────── */}
-      <div className="flex items-center gap-3 bg-white rounded-3xl shadow-soft p-3 mb-4">
-        {activeChild ? (
-          <button
-            className="flex items-center gap-3 flex-1 min-w-0 text-right active:opacity-80 transition-opacity"
-            onClick={() => children.length > 1 && setChildPickerOpen(true)}
-            style={{ cursor: children.length > 1 ? 'pointer' : 'default' }}
-          >
-            <div className="w-14 h-14 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center flex-shrink-0 ring-2 ring-cream-200">
-              {activeChild.avatar_url
-                ? <img src={activeChild.avatar_url} alt={activeChild.name} className="w-full h-full object-cover" />
-                : <span className="text-3xl">👶</span>
-              }
-            </div>
-            <div className="min-w-0 flex-1">
-              {/* Caption ABOVE name (per Hananel) */}
-              <p className="font-rubik text-brown-400 text-[11px] leading-tight">
-                מעקב עבור{children.length > 1 ? ' · הקש להחלפה' : ''}
-              </p>
-              <p className="font-rubik font-bold text-brown-800 text-base leading-tight truncate mt-0.5">
-                {activeChild.name}
-              </p>
-              {/* Age — months + weeks under 1y, years + months from 1y */}
-              {activeChild.birth_date && (
-                <p className="font-rubik text-brown-500 text-xs leading-tight mt-0.5">
-                  {formatAge(activeChild.birth_date)}
+      {/* ── Child card ──────────────────────────────────────────────────── */}
+      <div className="bg-white rounded-3xl shadow-soft p-3 mb-4">
+        <div className="flex items-center gap-3">
+          {activeChild ? (
+            <>
+              {/* Avatar — tap opens child detail sheet */}
+              <button
+                onClick={() => setChildDetailOpen(true)}
+                className="w-14 h-14 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center flex-shrink-0 ring-2 ring-cream-200 active:scale-95 transition-transform"
+              >
+                {activeChild.avatar_url
+                  ? <img src={activeChild.avatar_url} alt={activeChild.name} className="w-full h-full object-cover" />
+                  : <span className="text-3xl">👶</span>
+                }
+              </button>
+              <div className="min-w-0 flex-1">
+                <p className="font-rubik text-brown-400 text-[11px] leading-tight">מעקב עבור</p>
+                <p className="font-rubik font-bold text-brown-800 text-base leading-tight truncate mt-0.5">
+                  {activeChild.name}
                 </p>
-              )}
-            </div>
-          </button>
-        ) : (
-          <div className="flex-1" />
-        )}
+                {activeChild.birth_date && (
+                  <p className="font-rubik text-brown-500 text-xs leading-tight mt-0.5">
+                    {formatAge(activeChild.birth_date)}
+                  </p>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="flex-1" />
+          )}
 
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <button
-            onClick={() => setViewDate(d => subDays(d, 1))}
-            aria-label="יום קודם"
-            className="w-8 h-8 rounded-full bg-cream-100 text-brown-600 font-bold flex items-center justify-center active:scale-95 transition-transform text-lg leading-none"
-          >‹</button>
-          <button
-            onClick={() => !isToday && setViewDate(new Date())}
-            className={cn(
-              'font-rubik font-medium text-sm px-3 h-8 rounded-full transition-colors min-w-[52px] text-center',
-              isToday ? 'text-brown-600' : 'text-amber-700 bg-amber-50'
-            )}
-          >
-            {dateLabel}
-          </button>
-          <button
-            onClick={() => setViewDate(d => addDays(d, 1))}
-            disabled={isToday}
-            aria-label="יום הבא"
-            className="w-8 h-8 rounded-full bg-cream-100 text-brown-600 font-bold flex items-center justify-center active:scale-95 transition-transform text-lg leading-none disabled:opacity-25"
-          >›</button>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={() => setViewDate(d => subDays(d, 1))}
+              aria-label="יום קודם"
+              className="w-8 h-8 rounded-full bg-cream-100 text-brown-600 font-bold flex items-center justify-center active:scale-95 transition-transform text-lg leading-none"
+            >‹</button>
+            <button
+              onClick={() => !isToday && setViewDate(new Date())}
+              className={cn(
+                'font-rubik font-medium text-sm px-3 h-8 rounded-full transition-colors min-w-[52px] text-center',
+                isToday ? 'text-brown-600' : 'text-amber-700 bg-amber-50'
+              )}
+            >
+              {dateLabel}
+            </button>
+            <button
+              onClick={() => setViewDate(d => addDays(d, 1))}
+              disabled={isToday}
+              aria-label="יום הבא"
+              className="w-8 h-8 rounded-full bg-cream-100 text-brown-600 font-bold flex items-center justify-center active:scale-95 transition-transform text-lg leading-none disabled:opacity-25"
+            >›</button>
+          </div>
         </div>
+
+        {/* Multi-child quick switcher */}
+        {children.length > 1 && (
+          <div className="mt-2.5 pt-2.5 border-t border-cream-100 flex gap-3 overflow-x-auto pb-0.5">
+            {children.map(child => {
+              const isActive = child.id === activeChild?.id
+              return (
+                <button
+                  key={child.id}
+                  onClick={() => setActiveChildId(child.id)}
+                  className="flex flex-col items-center gap-1 flex-shrink-0 active:scale-95 transition-transform"
+                >
+                  <div className={cn(
+                    'w-10 h-10 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center ring-2 transition-all',
+                    isActive ? 'ring-[#8B5E3C]' : 'ring-transparent opacity-60'
+                  )}>
+                    {child.avatar_url
+                      ? <img src={child.avatar_url} alt={child.name} className="w-full h-full object-cover" />
+                      : <span className="text-lg">👶</span>
+                    }
+                  </div>
+                  <span className={cn(
+                    'font-rubik text-[10px] leading-none max-w-[44px] truncate text-center',
+                    isActive ? 'text-brown-700 font-bold' : 'text-brown-400'
+                  )}>
+                    {child.name.split(' ')[0]}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -501,7 +549,7 @@ export function HomePage() {
       <BottomSheet isOpen={profileSheetOpen} onClose={() => setProfileSheetOpen(false)} title="">
         <div className="flex flex-col pb-2 -mx-4 -mt-2">
           {/* Hero banner photo */}
-          <div className="relative w-full h-52 bg-gradient-to-br from-amber-100 to-cream-200 overflow-hidden">
+          <div className="relative w-full h-72 bg-gradient-to-br from-amber-100 to-cream-200 overflow-hidden">
             {(identity.memberAvatarUrl || identity.googleAvatarUrl)
               ? <img
                   src={identity.memberAvatarUrl ?? identity.googleAvatarUrl}
@@ -549,6 +597,62 @@ export function HomePage() {
         onPick={handleAvatarUpload}
         title="תמונת פרופיל"
       />
+
+      {/* Child detail sheet */}
+      <BottomSheet isOpen={childDetailOpen} onClose={() => setChildDetailOpen(false)} title="">
+        <div className="flex flex-col pb-2 -mx-4 -mt-2">
+          <div className="relative w-full h-72 bg-gradient-to-br from-amber-50 to-cream-200 overflow-hidden">
+            {activeChild?.avatar_url
+              ? <img src={activeChild.avatar_url} alt={activeChild.name} className="w-full h-full object-cover object-center" />
+              : <div className="w-full h-full flex items-center justify-center">
+                  <span className="text-8xl opacity-30">👶</span>
+                </div>
+            }
+            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white/95 to-transparent" />
+            <div className="absolute bottom-3 right-4 text-right">
+              <p className="font-rubik font-bold text-brown-800 text-2xl leading-tight">{activeChild?.name}</p>
+              {activeChild?.birth_date && (
+                <p className="font-rubik text-brown-500 text-sm">{formatAge(activeChild.birth_date)}</p>
+              )}
+            </div>
+          </div>
+          <div className={cn('px-4 pt-4', children.length > 1 ? 'flex gap-3' : '')}>
+            {children.length > 1 && (
+              <button
+                onClick={() => { setChildDetailOpen(false); setTimeout(() => setChildPickerOpen(true), 80) }}
+                className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-cream-100 active:bg-cream-200 transition-colors"
+              >
+                <span className="text-lg">🔄</span>
+                <span className="font-rubik font-medium text-brown-700 text-sm">החלף ילד</span>
+              </button>
+            )}
+            <button
+              onClick={() => { setChildDetailOpen(false); setTimeout(() => setChildEditOpen(true), 80) }}
+              className={cn(
+                'flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[#8B5E3C] active:opacity-90 transition-opacity',
+                children.length > 1 ? 'flex-1' : 'w-full'
+              )}
+            >
+              <span className="text-lg">✏️</span>
+              <span className="font-rubik font-medium text-white text-sm">ערוך פרופיל</span>
+            </button>
+          </div>
+        </div>
+      </BottomSheet>
+
+      {/* Child edit sheet */}
+      {childEditOpen && activeChild && (
+        <ChildFormSheet
+          isOpen={childEditOpen}
+          onClose={() => setChildEditOpen(false)}
+          title="עריכת ילד/ה"
+          initialName={activeChild.name}
+          initialAvatar={activeChild.avatar_url ?? null}
+          initialBirthDate={activeChild.birth_date ?? ''}
+          initialGender={activeChild.gender ?? ''}
+          onSave={handleChildEditSave}
+        />
+      )}
 
       {/* Notifications bottom sheet */}
       <BottomSheet isOpen={bellOpen} onClose={() => setBellOpen(false)} title={t('notifications.title')}>
