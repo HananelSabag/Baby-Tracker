@@ -71,18 +71,59 @@ const MENU_ITEMS = [
   },
 ]
 
+const HELP_SLIDES = [
+  {
+    title: 'שימוש יומי',
+    items: [
+      {
+        icon: '🏠',
+        label: 'מסך הבית',
+        desc: 'לחצו + ליד כל מעקב לדיווח מהיר. לחצו ✏️ בפינה העליונה לשינוי סדר והסתרת מעקבים.',
+      },
+      {
+        icon: '📋',
+        label: 'היסטוריה',
+        desc: 'הקישו על כל כרטיסיה לעריכה או מחיקה. ניתן לסנן לפי מעקב או לקפוץ לתאריך.',
+      },
+    ],
+  },
+  {
+    title: 'תכונות נוספות',
+    items: [
+      {
+        icon: '☰',
+        label: 'התפריט הראשי',
+        desc: 'הלחצן הגדול באמצע: הוספת מעקבים, ניהול משפחה, התראות Push ונגישות.',
+      },
+      {
+        icon: '📊',
+        label: 'דוחות',
+        desc: 'גרפים שבועיים עם השוואה לשבוע הקודם. מעקב גדילה — עקומות WHO עם אחוזונים לפי גיל ומין.',
+      },
+    ],
+  },
+]
+
 export function BottomNav() {
   const { signOut } = useApp()
   const navigate = useNavigate()
   const [sheetOpen, setSheetOpen] = useState(false)
   const [confirmSignOut, setConfirmSignOut] = useState(false)
   const [a11yOpen, setA11yOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
+  const [helpStep, setHelpStep] = useState(0)
   const { prefs, updatePref } = useAccessibility()
 
   function closeSheet() {
     setSheetOpen(false)
     setConfirmSignOut(false)
     setA11yOpen(false)
+  }
+
+  function openHelp() {
+    closeSheet()
+    setHelpStep(0)
+    setHelpOpen(true)
   }
 
   function handleMenuNav(path) {
@@ -221,6 +262,20 @@ export function BottomNav() {
 
           <div className="border-t border-cream-200" />
 
+          {/* Help */}
+          <button
+            onClick={openHelp}
+            className="flex items-center justify-between w-full px-1 py-2.5 rounded-2xl active:bg-cream-100 transition-colors"
+          >
+            <span className="text-brown-300 text-sm">›</span>
+            <div className="flex items-center gap-2">
+              <span className="font-rubik text-brown-500 font-medium text-sm">עזרה</span>
+              <span className="text-base">❓</span>
+            </div>
+          </button>
+
+          <div className="border-t border-cream-200" />
+
           {/* Sign out */}
           {confirmSignOut ? (
             <div className="flex flex-col gap-2">
@@ -247,6 +302,56 @@ export function BottomNav() {
             >
               <span className="text-lg">🚪</span>
               <span className="font-rubik text-red-500 font-medium text-sm">התנתקות</span>
+            </button>
+          )}
+        </div>
+      </BottomSheet>
+
+      {/* Help sheet */}
+      <BottomSheet isOpen={helpOpen} onClose={() => setHelpOpen(false)} title="מדריך קצר">
+        <div className="space-y-4 pb-2">
+          {/* Slide content */}
+          <div className="space-y-3">
+            {HELP_SLIDES[helpStep].items.map(item => (
+              <div key={item.label} className="flex gap-3 bg-cream-100 rounded-2xl px-4 py-3">
+                <span className="text-2xl mt-0.5 flex-shrink-0">{item.icon}</span>
+                <div>
+                  <p className="font-rubik font-semibold text-brown-800 text-sm">{item.label}</p>
+                  <p className="font-rubik text-brown-500 text-xs mt-0.5 leading-relaxed">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Progress dots */}
+          <div className="flex justify-center gap-2">
+            {HELP_SLIDES.map((_, i) => (
+              <div
+                key={i}
+                className="rounded-full transition-all"
+                style={{
+                  width: i === helpStep ? 20 : 6,
+                  height: 6,
+                  backgroundColor: i === helpStep ? '#8B5E3C' : '#D6C4B0',
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Action button */}
+          {helpStep < HELP_SLIDES.length - 1 ? (
+            <button
+              onClick={() => setHelpStep(s => s + 1)}
+              className="w-full py-3 rounded-2xl bg-brown-800 text-white font-rubik font-semibold text-sm active:opacity-90 transition-opacity"
+            >
+              הבא ›
+            </button>
+          ) : (
+            <button
+              onClick={() => setHelpOpen(false)}
+              className="w-full py-3 rounded-2xl bg-brown-800 text-white font-rubik font-semibold text-sm active:opacity-90 transition-opacity"
+            >
+              הבנתי ✓
             </button>
           )}
         </div>
