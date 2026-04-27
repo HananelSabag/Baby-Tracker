@@ -13,6 +13,7 @@ import { Spinner } from '../components/ui/Spinner'
 import { AddFeedingForm } from '../components/forms/AddFeedingForm'
 import { AddDiaperForm } from '../components/forms/AddDiaperForm'
 import { AddCustomEventForm } from '../components/forms/AddCustomEventForm'
+import { GrowthEditForm } from '../components/forms/GrowthEditForm'
 import { TRACKER_TYPES } from '../lib/constants'
 
 const DAYS_PER_PAGE = 14
@@ -152,11 +153,25 @@ export function HistoryPage() {
     }
   }
 
+  async function handleGrowthEditSave(data, fullDate) {
+    setEditSaving(true)
+    try {
+      await updateEvent(editTarget.id, { data, occurred_at: fullDate.toISOString() })
+      setEditTarget(null)
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
   function renderEditForm() {
     if (!editTarget) return null
     const type = editTarget.tracker?.tracker_type
     const initialTime = format(new Date(editTarget.occurred_at), 'HH:mm')
 
+    if (type === TRACKER_TYPES.GROWTH) {
+      const initialDate = format(new Date(editTarget.occurred_at), 'yyyy-MM-dd')
+      return <GrowthEditForm initialData={editTarget.data} initialDate={initialDate} onSave={handleGrowthEditSave} onCancel={() => setEditTarget(null)} loading={editSaving} />
+    }
     if (type === TRACKER_TYPES.FEEDING)
       return <AddFeedingForm initialData={editTarget.data} initialTime={initialTime} onSave={handleEditSave} onCancel={() => setEditTarget(null)} loading={editSaving} />
     if (type === TRACKER_TYPES.DIAPER)
