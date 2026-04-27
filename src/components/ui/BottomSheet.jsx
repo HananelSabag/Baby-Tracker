@@ -3,6 +3,10 @@ import { cn } from '../../lib/utils'
 
 export function BottomSheet({ isOpen, onClose, title, children }) {
   const overlayRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+
+  // Keep ref current without re-running the history effect
+  useEffect(() => { onCloseRef.current = onClose }, [onClose])
 
   // Lock body scroll when open
   useEffect(() => {
@@ -10,7 +14,9 @@ export function BottomSheet({ isOpen, onClose, title, children }) {
     return () => { document.body.style.overflow = '' }
   }, [isOpen])
 
-  // Intercept OS back gesture: close the sheet instead of navigating away
+  // Intercept OS back gesture: close the sheet instead of navigating away.
+  // Depends only on isOpen — onClose is accessed via ref so a new function
+  // reference from the parent never re-triggers this effect.
   useEffect(() => {
     if (!isOpen) return
 
@@ -18,19 +24,19 @@ export function BottomSheet({ isOpen, onClose, title, children }) {
     window.history.pushState({ sheetId }, '')
 
     function handlePopState() {
-      onClose()
+      onCloseRef.current()
     }
 
     window.addEventListener('popstate', handlePopState)
 
     return () => {
       window.removeEventListener('popstate', handlePopState)
-      // If sheet closed manually (not via back gesture), clean up the history entry
+      // Sheet closed manually — remove the history entry we pushed
       if (window.history.state?.sheetId === sheetId) {
         window.history.back()
       }
     }
-  }, [isOpen, onClose])
+  }, [isOpen]) // intentionally excludes onClose — use onCloseRef instead
 
   if (!isOpen) return null
 
