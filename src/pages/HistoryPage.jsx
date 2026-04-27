@@ -14,7 +14,7 @@ import { AddFeedingForm } from '../components/forms/AddFeedingForm'
 import { AddDiaperForm } from '../components/forms/AddDiaperForm'
 import { AddCustomEventForm } from '../components/forms/AddCustomEventForm'
 import { GrowthEditForm } from '../components/forms/GrowthEditForm'
-import { TRACKER_TYPES } from '../lib/constants'
+import { TRACKER_TYPES, ROLES } from '../lib/constants'
 
 const DAYS_PER_PAGE = 14
 const MAX_DAYS = 90
@@ -305,9 +305,6 @@ export function HistoryPage() {
             const isToday = dateKey === todayStr
             const isYesterday = isSameDay(dateObj, subDays(now, 1))
             const dayLabel = formatDateLabel(dateObj)
-            const uniqueMemberIds = new Set(dayEvents.map(e => e.member?.id).filter(Boolean))
-            const showMember = uniqueMemberIds.size > 1
-
             return (
               <div key={dateKey} id={`day-${dateKey}`}>
                 {/* Day header */}
@@ -363,11 +360,21 @@ export function HistoryPage() {
                           </p>
                         ) : null}
 
-                        {/* Member — right-aligned, only when multiple members log this day */}
-                        {showMember && event.member && (
-                          <p className="font-rubik text-brown-300 text-xs text-right mt-1.5 truncate">
-                            {event.member.display_name}
-                          </p>
+                        {/* Member avatar + role — always shown */}
+                        {event.member && (
+                          <div className="flex items-center justify-end gap-1.5 mt-2">
+                            <span className="font-rubik text-brown-400 text-[11px] leading-none">
+                              {event.member.display_name}
+                            </span>
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center flex-shrink-0 ring-1 ring-cream-300">
+                              {event.member.avatar_url
+                                ? <img src={event.member.avatar_url} alt={event.member.display_name} className="w-full h-full object-cover" />
+                                : <span className="text-[11px] leading-none">
+                                    {ROLES.find(r => r.value === event.member.role)?.emoji ?? '👤'}
+                                  </span>
+                              }
+                            </div>
+                          </div>
                         )}
                       </div>
                     )
