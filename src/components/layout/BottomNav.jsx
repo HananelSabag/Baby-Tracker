@@ -4,6 +4,7 @@ import { t } from '../../lib/strings'
 import { useApp } from '../../hooks/useAppContext'
 import { cn } from '../../lib/utils'
 import { BottomSheet } from '../ui/BottomSheet'
+import { useAccessibility } from '../../context/AccessibilityContext'
 
 // RTL order: Home (right) → History → [FAB] → Reports → Profile (left)
 const RIGHT_TABS = [
@@ -75,10 +76,13 @@ export function BottomNav() {
   const navigate = useNavigate()
   const [sheetOpen, setSheetOpen] = useState(false)
   const [confirmSignOut, setConfirmSignOut] = useState(false)
+  const [a11yOpen, setA11yOpen] = useState(false)
+  const { prefs, updatePref } = useAccessibility()
 
   function closeSheet() {
     setSheetOpen(false)
     setConfirmSignOut(false)
+    setA11yOpen(false)
   }
 
   function handleMenuNav(path) {
@@ -149,6 +153,73 @@ export function BottomNav() {
 
           {/* Separator */}
           <div className="border-t border-cream-200 mt-1" />
+
+          {/* Accessibility */}
+          {!a11yOpen ? (
+            <button
+              onClick={() => setA11yOpen(true)}
+              className="flex items-center justify-between w-full px-1 py-2.5 rounded-2xl active:bg-cream-100 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-lg">♿</span>
+                <span className="font-rubik text-brown-600 font-medium text-sm">נגישות</span>
+              </div>
+              <span className="text-brown-300 text-sm">›</span>
+            </button>
+          ) : (
+            <div className="space-y-3 pb-1">
+              <div className="flex items-center justify-between">
+                <button onClick={() => setA11yOpen(false)} className="flex items-center gap-1.5 text-brown-400 active:opacity-70">
+                  <span className="text-sm">‹</span>
+                  <span className="font-rubik text-xs">חזרה</span>
+                </button>
+                <span className="font-rubik text-brown-600 font-semibold text-sm">♿ נגישות</span>
+              </div>
+
+              {/* Font size */}
+              <div className="flex gap-2">
+                {[{ v: 'small', l: 'קטן', s: 'text-sm' }, { v: 'normal', l: 'רגיל', s: 'text-base' }, { v: 'large', l: 'גדול', s: 'text-xl' }].map(({ v, l, s }) => (
+                  <button
+                    key={v}
+                    onClick={() => updatePref('fontSize', v)}
+                    className={cn(
+                      'flex-1 flex flex-col items-center gap-1.5 py-2.5 rounded-xl border-2 transition-all active:scale-95',
+                      prefs.fontSize === v ? 'border-amber-500 bg-amber-50' : 'border-cream-200 bg-cream-50'
+                    )}
+                  >
+                    <span className={cn('font-rubik font-bold text-brown-700', s)}>א</span>
+                    <span className={cn('font-rubik text-[11px] font-medium', prefs.fontSize === v ? 'text-amber-600' : 'text-brown-400')}>{l}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Toggles row */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => updatePref('highContrast', !prefs.highContrast)}
+                  className={cn(
+                    'flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 transition-all active:scale-95',
+                    prefs.highContrast ? 'border-amber-500 bg-amber-50' : 'border-cream-200 bg-cream-50'
+                  )}
+                >
+                  <span className="text-base">🎨</span>
+                  <span className={cn('font-rubik text-xs font-medium', prefs.highContrast ? 'text-amber-600' : 'text-brown-400')}>ניגודיות</span>
+                </button>
+                <button
+                  onClick={() => updatePref('reduceMotion', !prefs.reduceMotion)}
+                  className={cn(
+                    'flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 transition-all active:scale-95',
+                    prefs.reduceMotion ? 'border-amber-500 bg-amber-50' : 'border-cream-200 bg-cream-50'
+                  )}
+                >
+                  <span className="text-base">🎬</span>
+                  <span className={cn('font-rubik text-xs font-medium', prefs.reduceMotion ? 'text-amber-600' : 'text-brown-400')}>תנועה</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="border-t border-cream-200" />
 
           {/* Sign out */}
           {confirmSignOut ? (
