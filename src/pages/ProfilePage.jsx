@@ -264,7 +264,7 @@ export function ProfilePage() {
       {/* Avatar sheet */}
       <BottomSheet isOpen={avatarSheetOpen} onClose={() => setAvatarSheetOpen(false)} title="">
         <div className="flex flex-col pb-2 -mx-4 -mt-2">
-          <div className="relative w-full h-56 bg-gradient-to-br from-amber-100 to-cream-200 overflow-hidden">
+          <div className="relative w-full h-72 bg-gradient-to-br from-amber-100 to-cream-200 overflow-hidden">
             {avatarUrl
               ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover object-center" />
               : <div className="w-full h-full flex items-center justify-center">
