@@ -131,16 +131,16 @@ export function ProfilePage() {
 
         {/* Role — compact display row */}
         <p className="text-xs font-medium text-brown-400 font-rubik mb-2">{t('profile.myRole')}</p>
-        <button
-          onClick={() => setRoleSheetOpen(true)}
-          className="w-full flex items-center justify-between bg-cream-100 rounded-2xl px-4 py-3 active:scale-[0.98] transition-transform"
-        >
-          <span className="font-rubik text-amber-600 text-sm font-medium">שנה ›</span>
-          <div className="flex items-center gap-2">
-            <span className="font-rubik font-bold text-brown-800 text-base">{displayedRoleName}</span>
-            <span className="text-xl">{displayedRoleEmoji}</span>
-          </div>
-        </button>
+        <div className="flex items-center gap-2 bg-cream-100 rounded-2xl px-4 py-3">
+          <span className="text-xl">{displayedRoleEmoji}</span>
+          <span className="font-rubik font-bold text-brown-800 text-base">{displayedRoleName}</span>
+          <button
+            onClick={() => setRoleSheetOpen(true)}
+            className="mr-auto font-rubik text-amber-600 text-xs font-semibold border border-amber-300 rounded-full px-3 py-1 bg-white active:scale-95 transition-transform"
+          >
+            שנה
+          </button>
+        </div>
       </Card>
 
       {/* Family profile shortcut — parents only */}
