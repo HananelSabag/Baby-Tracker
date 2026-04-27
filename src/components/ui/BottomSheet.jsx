@@ -10,6 +10,28 @@ export function BottomSheet({ isOpen, onClose, title, children }) {
     return () => { document.body.style.overflow = '' }
   }, [isOpen])
 
+  // Intercept OS back gesture: close the sheet instead of navigating away
+  useEffect(() => {
+    if (!isOpen) return
+
+    const sheetId = Date.now()
+    window.history.pushState({ sheetId }, '')
+
+    function handlePopState() {
+      onClose()
+    }
+
+    window.addEventListener('popstate', handlePopState)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+      // If sheet closed manually (not via back gesture), clean up the history entry
+      if (window.history.state?.sheetId === sheetId) {
+        window.history.back()
+      }
+    }
+  }, [isOpen, onClose])
+
   if (!isOpen) return null
 
   return (
