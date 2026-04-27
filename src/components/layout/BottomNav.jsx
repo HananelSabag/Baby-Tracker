@@ -132,17 +132,28 @@ const HELP_SLIDES = [
   },
 ]
 
+const FAB_SEEN_KEY = 'bt_fab_seen'
+
 export function BottomNav() {
   const navigate = useNavigate()
   const [sheetOpen, setSheetOpen] = useState(false)
   const [a11yOpen, setA11yOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [helpStep, setHelpStep] = useState(0)
+  const [fabPulse, setFabPulse] = useState(() => !localStorage.getItem(FAB_SEEN_KEY))
   const { prefs, updatePref } = useAccessibility()
 
   function closeSheet() {
     setSheetOpen(false)
     setA11yOpen(false)
+  }
+
+  function handleFabClick() {
+    if (fabPulse) {
+      localStorage.setItem(FAB_SEEN_KEY, '1')
+      setFabPulse(false)
+    }
+    setSheetOpen(true)
   }
 
   function openHelp() {
@@ -169,8 +180,11 @@ export function BottomNav() {
 
             {/* Center FAB slot */}
             <div className="flex-1 flex items-center justify-center relative min-h-[56px]">
+              {fabPulse && (
+                <span className="absolute -top-5 w-14 h-14 rounded-full bg-amber-400 opacity-40 animate-ping pointer-events-none" />
+              )}
               <button
-                onClick={() => setSheetOpen(true)}
+                onClick={handleFabClick}
                 className="absolute -top-5 w-14 h-14 rounded-full bg-[#8B5E3C] shadow-lg flex items-center justify-center transition-transform active:scale-95 focus:outline-none"
                 aria-label="תפריט"
               >
