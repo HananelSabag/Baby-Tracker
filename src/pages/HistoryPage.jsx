@@ -340,32 +340,32 @@ export function HistoryPage() {
                         onClick={() => setEditTarget(event)}
                         className="bg-white rounded-xl shadow-soft px-3 pt-2.5 pb-2.5 flex flex-col cursor-pointer active:scale-[0.97] transition-transform select-none"
                       >
-                        {/* Top row: icon (left anchor) ↔ tracker name (right, RTL-start) */}
-                        <div className="flex items-center justify-between mb-1.5">
+                        {/* Top row: icon + name as a unified pair (left side) */}
+                        <div className="flex items-center gap-1.5 mb-2">
                           <div
                             className="w-7 h-7 rounded-full flex items-center justify-center text-base flex-shrink-0"
                             style={{ backgroundColor: `${event.tracker?.color ?? '#D6C4B0'}22` }}
                           >
                             {event.tracker?.icon}
                           </div>
-                          <span className="font-rubik text-brown-500 text-xs font-medium truncate mr-1">{event.tracker?.name}</span>
+                          <span className="font-rubik text-brown-700 text-sm font-semibold leading-none truncate">{event.tracker?.name}</span>
                         </div>
 
-                        {/* TIME — hero, right-aligned */}
-                        <p className="font-rubik font-bold text-2xl text-amber-600 leading-none text-right">
+                        {/* TIME — hero, right-aligned, dark brown */}
+                        <p className="font-rubik font-bold text-xl text-brown-800 leading-none text-right">
                           {formatTime(event.occurred_at)}
                         </p>
 
                         {/* Detail */}
                         {summary ? (
-                          <p className="font-rubik text-brown-600 text-sm font-medium text-right mt-1 leading-tight">
+                          <p className="font-rubik text-brown-400 text-sm text-right mt-1 leading-tight">
                             {summary}
                           </p>
                         ) : null}
 
                         {/* Bottom row: pencil hint (left) ↔ member name (right, only multi-member days) */}
                         <div className="flex items-center justify-between mt-2">
-                          <span className="text-sm" style={{ opacity: 0.25 }}>✏️</span>
+                          <span className="text-sm" style={{ opacity: 0.22 }}>✏️</span>
                           {showMember && event.member && (
                             <span className="font-rubik text-brown-300 text-xs truncate">{event.member.display_name}</span>
                           )}
