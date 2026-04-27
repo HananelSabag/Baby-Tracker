@@ -7,7 +7,6 @@ import { LovePopup } from '../ui/LovePopup'
 import { SisterPopup } from '../ui/SisterPopup'
 import { UpgradePopup } from '../ui/UpgradePopup'
 import { BottomNav } from './BottomNav'
-import { AccessibilityFAB } from '../ui/AccessibilityFAB'
 import { STORAGE_KEYS } from '../../lib/constants'
 import { t } from '../../lib/strings'
 
@@ -65,7 +64,6 @@ export function AppLayout({ children }) {
           {children}
         </main>
         <BottomNav />
-        <AccessibilityFAB />
       </div>
     </div>
   )
