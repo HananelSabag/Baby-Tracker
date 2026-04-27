@@ -303,6 +303,14 @@ export function AuthPage() {
         </section>
 
         {/* ══════════════════════════════
+            BOTTOM CTA (repeated)
+        ══════════════════════════════ */}
+        <div className="px-6 pb-4">
+          <GoogleSignInButton onClick={handleGoogleSignIn} loading={loading} />
+          {error && <p className="text-red-500 text-sm font-rubik mt-3 text-center">{error}</p>}
+        </div>
+
+        {/* ══════════════════════════════
             FOOTER
         ══════════════════════════════ */}
         <div className="px-8 pb-12 flex flex-col items-center gap-3">

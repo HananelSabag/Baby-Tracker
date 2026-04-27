@@ -27,6 +27,7 @@ export function SetupPage() {
   const { user, onFamilyJoined } = useApp()
   const { toasts, showToast, dismissToast } = useToast()
   const [codeCopied, setCodeCopied]     = useState(false)
+  const [shareSupported, setShareSupported] = useState(typeof navigator !== 'undefined' && !!navigator.share)
   const [step, setStep]                 = useState(STEPS.CHOOSE)
   const [action, setAction]             = useState(null)
   const [role, setRole]                 = useState('')
@@ -59,6 +60,24 @@ export function SetupPage() {
   // A parent role is selectable only if not already taken
   function isRoleDisabled(roleValue) {
     return PARENT_ROLES.includes(roleValue) && takenRoles.includes(roleValue)
+  }
+
+  // ── Share family code ─────────────────────────────────────────────────────
+  async function handleShareCode() {
+    const shareText = `הצטרף אלינו ב-BabyTracker! קוד הצטרפות: ${createdCode}`
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'BabyTracker — הצטרף למשפחה שלי',
+          text: shareText,
+          url: 'https://baby-tracker-two-liart.vercel.app',
+        })
+      } catch {}
+    } else {
+      navigator.clipboard?.writeText(createdCode)
+      setCodeCopied(true)
+      setTimeout(() => setCodeCopied(false), 2000)
+    }
   }
 
   // ── Navigation ─────────────────────────────────────────────────────────────
@@ -274,7 +293,7 @@ export function SetupPage() {
                   <p className="font-rubik font-bold text-brown-800 text-lg">{t('setup.createFamily')}</p>
                   <p className="font-rubik text-brown-400 text-sm mt-0.5">{t('setup.createFamilyDesc')}</p>
                 </div>
-                <span className="text-brown-300 text-2xl flex-shrink-0">›</span>
+                <span className="text-brown-300 text-2xl flex-shrink-0">‹</span>
               </div>
             </button>
 
@@ -289,15 +308,8 @@ export function SetupPage() {
                   <p className="font-rubik font-bold text-brown-800 text-lg">{t('setup.joinFamily')}</p>
                   <p className="font-rubik text-brown-400 text-sm mt-0.5">{t('setup.joinFamilyDesc')}</p>
                 </div>
-                <span className="text-brown-300 text-2xl flex-shrink-0">›</span>
+                <span className="text-brown-300 text-2xl flex-shrink-0">‹</span>
               </div>
-            </button>
-
-            <button
-              onClick={() => supabase.auth.signOut()}
-              className="mt-4 self-center text-sm font-rubik text-brown-400 hover:text-brown-600 transition-colors"
-            >
-              {t('auth.signOut')}
             </button>
           </div>
         )}
@@ -446,11 +458,11 @@ export function SetupPage() {
               <p className="font-rubik text-brown-300 text-xs mt-1">{t('setup.childStepOptional')}</p>
             </div>
 
-            <div className="flex flex-col items-center gap-3">
+            <div className="flex flex-col items-center gap-2">
               <button
                 onClick={() => setPhotoSourceOpen(true)}
                 disabled={photoBusy}
-                className="w-24 h-24 rounded-full bg-cream-200 shadow-soft flex items-center justify-center overflow-hidden active:scale-95 transition-transform border-4 border-white disabled:opacity-60"
+                className="relative w-24 h-24 rounded-full bg-cream-200 shadow-soft flex items-center justify-center overflow-hidden active:scale-95 transition-transform border-4 border-white disabled:opacity-60"
               >
                 {photoBusy
                   ? <span className="text-3xl">⏳</span>
@@ -458,10 +470,13 @@ export function SetupPage() {
                     ? <img src={childAvatar} alt="avatar" className="w-full h-full object-cover" />
                     : <span className="text-5xl">👶</span>
                 }
+                {!photoBusy && (
+                  <div className="absolute bottom-0 inset-x-0 h-7 bg-black/35 flex items-center justify-center">
+                    <span className="text-white text-xs">📷</span>
+                  </div>
+                )}
               </button>
-              <button onClick={() => setPhotoSourceOpen(true)} disabled={photoBusy} className="text-xs font-rubik text-brown-500 bg-cream-200 px-4 py-2 rounded-full disabled:opacity-60">
-                {t('children.addPhoto')}
-              </button>
+              <p className="font-rubik text-brown-400 text-xs">{t('children.addPhoto')}</p>
               <PhotoSourceSheet
                 isOpen={photoSourceOpen}
                 onClose={() => setPhotoSourceOpen(false)}
@@ -476,7 +491,6 @@ export function SetupPage() {
               onChange={e => { setChildName(e.target.value); setError('') }}
               placeholder={t('children.childNamePlaceholder')}
               className="w-full bg-white rounded-2xl shadow-soft px-5 py-4 font-rubik text-brown-800 text-xl text-center outline-none focus:ring-2 focus:ring-amber-400"
-              autoFocus
             />
 
             <div>
@@ -551,20 +565,30 @@ export function SetupPage() {
                 <div className="rounded-3xl shadow-card overflow-hidden">
                   <div className="bg-gradient-to-br from-amber-50 to-cream-100 py-8 px-4 text-center">
                     <p className="font-rubik font-bold text-5xl tracking-[0.4em] text-brown-800">{createdCode}</p>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(createdCode)
-                        setCodeCopied(true)
-                        setTimeout(() => setCodeCopied(false), 2000)
-                      }}
-                      className="mt-4 text-sm font-rubik text-amber-700 bg-white px-5 py-2 rounded-full active:scale-95 transition-transform shadow-soft"
-                    >
-                      {codeCopied ? t('common.copied') : t('setup.copyCode')}
-                    </button>
+                    <div className="flex items-center justify-center gap-2 mt-4">
+                      <button
+                        onClick={handleShareCode}
+                        className="flex items-center gap-2 text-sm font-rubik font-semibold text-white bg-[#8B5E3C] px-5 py-2.5 rounded-full active:scale-95 transition-transform shadow-soft"
+                      >
+                        {shareSupported ? '📤 שתף עם בן/בת הזוג' : (codeCopied ? '✓ הועתק' : '📋 העתק קוד')}
+                      </button>
+                      {shareSupported && (
+                        <button
+                          onClick={() => {
+                            navigator.clipboard?.writeText(createdCode)
+                            setCodeCopied(true)
+                            setTimeout(() => setCodeCopied(false), 2000)
+                          }}
+                          className="text-sm font-rubik text-amber-700 bg-white px-4 py-2.5 rounded-full active:scale-95 transition-transform shadow-soft"
+                        >
+                          {codeCopied ? '✓' : '📋'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <p className="text-sm text-brown-400 font-rubik">{t('setup.shareCode')}</p>
-                <p className="text-xs text-brown-300 font-rubik -mt-2">{t('setup.codeHint')}</p>
+                <p className="text-xs text-brown-300 font-rubik -mt-2">הקוד תמיד זמין אצלך בהגדרות המשפחה — אל תדאג 🙂</p>
               </>
             )}
             <Button
