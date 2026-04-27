@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { t } from '../../lib/strings'
-import { useApp } from '../../hooks/useAppContext'
 import { cn } from '../../lib/utils'
 import { BottomSheet } from '../ui/BottomSheet'
 import { useAccessibility } from '../../context/AccessibilityContext'
@@ -38,26 +37,20 @@ function NavTab({ to, label, icon, end }) {
 
 const MENU_ITEMS = [
   {
-    key: 'add',
-    path: '/trackers?action=add',
-    icon: '➕',
-    label: 'הוסף מעקב',
-    bg: '#6B9E8C18',
-    iconBg: '#6B9E8C25',
-  },
-  {
     key: 'trackers',
     path: '/trackers',
-    icon: '⚙️',
-    label: 'ניהול מעקבים',
-    bg: '#7BA7E818',
-    iconBg: '#7BA7E825',
+    icon: '📋',
+    label: 'מעקבים',
+    sub: 'הוסף וערוך',
+    bg: '#6B9E8C18',
+    iconBg: '#6B9E8C25',
   },
   {
     key: 'notifications',
     path: '/notifications',
     icon: '🔔',
     label: 'התראות',
+    sub: 'Push ותזכורות',
     bg: '#E8B84B18',
     iconBg: '#E8B84B25',
   },
@@ -65,7 +58,8 @@ const MENU_ITEMS = [
     key: 'family',
     path: '/family',
     icon: '👨‍👩‍👧',
-    label: 'פרופיל משפחה',
+    label: 'משפחה',
+    sub: 'ילדים וחברים',
     bg: '#9B8EC418',
     iconBg: '#9B8EC425',
   },
@@ -139,10 +133,8 @@ const HELP_SLIDES = [
 ]
 
 export function BottomNav() {
-  const { signOut } = useApp()
   const navigate = useNavigate()
   const [sheetOpen, setSheetOpen] = useState(false)
-  const [confirmSignOut, setConfirmSignOut] = useState(false)
   const [a11yOpen, setA11yOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [helpStep, setHelpStep] = useState(0)
@@ -150,7 +142,6 @@ export function BottomNav() {
 
   function closeSheet() {
     setSheetOpen(false)
-    setConfirmSignOut(false)
     setA11yOpen(false)
   }
 
@@ -165,11 +156,6 @@ export function BottomNav() {
   function handleMenuNav(path) {
     closeSheet()
     navigate(path)
-  }
-
-  async function handleSignOut() {
-    closeSheet()
-    await signOut()
   }
 
   return (
@@ -213,7 +199,7 @@ export function BottomNav() {
                 <button
                   key={item.key}
                   onClick={() => handleMenuNav(item.path)}
-                  className={`flex flex-col items-center justify-center gap-2 py-4 rounded-2xl transition-all active:scale-[0.97] ${isLastOdd ? 'col-span-2 flex-row gap-3 py-3.5' : ''}`}
+                  className={`flex items-center gap-3 px-3 py-3.5 rounded-2xl transition-all active:scale-[0.97] text-right ${isLastOdd ? 'col-span-2' : 'flex-col items-center text-center px-2 py-4 gap-2'}`}
                   style={{ backgroundColor: item.bg }}
                 >
                   <div
@@ -222,7 +208,10 @@ export function BottomNav() {
                   >
                     {item.icon}
                   </div>
-                  <span className="font-rubik text-brown-800 font-medium text-sm text-center leading-tight">{item.label}</span>
+                  <div className={isLastOdd ? 'flex-1 min-w-0' : ''}>
+                    <p className="font-rubik text-brown-800 font-semibold text-sm leading-tight">{item.label}</p>
+                    {item.sub && <p className="font-rubik text-brown-400 text-xs leading-tight mt-0.5">{item.sub}</p>}
+                  </div>
                 </button>
               )
             })}
@@ -298,7 +287,7 @@ export function BottomNav() {
 
           <div className="border-t border-cream-200" />
 
-          {/* Help */}
+          {/* Accessibility + Help — compact row pair */}
           <button
             onClick={openHelp}
             className="flex items-center justify-between w-full px-1 py-2.5 rounded-2xl active:bg-cream-100 transition-colors"
@@ -309,37 +298,6 @@ export function BottomNav() {
             </div>
             <span className="text-brown-300 text-sm">›</span>
           </button>
-
-          <div className="border-t border-cream-200" />
-
-          {/* Sign out */}
-          {confirmSignOut ? (
-            <div className="flex flex-col gap-2">
-              <p className="font-rubik text-brown-600 text-sm text-center">האם אתה בטוח שברצונך להתנתק?</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleSignOut}
-                  className="flex-1 py-3 rounded-2xl bg-red-500 text-white font-rubik font-semibold active:bg-red-600 transition-colors"
-                >
-                  כן, התנתק
-                </button>
-                <button
-                  onClick={() => setConfirmSignOut(false)}
-                  className="flex-1 py-3 rounded-2xl bg-cream-200 text-brown-700 font-rubik font-medium active:bg-cream-300 transition-colors"
-                >
-                  ביטול
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setConfirmSignOut(true)}
-              className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl active:bg-red-50 transition-colors"
-            >
-              <span className="text-lg">🚪</span>
-              <span className="font-rubik text-red-500 font-medium text-sm">התנתקות</span>
-            </button>
-          )}
         </div>
       </BottomSheet>
 
