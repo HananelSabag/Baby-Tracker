@@ -22,8 +22,9 @@ export function ProfilePage() {
   const members = useFamilyMembers(identity.familyId)
 
   // ── My profile state ──────────────────────────────────────────────────────
-  const [role, setRole] = useState(identity.memberName ?? '')
-  const [customRole, setCustomRole] = useState('')
+  const currentInList = ROLES.find(r => r.value === identity.memberName)
+  const [role, setRole] = useState(currentInList ? identity.memberName : 'אחר')
+  const [customRole, setCustomRole] = useState(currentInList ? '' : (identity.memberName ?? ''))
   const [avatarUrl, setAvatarUrl] = useState(identity.memberAvatarUrl ?? identity.googleAvatarUrl ?? null)
   const [saving, setSaving] = useState(false)
   const [uploadStatus, setUploadStatus] = useState(null)
@@ -32,11 +33,12 @@ export function ProfilePage() {
   const [signOutConfirm, setSignOutConfirm] = useState(false)
   const [avatarSheetOpen, setAvatarSheetOpen] = useState(false)
   const [photoSourceOpen, setPhotoSourceOpen] = useState(false)
+  const [roleSheetOpen, setRoleSheetOpen] = useState(false)
 
   const isParent = PARENT_ROLES.includes(identity.memberName)
   const selectedRole = ROLES.find(r => r.value === role) ?? ROLES.find(r => r.value === 'אחר')
 
-  // Roles already taken by OTHER members (can't pick אמא/אבא if someone else has it)
+  // Roles already taken by OTHER members (אבא/אמא stay locked — intentional family protection)
   const takenByOthers = new Set(
     members.filter(m => m.id !== identity.memberId).map(m => m.role)
   )
@@ -44,16 +46,27 @@ export function ProfilePage() {
     return PARENT_ROLES.includes(roleValue) && takenByOthers.has(roleValue)
   }
 
-  const isDirty = role !== (identity.memberName ?? '')
+  // Displayed role name in the compact row (show custom text when "אחר")
+  const displayedRoleName = identity.memberName ?? 'אחר'
+  const displayedRoleEmoji = (ROLES.find(r => r.value === identity.memberName) ?? ROLES.find(r => r.value === 'אחר')).emoji
+
+  function handleCloseRoleSheet() {
+    // Reset to current saved role on cancel
+    const inList = ROLES.find(r => r.value === identity.memberName)
+    setRole(inList ? identity.memberName : 'אחר')
+    setCustomRole(inList ? '' : (identity.memberName ?? ''))
+    setRoleSheetOpen(false)
+  }
 
   // ── Handlers ──────────────────────────────────────────────────────────────
-  async function handleSave() {
+  async function handleSaveRole() {
     setSaving(true)
     try {
-      const displayName = role === 'אחר' ? (customRole || 'אחר') : role
+      const displayName = role === 'אחר' ? (customRole.trim() || 'אחר') : role
       await updateMember(identity.memberId, { display_name: displayName, role: displayName, avatar_url: avatarUrl })
       saveIdentity({ familyId: identity.familyId, memberId: identity.memberId, memberName: displayName })
       setMemberAvatarUrl(avatarUrl)
+      setRoleSheetOpen(false)
       showToast({ message: t('profile.profileSaved'), emoji: '✅' })
     } finally {
       setSaving(false)
@@ -64,15 +77,8 @@ export function ProfilePage() {
     setUploadStatus('uploading')
     try {
       const picked = await pickAndCompressImage({ mode })
-      if (!picked) {
-        setUploadStatus(null)
-        return
-      }
-      const url = await uploadAvatar({
-        folder: 'members',
-        subjectId: identity.memberId,
-        ...picked,
-      })
+      if (!picked) { setUploadStatus(null); return }
+      const url = await uploadAvatar({ folder: 'members', subjectId: identity.memberId, ...picked })
       setAvatarUrl(url)
       setMemberAvatarUrl(url)
       await updateMember(identity.memberId, { avatar_url: url })
@@ -93,7 +99,6 @@ export function ProfilePage() {
       <Card>
         {/* Avatar row */}
         <div className="flex items-center gap-4 mb-4">
-          {/* Tappable avatar → opens sheet */}
           <button
             onClick={() => setAvatarSheetOpen(true)}
             className="relative flex-shrink-0 active:scale-95 transition-transform"
@@ -124,47 +129,18 @@ export function ProfilePage() {
           </div>
         </div>
 
-        {/* Role selector — horizontal pills */}
+        {/* Role — compact display row */}
         <p className="text-xs font-medium text-brown-400 font-rubik mb-2">{t('profile.myRole')}</p>
-        <div className="flex flex-wrap gap-2 mb-4">
-          {ROLES.map(r => {
-            const locked = isRoleLocked(r.value)
-            return (
-              <button
-                key={r.value}
-                onClick={() => !locked && setRole(r.value)}
-                disabled={locked}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-2xl font-rubik text-sm font-medium transition-all',
-                  locked ? 'opacity-35 cursor-not-allowed bg-cream-100 text-brown-400' :
-                  role === r.value ? 'bg-amber-500 text-white shadow-soft active:scale-95' : 'bg-cream-100 text-brown-700 active:scale-95'
-                )}
-                title={locked ? 'תפקיד זה כבר נלקח על ידי חבר משפחה אחר' : undefined}
-              >
-                <span>{r.emoji}</span>
-                {r.label}
-                {locked && <span className="text-xs">🔒</span>}
-              </button>
-            )
-          })}
-        </div>
-
-        {role === 'אחר' && (
-          <input
-            type="text"
-            value={customRole}
-            onChange={e => setCustomRole(e.target.value)}
-            placeholder={t('setup.customRolePlaceholder')}
-            className="mb-4 w-full bg-cream-100 rounded-2xl px-4 py-2.5 font-rubik text-brown-800 outline-none text-sm"
-          />
-        )}
-
-        {/* Save button — only when dirty */}
-        {isDirty && (
-          <Button className="w-full mt-3" onClick={handleSave} disabled={saving}>
-            {saving ? t('app.loading') : t('profile.saveChanges')}
-          </Button>
-        )}
+        <button
+          onClick={() => setRoleSheetOpen(true)}
+          className="w-full flex items-center justify-between bg-cream-100 rounded-2xl px-4 py-3 active:scale-[0.98] transition-transform"
+        >
+          <span className="font-rubik text-amber-600 text-sm font-medium">שנה ›</span>
+          <div className="flex items-center gap-2">
+            <span className="font-rubik font-bold text-brown-800 text-base">{displayedRoleName}</span>
+            <span className="text-xl">{displayedRoleEmoji}</span>
+          </div>
+        </button>
       </Card>
 
       {/* Family profile shortcut — parents only */}
@@ -222,6 +198,68 @@ export function ProfilePage() {
         confirmLabel={t('auth.signOut')}
         confirmVariant="secondary"
       />
+
+      {/* Role selection sheet */}
+      <BottomSheet isOpen={roleSheetOpen} onClose={handleCloseRoleSheet} title="שנה תפקיד">
+        <div className="space-y-4 pb-2">
+          <div className="flex flex-wrap gap-2">
+            {ROLES.map(r => {
+              const locked = isRoleLocked(r.value)
+              return (
+                <button
+                  key={r.value}
+                  onClick={() => !locked && setRole(r.value)}
+                  disabled={locked}
+                  className={cn(
+                    'flex items-center gap-1.5 px-4 py-2 rounded-2xl font-rubik text-sm font-medium transition-all active:scale-95',
+                    locked ? 'opacity-35 cursor-not-allowed bg-cream-100 text-brown-400' :
+                    role === r.value ? 'bg-amber-500 text-white shadow-soft' : 'bg-cream-100 text-brown-700'
+                  )}
+                >
+                  <span>{r.emoji}</span>
+                  {r.label}
+                  {locked && <span className="text-xs">🔒</span>}
+                </button>
+              )
+            })}
+          </div>
+
+          {role === 'אחר' && (
+            <div className="space-y-3">
+              <p className="text-xs text-brown-400 font-rubik">בחירה מהירה</p>
+              <div className="flex flex-wrap gap-2">
+                {['בייביסיטר', 'דוד', 'דודה', 'אח', 'אחות', 'חבר/ה'].map(quick => (
+                  <button
+                    key={quick}
+                    onClick={() => setCustomRole(quick)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-xl font-rubik text-sm transition-all active:scale-95',
+                      customRole === quick ? 'bg-brown-700 text-white' : 'bg-cream-200 text-brown-600'
+                    )}
+                  >
+                    {quick}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="text"
+                value={customRole}
+                onChange={e => setCustomRole(e.target.value)}
+                placeholder={t('setup.customRolePlaceholder')}
+                className="w-full bg-cream-100 rounded-2xl px-4 py-2.5 font-rubik text-brown-800 outline-none text-sm"
+              />
+            </div>
+          )}
+
+          <Button
+            className="w-full"
+            onClick={handleSaveRole}
+            disabled={saving || (role === 'אחר' && !customRole.trim())}
+          >
+            {saving ? t('app.loading') : 'שמור תפקיד'}
+          </Button>
+        </div>
+      </BottomSheet>
 
       {/* Avatar sheet */}
       <BottomSheet isOpen={avatarSheetOpen} onClose={() => setAvatarSheetOpen(false)} title="">
