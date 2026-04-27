@@ -13,6 +13,7 @@ import { Spinner } from '../components/ui/Spinner'
 import { AddFeedingForm } from '../components/forms/AddFeedingForm'
 import { AddDiaperForm } from '../components/forms/AddDiaperForm'
 import { AddCustomEventForm } from '../components/forms/AddCustomEventForm'
+import { GrowthEditForm } from '../components/forms/GrowthEditForm'
 import { TRACKER_TYPES } from '../lib/constants'
 
 const DAYS_PER_PAGE = 14
@@ -152,11 +153,25 @@ export function HistoryPage() {
     }
   }
 
+  async function handleGrowthEditSave(data, fullDate) {
+    setEditSaving(true)
+    try {
+      await updateEvent(editTarget.id, { data, occurred_at: fullDate.toISOString() })
+      setEditTarget(null)
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
   function renderEditForm() {
     if (!editTarget) return null
     const type = editTarget.tracker?.tracker_type
     const initialTime = format(new Date(editTarget.occurred_at), 'HH:mm')
 
+    if (type === TRACKER_TYPES.GROWTH) {
+      const initialDate = format(new Date(editTarget.occurred_at), 'yyyy-MM-dd')
+      return <GrowthEditForm initialData={editTarget.data} initialDate={initialDate} onSave={handleGrowthEditSave} onCancel={() => setEditTarget(null)} loading={editSaving} />
+    }
     if (type === TRACKER_TYPES.FEEDING)
       return <AddFeedingForm initialData={editTarget.data} initialTime={initialTime} onSave={handleEditSave} onCancel={() => setEditTarget(null)} loading={editSaving} />
     if (type === TRACKER_TYPES.DIAPER)
@@ -322,11 +337,8 @@ export function HistoryPage() {
                       className="bg-white rounded-xl shadow-soft px-3 py-2.5 flex flex-col cursor-pointer active:scale-[0.97] transition-transform select-none"
                     >
                       <div className="flex items-center justify-between mb-1.5">
-                        <button
-                          onClick={e => { e.stopPropagation(); setDeleteTarget(event.id) }}
-                          className="rounded-md px-2 py-0.5 text-red-400 bg-red-50 border border-red-200 hover:bg-red-100 hover:border-red-300 transition-colors flex-shrink-0 text-xs font-rubik leading-none"
-                          aria-label="מחק"
-                        >מחק</button>
+                        {/* Pencil hint — tap card to edit */}
+                        <span className="text-brown-200 text-sm leading-none">✏️</span>
                         <div
                           className="w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0"
                           style={{ backgroundColor: `${event.tracker?.color ?? '#D6C4B0'}22` }}
@@ -385,6 +397,14 @@ export function HistoryPage() {
         title={`${t('common.edit')} ${editTarget?.tracker?.name ?? ''}`}
       >
         {renderEditForm()}
+        {editTarget && (
+          <button
+            onClick={() => { const id = editTarget.id; setEditTarget(null); setDeleteTarget(id) }}
+            className="w-full mt-3 py-2.5 rounded-2xl text-red-400 font-rubik text-sm font-medium active:bg-red-50 transition-colors"
+          >
+            🗑️ מחק אירוע
+          </button>
+        )}
       </BottomSheet>
     </div>
   )

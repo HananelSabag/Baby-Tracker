@@ -22,8 +22,10 @@ export function BottomSheet({ isOpen, onClose, title, children }) {
 
     const sheetId = Date.now()
     window.history.pushState({ sheetId }, '')
+    let closedByBackGesture = false
 
     function handlePopState() {
+      closedByBackGesture = true
       onCloseRef.current()
     }
 
@@ -31,8 +33,11 @@ export function BottomSheet({ isOpen, onClose, title, children }) {
 
     return () => {
       window.removeEventListener('popstate', handlePopState)
-      // Sheet closed manually — remove the history entry we pushed
-      if (window.history.state?.sheetId === sheetId) {
+      // Only pop the history entry we pushed if the sheet was NOT closed by a
+      // back gesture (in that case the browser already popped it) and the state
+      // still matches (navigation may have replaced it, in which case we must
+      // not call history.back() or we'd undo the navigation).
+      if (!closedByBackGesture && window.history.state?.sheetId === sheetId) {
         window.history.back()
       }
     }
