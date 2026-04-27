@@ -184,6 +184,21 @@ export function ProfilePage() {
         </button>
       )}
 
+      {/* Accessibility */}
+      <button
+        onClick={() => navigate('/accessibility')}
+        className="w-full bg-white rounded-2xl shadow-soft px-4 py-3 flex items-center justify-between active:scale-[0.99] transition-transform"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-xl">♿</div>
+          <div className="text-right">
+            <p className="font-rubik font-semibold text-brown-800 text-sm">נגישות</p>
+            <p className="font-rubik text-brown-400 text-xs mt-0.5">גודל טקסט, ניגודיות, תנועה</p>
+          </div>
+        </div>
+        <span className="text-brown-400 text-lg">‹</span>
+      </button>
+
       {/* Notifications */}
       <button
         onClick={() => navigate('/notifications')}

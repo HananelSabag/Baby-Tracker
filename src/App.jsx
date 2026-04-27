@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { AppProvider, useApp } from './hooks/useAppContext'
+import { AccessibilityProvider } from './context/AccessibilityContext'
 import { AppLayout } from './components/layout/AppLayout'
 import { FullPageSpinner } from './components/ui/Spinner'
 import { AuthPage } from './pages/AuthPage'
@@ -15,6 +16,7 @@ import { ADMIN_EMAIL } from './lib/constants'
 import { PushPromoPopup } from './components/PushPromoPopup'
 import { PrivacyPage } from './pages/PrivacyPage'
 import { FamilyPage } from './pages/FamilyPage'
+import { AccessibilityPage } from './pages/AccessibilityPage'
 
 function AppRoutes() {
   const { user, identity, isAuthLoading, isSetupDone } = useApp()
@@ -44,6 +46,7 @@ function AppRoutes() {
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/family" element={<FamilyPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/accessibility" element={<AccessibilityPage />} />
         {isAdmin && <Route path="/admin" element={<AdminPage />} />}
         {/* Fallback to home */}
         <Route path="*" element={<HomePage />} />
@@ -56,9 +59,11 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <AppProvider>
-        <AppRoutes />
-      </AppProvider>
+      <AccessibilityProvider>
+        <AppProvider>
+          <AppRoutes />
+        </AppProvider>
+      </AccessibilityProvider>
     </BrowserRouter>
   )
 }
