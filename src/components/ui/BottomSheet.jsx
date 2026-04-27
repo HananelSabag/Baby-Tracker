@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { cn } from '../../lib/utils'
 
-export function BottomSheet({ isOpen, onClose, title, children }) {
+export function BottomSheet({ isOpen, onClose, title, children, hero = false }) {
   const overlayRef = useRef(null)
   const onCloseRef = useRef(onClose)
 
@@ -60,17 +60,19 @@ export function BottomSheet({ isOpen, onClose, title, children }) {
         'pb-safe'
       )}>
         {/* Handle */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 bg-cream-300 rounded-full" />
-        </div>
+        {!hero && (
+          <div className="flex justify-center pt-3 pb-1">
+            <div className="w-10 h-1 bg-cream-300 rounded-full" />
+          </div>
+        )}
 
-        {title && (
+        {!hero && title && (
           <h2 className="font-rubik font-semibold text-brown-800 text-lg text-center py-3 px-4">
             {title}
           </h2>
         )}
 
-        <div className="px-4 pb-6">
+        <div className={hero ? '' : 'px-4 pb-6'}>
           {children}
         </div>
       </div>

@@ -546,10 +546,14 @@ export function HomePage() {
       </BottomSheet>
 
       {/* Profile quick sheet */}
-      <BottomSheet isOpen={profileSheetOpen} onClose={() => setProfileSheetOpen(false)} title="">
-        <div className="flex flex-col pb-2 -mx-4 -mt-2">
-          {/* Hero banner photo */}
-          <div className="relative w-full h-72 bg-gradient-to-br from-amber-100 to-cream-200 overflow-hidden">
+      <BottomSheet isOpen={profileSheetOpen} onClose={() => setProfileSheetOpen(false)} hero>
+        <div className="rounded-t-4xl overflow-hidden">
+          {/* Floating handle */}
+          <div className="absolute top-3 left-0 right-0 flex justify-center pointer-events-none">
+            <div className="w-10 h-1 bg-white/50 rounded-full" />
+          </div>
+          {/* Hero photo */}
+          <div className="relative w-full h-72 bg-gradient-to-br from-amber-100 to-cream-200">
             {(identity.memberAvatarUrl || identity.googleAvatarUrl)
               ? <img
                   src={identity.memberAvatarUrl ?? identity.googleAvatarUrl}
@@ -560,17 +564,14 @@ export function HomePage() {
                   <span className="text-8xl opacity-40">👤</span>
                 </div>
             }
-            {/* gradient fade at bottom */}
-            <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-white/90 to-transparent" />
-            {/* Name overlay */}
+            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white/95 to-transparent" />
             <div className="absolute bottom-3 right-4 text-right">
-              <p className="font-rubik font-bold text-brown-800 text-2xl leading-tight drop-shadow-sm">{identity.memberName}</p>
+              <p className="font-rubik font-bold text-brown-800 text-2xl leading-tight">{identity.memberName}</p>
               <p className="font-rubik text-brown-500 text-xs">{identity.email}</p>
             </div>
           </div>
-
           {/* Action buttons */}
-          <div className="flex gap-3 px-4 pt-4">
+          <div className="flex gap-3 px-4 pt-4 pb-6">
             <button
               onClick={() => setPhotoSourceOpen(true)}
               disabled={uploadingAvatar}
@@ -599,9 +600,14 @@ export function HomePage() {
       />
 
       {/* Child detail sheet */}
-      <BottomSheet isOpen={childDetailOpen} onClose={() => setChildDetailOpen(false)} title="">
-        <div className="flex flex-col pb-2 -mx-4 -mt-2">
-          <div className="relative w-full h-72 bg-gradient-to-br from-amber-50 to-cream-200 overflow-hidden">
+      <BottomSheet isOpen={childDetailOpen} onClose={() => setChildDetailOpen(false)} hero>
+        <div className="rounded-t-4xl overflow-hidden">
+          {/* Floating handle */}
+          <div className="absolute top-3 left-0 right-0 flex justify-center pointer-events-none">
+            <div className="w-10 h-1 bg-white/60 rounded-full" />
+          </div>
+          {/* Hero photo */}
+          <div className="relative w-full h-72 bg-gradient-to-br from-amber-50 to-cream-200">
             {activeChild?.avatar_url
               ? <img src={activeChild.avatar_url} alt={activeChild.name} className="w-full h-full object-cover object-center" />
               : <div className="w-full h-full flex items-center justify-center">
@@ -616,7 +622,8 @@ export function HomePage() {
               )}
             </div>
           </div>
-          <div className={cn('px-4 pt-4', children.length > 1 ? 'flex gap-3' : '')}>
+          {/* Action buttons */}
+          <div className={cn('px-4 pt-4 pb-6', children.length > 1 ? 'flex gap-3' : '')}>
             {children.length > 1 && (
               <button
                 onClick={() => { setChildDetailOpen(false); setTimeout(() => setChildPickerOpen(true), 80) }}
