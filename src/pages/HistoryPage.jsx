@@ -305,6 +305,8 @@ export function HistoryPage() {
             const isToday = dateKey === todayStr
             const isYesterday = isSameDay(dateObj, subDays(now, 1))
             const dayLabel = formatDateLabel(dateObj)
+            const uniqueMemberIds = new Set(dayEvents.map(e => e.member?.id).filter(Boolean))
+            const showMember = uniqueMemberIds.size > 1
 
             return (
               <div key={dateKey} id={`day-${dateKey}`}>
@@ -330,32 +332,46 @@ export function HistoryPage() {
 
                 {/* Events for this day */}
                 <div className="grid grid-cols-2 gap-2">
-                  {dayEvents.map(event => (
-                    <div
-                      key={event.id}
-                      onClick={() => setEditTarget(event)}
-                      className="bg-white rounded-xl shadow-soft px-3 py-2.5 flex flex-col cursor-pointer active:scale-[0.97] transition-transform select-none"
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        {/* Pencil hint — tap card to edit */}
-                        <span className="text-brown-200 text-sm leading-none">✏️</span>
-                        <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0"
-                          style={{ backgroundColor: `${event.tracker?.color ?? '#D6C4B0'}22` }}
-                        >
-                          {event.tracker?.icon}
+                  {dayEvents.map(event => {
+                    const summary = formatEventSummary(event)
+                    return (
+                      <div
+                        key={event.id}
+                        onClick={() => setEditTarget(event)}
+                        className="bg-white rounded-xl shadow-soft px-3 pt-2.5 pb-3 flex flex-col cursor-pointer active:scale-[0.97] transition-transform select-none"
+                      >
+                        {/* Identity row: name + icon (RTL: icon on right) */}
+                        <div className="flex items-center justify-end gap-1.5 mb-1">
+                          <span className="font-rubik text-brown-400 text-xs leading-none truncate">{event.tracker?.name}</span>
+                          <div
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-sm flex-shrink-0"
+                            style={{ backgroundColor: `${event.tracker?.color ?? '#D6C4B0'}22` }}
+                          >
+                            {event.tracker?.icon}
+                          </div>
                         </div>
+
+                        {/* TIME — hero */}
+                        <p className="font-rubik font-bold text-2xl text-amber-600 leading-tight text-right">
+                          {formatTime(event.occurred_at)}
+                        </p>
+
+                        {/* Detail */}
+                        {summary ? (
+                          <p className="font-rubik text-brown-700 text-sm font-medium text-right mt-0.5 leading-tight">
+                            {summary}
+                          </p>
+                        ) : null}
+
+                        {/* Member — only when multiple family members log this day */}
+                        {showMember && event.member && (
+                          <p className="font-rubik text-brown-300 text-xs text-right mt-1 truncate">
+                            {event.member.display_name}
+                          </p>
+                        )}
                       </div>
-                      <p className="font-rubik font-bold text-brown-800 text-sm leading-tight text-right">{event.tracker?.name}</p>
-                      <p className="font-rubik text-brown-500 text-xs mt-0.5 leading-tight text-right">
-                        {formatTime(event.occurred_at)}
-                        {formatEventSummary(event) ? ` · ${formatEventSummary(event)}` : ''}
-                      </p>
-                      {event.member && (
-                        <p className="font-rubik text-brown-300 text-xs mt-0.5 text-right truncate">{event.member.display_name}</p>
-                      )}
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )
