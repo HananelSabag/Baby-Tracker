@@ -360,9 +360,9 @@ export function HistoryPage() {
                           </p>
                         ) : null}
 
-                        {/* Member avatar + role — always shown */}
+                        {/* Member avatar + role — always shown, pinned to bottom */}
                         {event.member && (
-                          <div className="flex items-center justify-end gap-1.5 mt-2">
+                          <div className="flex items-center justify-end gap-1.5 mt-auto pt-2">
                             <span className="font-rubik text-brown-400 text-[11px] leading-none">
                               {event.member.display_name}
                             </span>
