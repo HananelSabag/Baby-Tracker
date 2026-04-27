@@ -338,37 +338,38 @@ export function HistoryPage() {
                       <div
                         key={event.id}
                         onClick={() => setEditTarget(event)}
-                        className="bg-white rounded-xl shadow-soft px-3 pt-2.5 pb-3 flex flex-col cursor-pointer active:scale-[0.97] transition-transform select-none"
+                        className="bg-white rounded-xl shadow-soft px-3 pt-2.5 pb-2.5 flex flex-col cursor-pointer active:scale-[0.97] transition-transform select-none"
                       >
-                        {/* Identity row: name + icon (RTL: icon on right) */}
-                        <div className="flex items-center justify-end gap-1.5 mb-1">
-                          <span className="font-rubik text-brown-400 text-xs leading-none truncate">{event.tracker?.name}</span>
+                        {/* Top row: icon (left anchor) ↔ tracker name (right, RTL-start) */}
+                        <div className="flex items-center justify-between mb-1.5">
                           <div
-                            className="w-6 h-6 rounded-full flex items-center justify-center text-sm flex-shrink-0"
+                            className="w-7 h-7 rounded-full flex items-center justify-center text-base flex-shrink-0"
                             style={{ backgroundColor: `${event.tracker?.color ?? '#D6C4B0'}22` }}
                           >
                             {event.tracker?.icon}
                           </div>
+                          <span className="font-rubik text-brown-500 text-xs font-medium truncate mr-1">{event.tracker?.name}</span>
                         </div>
 
-                        {/* TIME — hero */}
-                        <p className="font-rubik font-bold text-2xl text-amber-600 leading-tight text-right">
+                        {/* TIME — hero, right-aligned */}
+                        <p className="font-rubik font-bold text-2xl text-amber-600 leading-none text-right">
                           {formatTime(event.occurred_at)}
                         </p>
 
                         {/* Detail */}
                         {summary ? (
-                          <p className="font-rubik text-brown-700 text-sm font-medium text-right mt-0.5 leading-tight">
+                          <p className="font-rubik text-brown-600 text-sm font-medium text-right mt-1 leading-tight">
                             {summary}
                           </p>
                         ) : null}
 
-                        {/* Member — only when multiple family members log this day */}
-                        {showMember && event.member && (
-                          <p className="font-rubik text-brown-300 text-xs text-right mt-1 truncate">
-                            {event.member.display_name}
-                          </p>
-                        )}
+                        {/* Bottom row: pencil hint (left) ↔ member name (right, only multi-member days) */}
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-sm" style={{ opacity: 0.25 }}>✏️</span>
+                          {showMember && event.member && (
+                            <span className="font-rubik text-brown-300 text-xs truncate">{event.member.display_name}</span>
+                          )}
+                        </div>
                       </div>
                     )
                   })}
