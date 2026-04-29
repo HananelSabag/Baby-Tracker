@@ -1,30 +1,63 @@
 import { useState, useEffect } from 'react'
 import { t } from '../lib/strings'
 import { supabase } from '../lib/supabase'
-import { formatTime, formatDateLabel } from '../lib/utils'
+import { formatDateLabel } from '../lib/utils'
 import { Spinner } from '../components/ui/Spinner'
 import { Card } from '../components/ui/Card'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 
-export function AdminPage() {
-  const [tab, setTab] = useState('families') // 'families' | 'users'
+function timeAgo(dateStr) {
+  if (!dateStr) return 'מעולם'
+  const seconds = Math.floor((Date.now() - new Date(dateStr)) / 1000)
+  if (seconds < 60) return 'כרגע'
+  const m = Math.floor(seconds / 60)
+  if (m < 60) return `${m} דק׳`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h} שע׳`
+  const d = Math.floor(h / 24)
+  if (d === 1) return 'אתמול'
+  if (d < 7) return `${d} ימים`
+  if (d < 30) return `${Math.floor(d / 7)} שבועות`
+  if (d < 365) return `${Math.floor(d / 30)} חודשים`
+  return `${Math.floor(d / 365)} שנים`
+}
 
-  // ── Families tab state ──────────────────────────────────────────────────────
+function activityDot(dateStr) {
+  if (!dateStr) return 'bg-cream-300'
+  const days = (Date.now() - new Date(dateStr)) / 86_400_000
+  if (days < 7)  return 'bg-green-400'
+  if (days < 30) return 'bg-amber-400'
+  return 'bg-red-300'
+}
+
+function activityTextClass(dateStr) {
+  if (!dateStr) return 'text-brown-300'
+  const days = (Date.now() - new Date(dateStr)) / 86_400_000
+  if (days < 7)  return 'text-green-600'
+  if (days < 30) return 'text-amber-600'
+  return 'text-red-400'
+}
+
+const ROLE_EMOJI = { 'אמא': '👩', 'אבא': '👨', 'סבא': '👴', 'סבתא': '👵' }
+
+export function AdminPage() {
+  const [tab, setTab] = useState('families')
+
+  // ── Families ────────────────────────────────────────────────────────────────
   const [families, setFamilies] = useState([])
   const [familiesLoading, setFamiliesLoading] = useState(true)
   const [deletingFamily, setDeletingFamily] = useState(null)
   const [expanded, setExpanded] = useState(null)
+  const [famSort, setFamSort] = useState('activity') // 'activity' | 'date'
 
-  // ── Users tab state ─────────────────────────────────────────────────────────
+  // ── Users ───────────────────────────────────────────────────────────────────
   const [users, setUsers] = useState([])
   const [usersLoading, setUsersLoading] = useState(false)
   const [usersFetched, setUsersFetched] = useState(false)
-  const [deletingUser, setDeletingUser] = useState(null) // { id, email }
+  const [deletingUser, setDeletingUser] = useState(null)
+  const [userFilter, setUserFilter] = useState('all') // 'all' | 'active' | 'no-family'
 
-  // ── Load families on mount ──────────────────────────────────────────────────
-  useEffect(() => {
-    loadFamilies()
-  }, [])
+  useEffect(() => { loadFamilies() }, [])
 
   async function loadFamilies() {
     setFamiliesLoading(true)
@@ -44,6 +77,13 @@ export function AdminPage() {
       return { ...fam, lastEvent: lastEvent?.occurred_at ?? null }
     }))
 
+    // Default sort: most recently active first
+    enriched.sort((a, b) => {
+      const at = a.lastEvent ? new Date(a.lastEvent).getTime() : 0
+      const bt = b.lastEvent ? new Date(b.lastEvent).getTime() : 0
+      return bt - at
+    })
+
     setFamilies(enriched)
     setFamiliesLoading(false)
   }
@@ -55,7 +95,6 @@ export function AdminPage() {
     setDeletingFamily(null)
   }
 
-  // ── Load users when tab switches ────────────────────────────────────────────
   useEffect(() => {
     if (tab !== 'users' || usersFetched) return
     loadUsers()
@@ -65,8 +104,13 @@ export function AdminPage() {
     setUsersLoading(true)
     const { data, error } = await supabase.functions.invoke('admin-users', { method: 'GET' })
     if (!error && Array.isArray(data)) {
-      // Sort newest first
-      setUsers(data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)))
+      // Sort by most recently active (last_sign_in) first
+      data.sort((a, b) => {
+        const at = a.last_sign_in ? new Date(a.last_sign_in).getTime() : 0
+        const bt = b.last_sign_in ? new Date(b.last_sign_in).getTime() : 0
+        return bt - at
+      })
+      setUsers(data)
       setUsersFetched(true)
     }
     setUsersLoading(false)
@@ -82,12 +126,29 @@ export function AdminPage() {
     setDeletingUser(null)
   }
 
-  // ── Derived stats ───────────────────────────────────────────────────────────
+  // ── Derived stats ────────────────────────────────────────────────────────────
   const totalMembers = families.reduce((s, f) => s + (f.family_members?.length ?? 0), 0)
-  const totalEvents = families.reduce((s, f) => s + (f.events?.[0]?.count ?? 0), 0)
+  const activeThisWeek = families.filter(f => {
+    if (!f.lastEvent) return false
+    return (Date.now() - new Date(f.lastEvent)) / 86_400_000 < 7
+  }).length
+
+  // Sorted families for display
+  const sortedFamilies = famSort === 'date'
+    ? [...families].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    : families // already sorted by activity from load
+
+  // Filtered users
+  const filteredUsers = users.filter(u => {
+    if (userFilter === 'active') {
+      return u.last_sign_in && (Date.now() - new Date(u.last_sign_in)) / 86_400_000 < 7
+    }
+    if (userFilter === 'no-family') return !u.member
+    return true
+  })
 
   return (
-    <div className="px-4 pt-6 pb-4">
+    <div className="px-4 pt-6 pb-8">
       {/* Header */}
       <div className="flex items-center gap-2 mb-5">
         <span className="text-2xl">🔐</span>
@@ -98,16 +159,16 @@ export function AdminPage() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3 mb-5">
         <Card>
-          <p className="text-xs text-brown-400 font-rubik">{t('admin.families')}</p>
+          <p className="text-[11px] text-brown-400 font-rubik leading-tight">{t('admin.families')}</p>
           <p className="font-rubik font-bold text-3xl text-brown-800">{families.length}</p>
         </Card>
         <Card>
-          <p className="text-xs text-brown-400 font-rubik">{t('admin.members')}</p>
+          <p className="text-[11px] text-brown-400 font-rubik leading-tight">{t('admin.members')}</p>
           <p className="font-rubik font-bold text-3xl text-brown-800">{totalMembers}</p>
         </Card>
         <Card>
-          <p className="text-xs text-brown-400 font-rubik">{t('admin.events')}</p>
-          <p className="font-rubik font-bold text-3xl text-brown-800">{totalEvents}</p>
+          <p className="text-[11px] text-brown-400 font-rubik leading-tight">פעיל השבוע</p>
+          <p className="font-rubik font-bold text-3xl text-green-600">{activeThisWeek}</p>
         </Card>
       </div>
 
@@ -124,6 +185,9 @@ export function AdminPage() {
           className={`flex-1 py-2 rounded-xl font-rubik font-medium text-sm transition-all ${tab === 'users' ? 'bg-white shadow-soft text-brown-800' : 'text-brown-500'}`}
         >
           {t('admin.usersTab')}
+          {users.length > 0 && (
+            <span className="mr-1 text-[10px] bg-brown-200 text-brown-600 px-1.5 py-0.5 rounded-full font-medium">{users.length}</span>
+          )}
         </button>
       </div>
 
@@ -134,50 +198,79 @@ export function AdminPage() {
         ) : families.length === 0 ? (
           <p className="text-center text-brown-400 font-rubik py-8">{t('admin.noFamilies')}</p>
         ) : (
-          <div className="space-y-3">
-            {families.map(fam => (
-              <Card key={fam.id}>
-                <div className="flex items-start justify-between mb-2">
-                  <button
-                    onClick={() => setExpanded(expanded === fam.id ? null : fam.id)}
-                    className="flex-1 text-right"
-                  >
-                    <p className="font-rubik font-semibold text-brown-800">{fam.name}</p>
-                    <p className="font-rubik font-bold text-lg tracking-widest text-brown-500">{fam.code}</p>
-                  </button>
-                  <div className="flex items-center gap-2 mr-2">
-                    <p className="text-xs text-brown-300 font-rubik">{formatDateLabel(fam.created_at)}</p>
+          <>
+            {/* Sort chips */}
+            <div className="flex gap-2 mb-3">
+              {[{ key: 'activity', label: '⚡ לפי פעילות' }, { key: 'date', label: '📅 לפי תאריך' }].map(s => (
+                <button
+                  key={s.key}
+                  onClick={() => setFamSort(s.key)}
+                  className={`px-3 py-1.5 rounded-full font-rubik text-xs font-medium transition-all ${
+                    famSort === s.key ? 'bg-brown-800 text-white' : 'bg-cream-200 text-brown-600'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="space-y-2.5">
+              {sortedFamilies.map(fam => (
+                <Card key={fam.id} compact>
+                  <div className="flex items-center gap-3">
+                    {/* Activity dot */}
+                    <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${activityDot(fam.lastEvent)}`} />
+
+                    {/* Main info — tappable to expand */}
                     <button
-                      onClick={() => setDeletingFamily(fam)}
-                      className="w-7 h-7 rounded-full bg-red-50 flex items-center justify-center text-red-400 hover:bg-red-100 hover:text-red-600 transition-colors active:scale-95 text-lg"
-                      title={t('admin.deleteFamily')}
+                      onClick={() => setExpanded(expanded === fam.id ? null : fam.id)}
+                      className="flex-1 text-right min-w-0"
                     >
-                      🗑
-                    </button>
-                  </div>
-                </div>
-                <div className="flex gap-4 text-sm font-rubik text-brown-500">
-                  <span>👤 {fam.family_members?.length ?? 0} {t('admin.members')}</span>
-                  <span>📝 {fam.events?.[0]?.count ?? 0} {t('admin.events')}</span>
-                  {fam.lastEvent && <span>🕐 {formatTime(fam.lastEvent)}</span>}
-                </div>
-                {expanded === fam.id && fam.family_members?.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-cream-200 space-y-2">
-                    {fam.family_members.map(m => (
-                      <div key={m.id} className="flex items-center gap-2 text-sm font-rubik text-brown-700">
-                        <span className="text-base">
-                          {m.role === 'אמא' ? '👩' : m.role === 'אבא' ? '👨' :
-                           m.role === 'סבא' ? '👴' : m.role === 'סבתא' ? '👵' : '👤'}
+                      <p className="font-rubik font-semibold text-brown-800 text-sm leading-tight">{fam.name}</p>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        <span className="font-rubik text-xs text-brown-400 tracking-widest">{fam.code}</span>
+                        <span className="font-rubik text-xs text-brown-400">
+                          👤 {fam.family_members?.length ?? 0}
                         </span>
-                        <span className="font-medium">{m.display_name}</span>
-                        <span className="text-xs text-brown-400 mr-auto">{formatDateLabel(m.created_at)}</span>
+                        {fam.lastEvent && (
+                          <span className={`font-rubik text-xs ${activityTextClass(fam.lastEvent)}`}>
+                            {timeAgo(fam.lastEvent)} לפני
+                          </span>
+                        )}
+                        {!fam.lastEvent && (
+                          <span className="font-rubik text-xs text-brown-300">ללא פעילות</span>
+                        )}
                       </div>
-                    ))}
+                    </button>
+
+                    {/* Created date + delete */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <p className="text-[10px] text-brown-300 font-rubik">{formatDateLabel(fam.created_at)}</p>
+                      <button
+                        onClick={() => setDeletingFamily(fam)}
+                        className="w-7 h-7 rounded-full bg-red-50 flex items-center justify-center text-red-400 active:scale-95 active:bg-red-100 transition-all text-sm"
+                      >
+                        🗑
+                      </button>
+                    </div>
                   </div>
-                )}
-              </Card>
-            ))}
-          </div>
+
+                  {/* Expanded members */}
+                  {expanded === fam.id && fam.family_members?.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-cream-100 space-y-1.5">
+                      {fam.family_members.map(m => (
+                        <div key={m.id} className="flex items-center gap-2 text-sm font-rubik text-brown-600">
+                          <span className="text-base">{ROLE_EMOJI[m.role] ?? '👤'}</span>
+                          <span className="font-medium text-sm">{m.display_name}</span>
+                          <span className="text-xs text-brown-300 mr-auto">{formatDateLabel(m.created_at)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              ))}
+            </div>
+          </>
         )
       )}
 
@@ -188,50 +281,75 @@ export function AdminPage() {
         ) : users.length === 0 ? (
           <p className="text-center text-brown-400 font-rubik py-8">{t('admin.noUsers')}</p>
         ) : (
-          <div className="space-y-3">
-            <p className="text-xs text-brown-400 font-rubik">{t('admin.usersCount', { count: users.length })}</p>
-            {users.map(u => (
-              <Card key={u.id}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    {/* Email */}
-                    <p className="font-rubik font-semibold text-brown-800 text-sm truncate">{u.email}</p>
+          <>
+            {/* Filter chips */}
+            <div className="flex gap-2 mb-3 overflow-x-auto pb-0.5">
+              {[
+                { key: 'all', label: `הכל (${users.length})` },
+                { key: 'active', label: '🟢 פעיל 7 ימים' },
+                { key: 'no-family', label: '⚠️ ללא משפחה' },
+              ].map(f => (
+                <button
+                  key={f.key}
+                  onClick={() => setUserFilter(f.key)}
+                  className={`flex-shrink-0 px-3 py-1.5 rounded-full font-rubik text-xs font-medium transition-all ${
+                    userFilter === f.key ? 'bg-brown-800 text-white' : 'bg-cream-200 text-brown-600'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
 
-                    {/* Member info */}
-                    {u.member ? (
-                      <p className="font-rubik text-xs text-brown-500 mt-0.5">
-                        {u.member.role} · {u.member.family?.name ?? '—'}
-                        <span className="font-bold text-brown-400"> ({u.member.family?.code})</span>
-                      </p>
-                    ) : (
-                      <p className="font-rubik text-xs text-red-400 mt-0.5">{t('admin.withoutFamily')}</p>
-                    )}
+            {/* Compact list */}
+            {filteredUsers.length === 0 ? (
+              <p className="text-center text-brown-400 font-rubik py-6 text-sm">אין תוצאות לסינון זה</p>
+            ) : (
+              <div className="bg-white rounded-3xl shadow-card overflow-hidden divide-y divide-cream-100">
+                {filteredUsers.map(u => {
+                  const initial = (u.email?.[0] ?? '?').toUpperCase()
+                  const dot = activityDot(u.last_sign_in)
+                  const timeClass = activityTextClass(u.last_sign_in)
+                  const ago = timeAgo(u.last_sign_in)
 
-                    {/* Dates */}
-                    <div className="flex gap-3 mt-1">
-                      <p className="font-rubik text-xs text-brown-400">
-                        {t('admin.registeredAt')} {formatDateLabel(u.created_at)}
-                      </p>
-                      {u.last_sign_in && (
-                        <p className="font-rubik text-xs text-brown-400">
-                          {t('admin.lastSignIn')} {formatDateLabel(u.last_sign_in)}
+                  return (
+                    <div key={u.id} className="flex items-center gap-3 px-4 py-3">
+                      {/* Avatar with activity dot */}
+                      <div className="relative flex-shrink-0">
+                        <div className="w-9 h-9 rounded-full bg-cream-200 flex items-center justify-center font-rubik font-bold text-brown-600 text-sm">
+                          {initial}
+                        </div>
+                        <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${dot}`} />
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        {u.member ? (
+                          <p className="font-rubik text-brown-800 text-sm font-semibold leading-tight truncate">
+                            {ROLE_EMOJI[u.member.role] ?? '👤'} {u.member.role} · {u.member.family?.name ?? '—'}
+                          </p>
+                        ) : (
+                          <p className="font-rubik text-red-500 text-sm font-semibold leading-tight">⚠️ ללא משפחה</p>
+                        )}
+                        <p className="font-rubik text-brown-300 text-xs truncate mt-0.5">{u.email}</p>
+                        <p className={`font-rubik text-[11px] mt-0.5 ${timeClass}`}>
+                          {u.last_sign_in ? `נכנס לפני ${ago}` : 'מעולם לא נכנס'}
                         </p>
-                      )}
-                    </div>
-                  </div>
+                      </div>
 
-                  {/* Delete button */}
-                  <button
-                    onClick={() => setDeletingUser(u)}
-                    className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center text-red-400 hover:bg-red-100 hover:text-red-600 transition-colors active:scale-95 flex-shrink-0"
-                    title={t('admin.deleteUser')}
-                  >
-                    🗑
-                  </button>
-                </div>
-              </Card>
-            ))}
-          </div>
+                      {/* Delete */}
+                      <button
+                        onClick={() => setDeletingUser(u)}
+                        className="w-7 h-7 rounded-full bg-red-50 flex items-center justify-center text-red-400 active:scale-95 active:bg-red-100 transition-all flex-shrink-0 text-sm"
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </>
         )
       )}
 
