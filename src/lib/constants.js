@@ -148,7 +148,5 @@ export const STORAGE_KEYS = {
 
 // Admin configuration — admin status is enforced server-side via the
 // `is_admin()` SQL function and the admin RLS policies. The email here is
-// only used as a UI gate (to show the /admin link). Do NOT add a password
-// or any other secret in this bundle — anything exported here ships to
-// every browser via the JS bundle.
-export const ADMIN_EMAIL = 'hananel12345@gmail.com'
+// only used as a UI gate (to show the /admin link).
+export const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL ?? ''
