@@ -1,6 +1,10 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { format, subDays, startOfDay, endOfDay, isSameDay, differenceInCalendarDays } from 'date-fns'
 import { he } from 'date-fns/locale'
+import {
+  Search, ChevronDown, ChevronUp, X,
+  CalendarDays, SlidersHorizontal, Trash2, Filter,
+} from 'lucide-react'
 import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
@@ -218,47 +222,70 @@ export function HistoryPage() {
   }, [filterTrackerId, jumpDate, trackers])
 
   return (
-    <div className="px-4 pt-6 pb-6">
-      <h1 className="font-rubik font-bold text-2xl text-brown-800 mb-4">{t('history.title')}</h1>
+    <div className="px-4 pt-8 pb-8">
 
-      {/* Filter toggle row */}
+      {/* ── Page header ── */}
+      <div className="mb-5">
+        <h1 className="font-rubik font-black text-3xl text-brown-800 leading-tight">{t('history.title')}</h1>
+        {filtered.length > 0 && (
+          <p className="font-rubik text-brown-400 text-sm mt-0.5">
+            {filtered.length} אירועים{daysBack > 1 ? ` · ${daysBack} ימים אחרונים` : ''}
+          </p>
+        )}
+      </div>
+
+      {/* ── Filter toggle bar ── */}
       <button
         onClick={() => setFilterOpen(prev => !prev)}
-        className="w-full flex items-center justify-between bg-white rounded-2xl shadow-soft px-4 py-3 mb-2 transition-all active:scale-[0.99]"
+        className="w-full flex items-center gap-3 bg-white rounded-2xl px-4 py-3.5 mb-2 cursor-pointer active:scale-[0.99] transition-all duration-150 border border-cream-200"
+        style={{ boxShadow: '0 2px 10px rgba(61,43,31,0.07), inset 0 1px 0 rgba(255,255,255,0.9)' }}
       >
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-base flex-shrink-0">🔍</span>
-          <span className="font-rubik font-medium text-brown-700 text-sm truncate">{activeFilterLabel}</span>
-          {hasActiveFilter && (
-            <button
-              onClick={e => { e.stopPropagation(); clearFilters() }}
-              className="flex-shrink-0 text-xs bg-cream-200 text-brown-500 rounded-full px-2 py-0.5 font-rubik hover:bg-red-50 hover:text-red-400 transition-colors"
-            >
-              ✕ נקה
-            </button>
-          )}
-        </div>
-        <span className="text-brown-400 text-sm flex-shrink-0 mr-2">{filterOpen ? '▲' : '▼'}</span>
+        <Search size={16} className="text-brown-400 flex-shrink-0" />
+        <span className="font-rubik font-semibold text-brown-700 text-sm flex-1 text-right truncate">
+          {activeFilterLabel}
+        </span>
+        {hasActiveFilter && (
+          <button
+            onClick={e => { e.stopPropagation(); clearFilters() }}
+            className="flex items-center gap-1 text-xs bg-cream-200 text-brown-500 rounded-lg px-2 py-1 font-rubik font-bold flex-shrink-0 cursor-pointer hover:bg-red-50 hover:text-red-400 transition-colors duration-150"
+          >
+            <X size={10} />
+            נקה
+          </button>
+        )}
+        {filterOpen
+          ? <ChevronUp size={16} className="text-brown-400 flex-shrink-0" />
+          : <ChevronDown size={16} className="text-brown-400 flex-shrink-0" />
+        }
       </button>
 
-      {/* Collapsible filter panel */}
+      {/* ── Collapsible filter panel ── */}
       {filterOpen && (
-        <div className="bg-white rounded-2xl shadow-soft px-4 py-4 mb-3 space-y-4">
+        <div
+          className="bg-white rounded-2xl px-4 py-4 mb-4 space-y-4 border border-cream-200"
+          style={{ boxShadow: '0 4px 20px rgba(61,43,31,0.08), inset 0 1px 0 rgba(255,255,255,0.95)' }}
+        >
           {/* Date picker */}
           <div>
-            <p className="text-xs font-rubik font-semibold text-brown-500 mb-2">קפוץ לתאריך</p>
+            <div className="flex items-center gap-2 mb-2.5">
+              <CalendarDays size={12} className="text-brown-400" />
+              <p className="text-xs font-rubik font-bold text-brown-400 uppercase tracking-widest">קפוץ לתאריך</p>
+            </div>
             <input
               type="date"
               value={jumpDate}
               max={todayStr}
               onChange={e => handleJumpDate(e.target.value)}
-              className="w-full bg-cream-200 rounded-2xl px-4 py-2.5 text-brown-800 font-rubik outline-none text-sm"
+              className="w-full bg-cream-50 rounded-2xl px-4 py-3 text-brown-800 font-rubik outline-none text-sm border border-cream-200 focus:border-amber-300 transition-colors duration-150"
             />
           </div>
 
           {/* Tracker chips */}
           <div>
-            <p className="text-xs font-rubik font-semibold text-brown-500 mb-2">סנן לפי מעקב</p>
+            <div className="flex items-center gap-2 mb-2.5">
+              <Filter size={12} className="text-brown-400" />
+              <p className="text-xs font-rubik font-bold text-brown-400 uppercase tracking-widest">סנן לפי מעקב</p>
+            </div>
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
               <FilterChip
                 label={t('history.filterAll')}
@@ -282,94 +309,134 @@ export function HistoryPage() {
         </div>
       )}
 
-      {/* Content */}
+      {/* ── Content ── */}
       {loading && displayedGroups.size === 0 ? (
-        <div className="flex justify-center py-16"><Spinner size="lg" /></div>
+        <div className="flex justify-center py-20"><Spinner size="lg" /></div>
       ) : displayedGroups.size === 0 ? (
-        <div className="text-center py-16 text-brown-400 font-rubik">
-          <p className="text-4xl mb-3">📭</p>
-          <p className="text-sm">{jumpDate ? 'אין אירועים בתאריך זה' : t('history.noEvents')}</p>
-          {hasActiveFilter && (
-            <button
-              onClick={clearFilters}
-              className="mt-3 text-sm text-brown-600 underline font-rubik"
-            >
-              הצג הכל
-            </button>
-          )}
-        </div>
+        <EmptyState
+          jumpDate={jumpDate}
+          hasActiveFilter={hasActiveFilter}
+          onClear={clearFilters}
+        />
       ) : (
-        <div className="space-y-1 pb-2">
+        <div className="space-y-2 pb-4">
           {[...displayedGroups.entries()].map(([dateKey, dayEvents]) => {
             const dateObj = new Date(dateKey + 'T12:00:00')
             const isToday = dateKey === todayStr
             const isYesterday = isSameDay(dateObj, subDays(now, 1))
             const dayLabel = formatDateLabel(dateObj)
+            const dayName = format(dateObj, 'EEEE', { locale: he })
+            const dayNum = format(dateObj, 'd')
+            const monthName = format(dateObj, 'MMMM', { locale: he })
+
             return (
-              <div key={dateKey} id={`day-${dateKey}`}>
-                {/* Day header */}
-                <div className="flex items-center gap-3 pt-4 pb-2">
-                  <span
-                    className="font-rubik font-bold text-xs px-3 py-1 rounded-full flex-shrink-0"
-                    style={
-                      isToday
-                        ? { backgroundColor: '#5C3D2E', color: 'white' }
-                        : isYesterday
-                          ? { backgroundColor: '#D6C4B0', color: '#5C3D2E' }
-                          : { backgroundColor: '#F0E6D9', color: '#8B7355' }
-                    }
+              <div key={dateKey} id={`day-${dateKey}`} className="pt-4 first:pt-0">
+
+                {/* ── Day header — dramatic gradient ── */}
+                <div
+                  className="flex items-center justify-between px-4 py-3.5 rounded-2xl mb-3"
+                  style={
+                    isToday
+                      ? {
+                          background: 'linear-gradient(135deg, #3D2B1F 0%, #8B5E3C 100%)',
+                          boxShadow: '0 6px 20px rgba(61,43,31,0.22), inset 0 1px 0 rgba(255,255,255,0.10)',
+                        }
+                      : isYesterday
+                        ? {
+                            background: 'linear-gradient(135deg, #F5E6D3 0%, #E8C9A8 100%)',
+                            border: '1px solid #D6C4B0',
+                            boxShadow: '0 2px 8px rgba(61,43,31,0.07), inset 0 1px 0 rgba(255,255,255,0.6)',
+                          }
+                        : {
+                            background: '#FFFAF5',
+                            border: '1px solid #EDD9C0',
+                            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8)',
+                          }
+                  }
+                >
+                  <div className="flex items-center gap-3">
+                    {/* Big date number */}
+                    <div className={isToday ? 'text-white' : 'text-brown-700'}>
+                      <span className="font-rubik font-black text-3xl leading-none block">{dayNum}</span>
+                      <span className="font-rubik font-semibold text-[10px] uppercase tracking-wider block opacity-70 -mt-0.5">{monthName}</span>
+                    </div>
+                    {/* Label + day name */}
+                    <div>
+                      <span className={`font-rubik font-bold text-sm leading-tight block ${isToday ? 'text-white' : 'text-brown-800'}`}>
+                        {dayLabel}
+                      </span>
+                      <span className={`font-rubik text-xs leading-tight block mt-0.5 ${isToday ? 'text-white/65' : 'text-brown-400'}`}>
+                        {dayName}
+                      </span>
+                    </div>
+                  </div>
+                  {/* Event count badge */}
+                  <div
+                    className={`font-rubik font-black text-sm px-3 py-1.5 rounded-xl min-w-[32px] text-center ${
+                      isToday ? 'bg-white/20 text-white' : 'bg-white/70 text-brown-700'
+                    }`}
                   >
-                    {dayLabel}
-                  </span>
-                  <div className="flex-1 h-px bg-cream-300" />
-                  <span className="text-xs text-brown-400 font-rubik flex-shrink-0">
-                    {dayEvents.length} אירועים
-                  </span>
+                    {dayEvents.length}
+                  </div>
                 </div>
 
-                {/* Events for this day */}
-                <div className="grid grid-cols-2 gap-2">
+                {/* ── Event cards — bento 2-col grid ── */}
+                <div className="grid grid-cols-2 gap-2.5">
                   {dayEvents.map(event => {
                     const summary = formatEventSummary(event)
+                    const color = event.tracker?.color ?? '#D6C4B0'
                     return (
                       <div
                         key={event.id}
                         onClick={() => setEditTarget(event)}
-                        className="bg-white rounded-xl shadow-soft px-3 pt-2.5 pb-2.5 flex flex-col cursor-pointer active:scale-[0.97] transition-transform select-none"
+                        className="bg-white rounded-2xl flex flex-col cursor-pointer active:scale-[0.97] transition-all duration-150 select-none overflow-hidden"
+                        style={{
+                          border: '1px solid #EDD9C0',
+                          borderLeft: `3.5px solid ${color}`,
+                          boxShadow: '0 4px 16px rgba(61,43,31,0.07), inset 0 1px 0 rgba(255,255,255,0.95)',
+                        }}
                       >
-                        {/* Top row: icon + name as a unified pair (left side) */}
-                        <div className="flex items-center gap-1.5 mb-2">
+                        {/* Tracker header row */}
+                        <div className="flex items-center gap-2 px-3 pt-3 pb-1">
                           <div
-                            className="w-7 h-7 rounded-full flex items-center justify-center text-base flex-shrink-0"
-                            style={{ backgroundColor: `${event.tracker?.color ?? '#D6C4B0'}22` }}
+                            className="w-6 h-6 rounded-lg flex items-center justify-center text-sm flex-shrink-0"
+                            style={{ backgroundColor: `${color}22` }}
                           >
                             {event.tracker?.icon}
                           </div>
-                          <span className="font-rubik text-brown-700 text-sm font-semibold leading-none truncate">{event.tracker?.name}</span>
+                          <span className="font-rubik text-brown-500 text-xs font-semibold truncate leading-none">
+                            {event.tracker?.name}
+                          </span>
                         </div>
 
-                        {/* TIME — hero, right-aligned, dark brown */}
-                        <p className="font-rubik font-bold text-xl text-brown-800 leading-none text-right">
+                        {/* Time — hero */}
+                        <p className="font-rubik font-black text-2xl text-brown-800 leading-none px-3 pb-1">
                           {formatTime(event.occurred_at)}
                         </p>
 
-                        {/* Detail */}
+                        {/* Summary — in tracker color */}
                         {summary ? (
-                          <p className="font-rubik text-brown-400 text-sm text-right mt-1 leading-tight">
+                          <p
+                            className="font-rubik text-sm font-bold px-3 pb-2 leading-snug"
+                            style={{ color }}
+                          >
                             {summary}
                           </p>
-                        ) : null}
+                        ) : <div className="pb-1" />}
 
-                        {/* Member avatar + role — always shown, pinned to bottom */}
+                        {/* Member badge — pinned bottom */}
                         {event.member && (
-                          <div className="flex items-center justify-end gap-1.5 mt-auto pt-2">
-                            <span className="font-rubik text-brown-400 text-[11px] leading-none">
+                          <div className="flex items-center justify-end gap-1.5 px-3 pb-2.5 mt-auto pt-1">
+                            <span className="font-rubik text-brown-400 text-[10px] leading-none truncate max-w-[60px]">
                               {event.member.display_name}
                             </span>
-                            <div className="w-6 h-6 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center flex-shrink-0 ring-1 ring-cream-300">
+                            <div
+                              className="w-5 h-5 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center flex-shrink-0"
+                              style={{ boxShadow: '0 0 0 1.5px #E8C9A8' }}
+                            >
                               {event.member.avatar_url
                                 ? <img src={event.member.avatar_url} alt={event.member.display_name} className="w-full h-full object-cover" />
-                                : <span className="text-[11px] leading-none">
+                                : <span className="text-[9px] leading-none">
                                     {ROLES.find(r => r.value === event.member.role)?.emoji ?? '👤'}
                                   </span>
                               }
@@ -384,22 +451,30 @@ export function HistoryPage() {
             )
           })}
 
-          {/* Load more / end indicator */}
+          {/* ── Load more / end indicator ── */}
           {!jumpDate && (
-            <div className="pt-5 pb-2 text-center">
+            <div className="pt-4 pb-2">
               {loadingMore ? (
-                <Spinner size="md" />
+                <div className="flex justify-center py-4"><Spinner size="md" /></div>
               ) : canLoadMore && !hasReachedStart ? (
                 <button
                   onClick={loadMore}
-                  className="w-full py-3 rounded-2xl bg-white shadow-soft text-brown-600 font-rubik font-medium text-sm active:scale-[0.99] transition-all"
+                  className="w-full py-3.5 rounded-2xl font-rubik font-bold text-brown-700 text-sm cursor-pointer active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2 border border-cream-200 bg-white min-h-[48px]"
+                  style={{ boxShadow: '0 4px 16px rgba(61,43,31,0.07), inset 0 1px 0 rgba(255,255,255,0.9)' }}
                 >
+                  <ChevronDown size={16} className="text-brown-500" />
                   טען עוד ימים
                 </button>
               ) : (
-                <div className="flex flex-col items-center gap-1 py-2">
-                  <span className="text-2xl">🎉</span>
-                  <p className="text-brown-400 font-rubik text-xs">הגעת להתחלה</p>
+                <div className="flex flex-col items-center gap-2 py-5">
+                  <div
+                    className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-2xl border border-cream-200"
+                    style={{ boxShadow: '0 2px 10px rgba(61,43,31,0.07)' }}
+                  >
+                    🎉
+                  </div>
+                  <p className="text-brown-600 font-rubik font-bold text-sm">הגעת להתחלה</p>
+                  <p className="text-brown-400 font-rubik text-xs">כל הנתונים נטענו</p>
                 </div>
               )}
             </div>
@@ -407,6 +482,7 @@ export function HistoryPage() {
         </div>
       )}
 
+      {/* ── Dialogs ── */}
       <ConfirmDialog
         isOpen={Boolean(deleteTarget)}
         message={t('history.deleteConfirm')}
@@ -423,12 +499,44 @@ export function HistoryPage() {
         {editTarget && (
           <button
             onClick={() => { const id = editTarget.id; setEditTarget(null); setDeleteTarget(id) }}
-            className="w-full mt-3 py-2.5 rounded-2xl text-red-400 font-rubik text-sm font-medium active:bg-red-50 transition-colors"
+            className="w-full mt-4 py-3 rounded-2xl text-red-500 font-rubik font-bold text-sm cursor-pointer active:bg-red-50 transition-colors duration-150 flex items-center justify-center gap-2 border border-red-100 bg-white"
+            style={{ boxShadow: '0 2px 8px rgba(239,68,68,0.08)' }}
           >
-            🗑️ מחק אירוע
+            <Trash2 size={15} />
+            מחק אירוע
           </button>
         )}
       </BottomSheet>
+    </div>
+  )
+}
+
+// ── Sub-components ──────────────────────────────────────────────────────────
+
+function EmptyState({ jumpDate, hasActiveFilter, onClear }) {
+  return (
+    <div className="flex flex-col items-center py-16 px-4">
+      <div
+        className="w-20 h-20 rounded-3xl bg-white flex items-center justify-center mb-5 text-4xl border border-cream-200"
+        style={{ boxShadow: '0 4px 20px rgba(61,43,31,0.08), inset 0 1px 0 rgba(255,255,255,0.9)' }}
+      >
+        📭
+      </div>
+      <p className="font-rubik font-bold text-brown-700 text-base mb-1">
+        {jumpDate ? 'אין אירועים בתאריך זה' : t('history.noEvents')}
+      </p>
+      <p className="font-rubik text-brown-400 text-sm text-center leading-relaxed">
+        {jumpDate ? 'בחר תאריך אחר' : 'הוסף דיווח ראשון ממסך הבית'}
+      </p>
+      {hasActiveFilter && (
+        <button
+          onClick={onClear}
+          className="mt-5 text-sm text-amber-700 font-rubik font-bold bg-amber-50 border border-amber-200 px-5 py-2.5 rounded-xl cursor-pointer active:scale-95 transition-transform"
+          style={{ boxShadow: '0 2px 8px rgba(180,93,20,0.12)' }}
+        >
+          הצג הכל
+        </button>
+      )}
     </div>
   )
 }
@@ -437,13 +545,27 @@ function FilterChip({ label, active, color, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-rubik font-medium transition-all active:scale-95"
+      className="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-rubik font-bold transition-all duration-200 active:scale-95 cursor-pointer border min-h-[36px]"
       style={
         active && color
-          ? { backgroundColor: color, color: 'white' }
+          ? {
+              backgroundColor: color,
+              color: 'white',
+              borderColor: `${color}40`,
+              boxShadow: `0 4px 12px ${color}40, inset 0 1px 0 rgba(255,255,255,0.20)`,
+            }
           : active
-            ? { backgroundColor: '#8B5E3C', color: 'white' }
-            : { backgroundColor: '#F5EDE0', color: '#7A5035' }
+            ? {
+                backgroundColor: '#8B5E3C',
+                color: 'white',
+                borderColor: 'rgba(61,43,31,0.2)',
+                boxShadow: '0 4px 12px rgba(61,43,31,0.25), inset 0 1px 0 rgba(255,255,255,0.15)',
+              }
+            : {
+                backgroundColor: '#FFFAF5',
+                color: '#7A5035',
+                borderColor: '#EDD9C0',
+              }
       }
     >
       {label}
@@ -456,12 +578,12 @@ function TimeOnlyForm({ initialTime, onSave, onCancel, loading }) {
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-sm font-medium text-brown-600 mb-2">{t('feeding.time')}</p>
+        <p className="text-sm font-bold text-brown-600 mb-2 font-rubik">{t('feeding.time')}</p>
         <input
           type="time"
           value={time}
           onChange={e => setTime(e.target.value)}
-          className="w-full bg-cream-200 rounded-2xl px-4 py-3 text-brown-800 font-rubik outline-none"
+          className="w-full bg-cream-50 rounded-2xl px-4 py-3 text-brown-800 font-rubik outline-none border border-cream-200 focus:border-amber-300 transition-colors duration-150"
         />
       </div>
       <div className="flex gap-3 pt-2">
