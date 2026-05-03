@@ -50,29 +50,36 @@ export function BottomSheet({ isOpen, onClose, title, children, hero = false }) 
       {/* Overlay */}
       <div
         ref={overlayRef}
-        className="absolute inset-0 bg-brown-800/40 backdrop-blur-sm animate-fade-in"
+        className="absolute inset-0 bg-brown-800/50 backdrop-blur-[2px] animate-fade-in"
         onClick={onClose}
       />
 
       {/* Sheet */}
-      <div className={cn(
-        'relative w-full max-w-[480px] bg-cream-100 rounded-t-4xl shadow-2xl animate-slide-up',
-        'pb-safe'
-      )}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        className={cn(
+          'relative w-full max-w-[480px] bg-cream-50 rounded-t-4xl animate-slide-up',
+          'pb-safe'
+        )}
+        style={{ boxShadow: '0 -8px 40px rgba(61,43,31,0.18), inset 0 1px 0 rgba(255,255,255,0.9)' }}
+      >
         {/* Handle */}
         {!hero && (
-          <div className="flex justify-center pt-3 pb-1">
-            <div className="w-10 h-1 bg-cream-300 rounded-full" />
+          <div className="flex justify-center pt-3.5 pb-1">
+            <div className="w-12 h-1.5 bg-cream-300 rounded-full" />
           </div>
         )}
 
         {!hero && title && (
-          <h2 className="font-rubik font-semibold text-brown-800 text-lg text-center py-3 px-4">
-            {title}
-          </h2>
+          <div className="px-4 pt-2 pb-3 border-b border-cream-200">
+            <h2 className="font-rubik font-bold text-brown-800 text-lg text-center">
+              {title}
+            </h2>
+          </div>
         )}
 
-        <div className={hero ? '' : 'px-4 pb-6'}>
+        <div className={hero ? '' : 'px-4 pt-4 pb-6'}>
           {children}
         </div>
       </div>
