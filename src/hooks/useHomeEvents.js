@@ -30,11 +30,26 @@ export function useHomeEvents(familyId, viewDate, childId) {
 
   useEffect(() => {
     fetchAll()
+
+    // Use date in channel name so resubscribe on date-change always creates
+    // a fresh channel (avoids Supabase silent-dedup on same channel name)
+    const dateKey = viewDate ? viewDate.toISOString().split('T')[0] : 'today'
     const channel = supabase
-      .channel(`home-all:${familyId}`)
+      .channel(`home-all:${familyId}:${dateKey}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'events', filter: `family_id=eq.${familyId}` }, fetchAll)
       .subscribe()
-    return () => supabase.removeChannel(channel)
+
+    // Refetch when app comes back to foreground (WebSocket may have dropped
+    // while phone was locked / app was backgrounded)
+    function onVisibilityChange() {
+      if (document.visibilityState === 'visible') fetchAll()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    return () => {
+      supabase.removeChannel(channel)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
   }, [fetchAll, familyId])
 
   return { eventsByTracker, loading }
