@@ -1,5 +1,11 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
+import {
+  Home, ClipboardList, BarChart2, User,
+  Bell, Users, ListChecks,
+  HelpCircle, ChevronRight, ChevronLeft,
+  Accessibility, Palette, Zap,
+} from 'lucide-react'
 import { t } from '../../lib/strings'
 import { cn } from '../../lib/utils'
 import { BottomSheet } from '../ui/BottomSheet'
@@ -7,27 +13,31 @@ import { useAccessibility } from '../../context/AccessibilityContext'
 
 // RTL order: Home (right) → History → [FAB] → Reports → Profile (left)
 const RIGHT_TABS = [
-  { to: '/', label: t('nav.home'), icon: '🏠', end: true },
-  { to: '/history', label: t('nav.history'), icon: '📋' },
+  { to: '/', label: t('nav.home'), Icon: Home, end: true },
+  { to: '/history', label: t('nav.history'), Icon: ClipboardList },
 ]
 
 const LEFT_TABS = [
-  { to: '/reports', label: t('nav.reports'), icon: '📊' },
-  { to: '/profile', label: t('nav.profile'), icon: '👤' },
+  { to: '/reports', label: t('nav.reports'), Icon: BarChart2 },
+  { to: '/profile', label: t('nav.profile'), Icon: User },
 ]
 
-function NavTab({ to, label, icon, end }) {
+function NavTab({ to, label, Icon, end }) {
   return (
     <NavLink to={to} end={end} className="flex-1">
       {({ isActive }) => (
         <div className={cn(
-          'flex flex-col items-center justify-center gap-0.5 py-2 min-h-[56px] w-full relative transition-colors font-rubik',
+          'flex flex-col items-center justify-center gap-0.5 py-2 min-h-[56px] w-full relative transition-colors duration-150 font-rubik cursor-pointer',
           isActive ? 'text-amber-600' : 'text-brown-400'
         )}>
-          <span className="text-xl leading-none">{icon}</span>
-          <span className="text-xs font-medium">{label}</span>
+          <Icon
+            size={22}
+            strokeWidth={isActive ? 2.2 : 1.8}
+            className="transition-all duration-150"
+          />
+          <span className="text-[11px] font-semibold mt-0.5">{label}</span>
           {isActive && (
-            <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-amber-500" />
+            <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-1 rounded-full bg-amber-500" />
           )}
         </div>
       )}
@@ -39,29 +49,32 @@ const MENU_ITEMS = [
   {
     key: 'trackers',
     path: '/trackers',
-    icon: '📋',
+    Icon: ListChecks,
     label: 'מעקבים',
     sub: 'הוסף וערוך',
     bg: '#6B9E8C18',
-    iconBg: '#6B9E8C25',
+    iconBg: '#6B9E8C22',
+    iconColor: '#4A7A6A',
   },
   {
     key: 'notifications',
     path: '/notifications',
-    icon: '🔔',
+    Icon: Bell,
     label: 'התראות',
     sub: 'Push ותזכורות',
     bg: '#E8B84B18',
-    iconBg: '#E8B84B25',
+    iconBg: '#E8B84B22',
+    iconColor: '#B8883B',
   },
   {
     key: 'family',
     path: '/family',
-    icon: '👨‍👩‍👧',
+    Icon: Users,
     label: 'משפחה',
     sub: 'ילדים וחברים',
     bg: '#9B8EC418',
-    iconBg: '#9B8EC425',
+    iconBg: '#9B8EC422',
+    iconColor: '#7B6EA4',
   },
 ]
 
@@ -172,10 +185,13 @@ export function BottomNav() {
   return (
     <>
       <nav className="fixed bottom-0 inset-x-0 z-40 flex justify-center">
-        <div className="w-full max-w-[480px] bg-white border-t border-cream-200 pb-safe">
+        <div
+          className="w-full max-w-[480px] bg-white border-t border-cream-200 pb-safe"
+          style={{ boxShadow: '0 -4px 20px rgba(61,43,31,0.08)' }}
+        >
           <div className="flex items-stretch">
-            {RIGHT_TABS.map(({ to, label, icon, end }) => (
-              <NavTab key={to} to={to} label={label} icon={icon} end={end} />
+            {RIGHT_TABS.map(({ to, label, Icon, end }) => (
+              <NavTab key={to} to={to} label={label} Icon={Icon} end={end} />
             ))}
 
             {/* Center FAB slot */}
@@ -185,7 +201,11 @@ export function BottomNav() {
               )}
               <button
                 onClick={handleFabClick}
-                className="absolute -top-5 w-14 h-14 rounded-full bg-[#8B5E3C] shadow-lg flex items-center justify-center transition-transform active:scale-95 focus:outline-none"
+                className="absolute -top-6 w-14 h-14 rounded-2xl flex items-center justify-center transition-transform active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 cursor-pointer"
+                style={{
+                  background: 'linear-gradient(145deg, #A07050, #8B5E3C)',
+                  boxShadow: '0 6px 20px rgba(139,94,60,0.45), inset 0 1px 0 rgba(255,255,255,0.15)',
+                }}
                 aria-label="תפריט"
               >
                 <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -196,8 +216,8 @@ export function BottomNav() {
               </button>
             </div>
 
-            {LEFT_TABS.map(({ to, label, icon }) => (
-              <NavTab key={to} to={to} label={label} icon={icon} />
+            {LEFT_TABS.map(({ to, label, Icon }) => (
+              <NavTab key={to} to={to} label={label} Icon={Icon} />
             ))}
           </div>
         </div>
@@ -206,24 +226,35 @@ export function BottomNav() {
       <BottomSheet isOpen={sheetOpen} onClose={closeSheet} title="תפריט">
         <div className="flex flex-col gap-3 pb-2">
           {/* Main action cards — 2-column grid, last item spans if odd */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2.5">
             {MENU_ITEMS.map((item, i) => {
               const isLastOdd = MENU_ITEMS.length % 2 !== 0 && i === MENU_ITEMS.length - 1
               return (
                 <button
                   key={item.key}
                   onClick={() => handleMenuNav(item.path)}
-                  className={`flex items-center gap-3 px-3 py-3.5 rounded-2xl transition-all active:scale-[0.97] text-right ${isLastOdd ? 'col-span-2' : 'flex-col items-center text-center px-2 py-4 gap-2'}`}
-                  style={{ backgroundColor: item.bg }}
+                  className={cn(
+                    'rounded-2xl transition-all duration-150 active:scale-[0.97] cursor-pointer border border-white/60',
+                    isLastOdd
+                      ? 'col-span-2 flex items-center gap-3 px-4 py-3.5 text-right'
+                      : 'flex flex-col items-center text-center px-3 py-4 gap-2'
+                  )}
+                  style={{
+                    backgroundColor: item.bg,
+                    boxShadow: '0 2px 8px rgba(61,43,31,0.06), inset 0 1px 0 rgba(255,255,255,0.7)',
+                  }}
                 >
                   <div
-                    className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
-                    style={{ backgroundColor: item.iconBg }}
+                    className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{
+                      backgroundColor: item.iconBg,
+                      boxShadow: '0 2px 6px rgba(61,43,31,0.08), inset 0 1px 0 rgba(255,255,255,0.6)',
+                    }}
                   >
-                    {item.icon}
+                    <item.Icon size={22} color={item.iconColor} strokeWidth={1.8} />
                   </div>
                   <div className={isLastOdd ? 'flex-1 min-w-0' : ''}>
-                    <p className="font-rubik text-brown-800 font-semibold text-sm leading-tight">{item.label}</p>
+                    <p className="font-rubik text-brown-800 font-bold text-sm leading-tight">{item.label}</p>
                     {item.sub && <p className="font-rubik text-brown-400 text-xs leading-tight mt-0.5">{item.sub}</p>}
                   </div>
                 </button>
@@ -232,28 +263,36 @@ export function BottomNav() {
           </div>
 
           {/* Separator */}
-          <div className="border-t border-cream-200 mt-1" />
+          <div className="border-t border-cream-200" />
 
           {/* Accessibility */}
           {!a11yOpen ? (
             <button
               onClick={() => setA11yOpen(true)}
-              className="flex items-center justify-between w-full px-1 py-2.5 rounded-2xl active:bg-cream-100 transition-colors"
+              className="flex items-center justify-between w-full px-2 py-3 rounded-2xl cursor-pointer active:bg-cream-100 transition-colors duration-150"
             >
-              <div className="flex items-center gap-2">
-                <span className="text-lg">♿</span>
-                <span className="font-rubik text-brown-600 font-medium text-sm">נגישות</span>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-cream-100 flex items-center justify-center border border-cream-200">
+                  <Accessibility size={16} className="text-brown-500" />
+                </div>
+                <span className="font-rubik text-brown-700 font-semibold text-sm">נגישות</span>
               </div>
-              <span className="text-brown-300 text-sm">›</span>
+              <ChevronLeft size={16} className="text-brown-300" />
             </button>
           ) : (
             <div className="space-y-3 pb-1">
               <div className="flex items-center justify-between">
-                <button onClick={() => setA11yOpen(false)} className="flex items-center gap-1.5 text-brown-400 active:opacity-70">
-                  <span className="text-sm">‹</span>
-                  <span className="font-rubik text-xs">חזרה</span>
+                <button
+                  onClick={() => setA11yOpen(false)}
+                  className="flex items-center gap-1.5 text-brown-400 cursor-pointer active:opacity-70"
+                >
+                  <ChevronRight size={15} />
+                  <span className="font-rubik text-xs font-medium">חזרה</span>
                 </button>
-                <span className="font-rubik text-brown-600 font-semibold text-sm">♿ נגישות</span>
+                <div className="flex items-center gap-1.5">
+                  <Accessibility size={14} className="text-brown-600" />
+                  <span className="font-rubik text-brown-700 font-bold text-sm">נגישות</span>
+                </div>
               </div>
 
               {/* Font size */}
@@ -263,12 +302,12 @@ export function BottomNav() {
                     key={v}
                     onClick={() => updatePref('fontSize', v)}
                     className={cn(
-                      'flex-1 flex flex-col items-center gap-1.5 py-2.5 rounded-xl border-2 transition-all active:scale-95',
+                      'flex-1 flex flex-col items-center gap-1.5 py-2.5 rounded-xl border-2 transition-all active:scale-95 cursor-pointer',
                       prefs.fontSize === v ? 'border-amber-500 bg-amber-50' : 'border-cream-200 bg-cream-50'
                     )}
                   >
                     <span className={cn('font-rubik font-bold text-brown-700', s)}>א</span>
-                    <span className={cn('font-rubik text-[11px] font-medium', prefs.fontSize === v ? 'text-amber-600' : 'text-brown-400')}>{l}</span>
+                    <span className={cn('font-rubik text-[11px] font-semibold', prefs.fontSize === v ? 'text-amber-600' : 'text-brown-400')}>{l}</span>
                   </button>
                 ))}
               </div>
@@ -278,22 +317,22 @@ export function BottomNav() {
                 <button
                   onClick={() => updatePref('highContrast', !prefs.highContrast)}
                   className={cn(
-                    'flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 transition-all active:scale-95',
+                    'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 transition-all active:scale-95 cursor-pointer',
                     prefs.highContrast ? 'border-amber-500 bg-amber-50' : 'border-cream-200 bg-cream-50'
                   )}
                 >
-                  <span className="text-base">🎨</span>
-                  <span className={cn('font-rubik text-xs font-medium', prefs.highContrast ? 'text-amber-600' : 'text-brown-400')}>ניגודיות</span>
+                  <Palette size={15} className={prefs.highContrast ? 'text-amber-600' : 'text-brown-400'} />
+                  <span className={cn('font-rubik text-xs font-semibold', prefs.highContrast ? 'text-amber-600' : 'text-brown-400')}>ניגודיות</span>
                 </button>
                 <button
                   onClick={() => updatePref('reduceMotion', !prefs.reduceMotion)}
                   className={cn(
-                    'flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 transition-all active:scale-95',
+                    'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 transition-all active:scale-95 cursor-pointer',
                     prefs.reduceMotion ? 'border-amber-500 bg-amber-50' : 'border-cream-200 bg-cream-50'
                   )}
                 >
-                  <span className="text-base">🎬</span>
-                  <span className={cn('font-rubik text-xs font-medium', prefs.reduceMotion ? 'text-amber-600' : 'text-brown-400')}>תנועה</span>
+                  <Zap size={15} className={prefs.reduceMotion ? 'text-amber-600' : 'text-brown-400'} />
+                  <span className={cn('font-rubik text-xs font-semibold', prefs.reduceMotion ? 'text-amber-600' : 'text-brown-400')}>תנועה</span>
                 </button>
               </div>
             </div>
@@ -301,16 +340,18 @@ export function BottomNav() {
 
           <div className="border-t border-cream-200" />
 
-          {/* Accessibility + Help — compact row pair */}
+          {/* Help */}
           <button
             onClick={openHelp}
-            className="flex items-center justify-between w-full px-1 py-2.5 rounded-2xl active:bg-cream-100 transition-colors"
+            className="flex items-center justify-between w-full px-2 py-3 rounded-2xl cursor-pointer active:bg-cream-100 transition-colors duration-150"
           >
-            <div className="flex items-center gap-2">
-              <span className="text-lg">❓</span>
-              <span className="font-rubik text-brown-600 font-medium text-sm">עזרה</span>
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-cream-100 flex items-center justify-center border border-cream-200">
+                <HelpCircle size={16} className="text-brown-500" />
+              </div>
+              <span className="font-rubik text-brown-700 font-semibold text-sm">עזרה</span>
             </div>
-            <span className="text-brown-300 text-sm">›</span>
+            <ChevronLeft size={16} className="text-brown-300" />
           </button>
         </div>
       </BottomSheet>
@@ -321,14 +362,18 @@ export function BottomNav() {
           {/* Slide content */}
           <div className="space-y-2.5">
             {HELP_SLIDES[helpStep].items.map(item => (
-              <div key={item.label} className="flex gap-3 bg-cream-100 rounded-2xl px-4 py-3">
+              <div
+                key={item.label}
+                className="flex gap-3 bg-cream-50 rounded-2xl px-4 py-3.5 border border-cream-200"
+                style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.9)' }}
+              >
                 <span className="text-xl mt-0.5 flex-shrink-0">{item.icon}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="font-rubik font-semibold text-brown-800 text-sm mb-1">{item.label}</p>
-                  <ul className="space-y-0.5">
+                  <p className="font-rubik font-bold text-brown-800 text-sm mb-1.5">{item.label}</p>
+                  <ul className="space-y-1">
                     {item.bullets.map((b, i) => (
                       <li key={i} className="flex items-start gap-1.5">
-                        <span className="text-amber-400 text-[10px] mt-[3px] flex-shrink-0">●</span>
+                        <span className="text-amber-500 text-[10px] mt-[3px] flex-shrink-0">●</span>
                         <span className="font-rubik text-brown-500 text-xs leading-relaxed">{b}</span>
                       </li>
                     ))}
@@ -343,7 +388,7 @@ export function BottomNav() {
             {HELP_SLIDES.map((_, i) => (
               <div
                 key={i}
-                className="rounded-full transition-all"
+                className="rounded-full transition-all duration-300"
                 style={{
                   width: i === helpStep ? 20 : 6,
                   height: 6,
@@ -357,14 +402,22 @@ export function BottomNav() {
           {helpStep < HELP_SLIDES.length - 1 ? (
             <button
               onClick={() => setHelpStep(s => s + 1)}
-              className="w-full py-3 rounded-2xl bg-brown-800 text-white font-rubik font-semibold text-sm active:opacity-90 transition-opacity"
+              className="w-full py-3.5 rounded-2xl font-rubik font-bold text-sm text-white cursor-pointer active:opacity-90 transition-opacity min-h-[48px] border border-brown-900/10"
+              style={{
+                background: 'linear-gradient(145deg, #6B4226, #3D2B1F)',
+                boxShadow: '0 4px 14px rgba(61,43,31,0.28), inset 0 1px 0 rgba(255,255,255,0.10)',
+              }}
             >
               הבא ›
             </button>
           ) : (
             <button
               onClick={() => setHelpOpen(false)}
-              className="w-full py-3 rounded-2xl bg-brown-800 text-white font-rubik font-semibold text-sm active:opacity-90 transition-opacity"
+              className="w-full py-3.5 rounded-2xl font-rubik font-bold text-sm text-white cursor-pointer active:opacity-90 transition-opacity min-h-[48px] border border-brown-900/10"
+              style={{
+                background: 'linear-gradient(145deg, #6B4226, #3D2B1F)',
+                boxShadow: '0 4px 14px rgba(61,43,31,0.28), inset 0 1px 0 rgba(255,255,255,0.10)',
+              }}
             >
               הבנתי ✓
             </button>
