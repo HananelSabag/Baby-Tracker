@@ -10,6 +10,7 @@ import { BottomNav } from './BottomNav'
 import { InstallBanner } from '../ui/InstallBanner'
 import { STORAGE_KEYS } from '../../lib/constants'
 import { t } from '../../lib/strings'
+import { supabase } from '../../lib/supabase'
 
 const WIFE_EMAIL = 'nofarromi1998@gmail.com'
 const SISTER_EMAIL = 'ortalhayuta@gmail.com'
@@ -32,6 +33,16 @@ export function AppLayout({ children }) {
       sessionStorage.setItem('bt_welcome', '1')
     }
   }, [])
+
+  // Update last_seen_at so admin panel shows accurate activity time
+  useEffect(() => {
+    if (!identity.memberId) return
+    supabase
+      .from('family_members')
+      .update({ last_seen_at: new Date().toISOString() })
+      .eq('id', identity.memberId)
+      .then(() => {})
+  }, [identity.memberId])
 
   useRealtimeNotifications({
     familyId: identity.familyId,
