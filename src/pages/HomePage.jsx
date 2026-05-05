@@ -22,6 +22,7 @@ import { ToastContainer } from '../components/ui/Toast'
 import { format, addDays, subDays, isSameDay } from 'date-fns'
 import { he } from 'date-fns/locale'
 import { formatTime, formatAge, cn } from '../lib/utils'
+import { Bell, Pencil, GripVertical, Eye, EyeOff, Camera, User, RefreshCw, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { pickAndCompressImage, uploadAvatar } from '../lib/imageUpload'
 
@@ -284,9 +285,11 @@ export function HomePage() {
             <button
               onClick={saveAndExit}
               disabled={saving}
-              className="px-3 h-10 rounded-full bg-brown-800 text-white font-rubik font-semibold text-sm active:scale-95 transition-transform disabled:opacity-60"
+              className="px-4 h-10 rounded-2xl bg-brown-800 text-white font-rubik font-semibold text-sm active:scale-95 transition-all duration-150 disabled:opacity-60 flex items-center gap-1.5 cursor-pointer"
+              style={{ boxShadow: '0 4px 12px rgba(61,43,31,0.25)' }}
             >
-              {saving ? '...' : 'סיום'}
+              {saving ? <Loader2 size={14} className="animate-spin" /> : null}
+              {saving ? 'שומר...' : 'סיום'}
             </button>
           )}
 
@@ -295,9 +298,13 @@ export function HomePage() {
             <button
               onClick={handleBellClick}
               aria-label={t('notifications.title')}
-              className="w-10 h-10 rounded-full bg-white shadow-soft flex items-center justify-center text-lg active:scale-95 transition-transform relative"
+              className="w-10 h-10 rounded-2xl flex items-center justify-center active:scale-95 transition-all duration-150 relative cursor-pointer border border-cream-200"
+              style={{
+                backgroundColor: unreadCount > 0 ? '#FEF3C7' : '#FFFFFF',
+                boxShadow: '0 2px 10px rgba(61,43,31,0.09), inset 0 1px 0 rgba(255,255,255,0.95)',
+              }}
             >
-              🔔
+              <Bell size={18} className={unreadCount > 0 ? 'text-amber-600' : 'text-brown-600'} strokeWidth={2} />
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center font-rubik">
                   {unreadCount > 9 ? '9+' : unreadCount}
@@ -310,11 +317,12 @@ export function HomePage() {
           {!editMode && (
             <button
               onClick={enterEditMode}
-              className="w-10 h-10 rounded-full bg-white shadow-soft flex items-center justify-center text-base active:scale-95 transition-transform"
+              className="w-10 h-10 rounded-2xl flex items-center justify-center active:scale-95 transition-all duration-150 cursor-pointer border border-cream-200"
+              style={{ backgroundColor: '#FFFFFF', boxShadow: '0 2px 10px rgba(61,43,31,0.09), inset 0 1px 0 rgba(255,255,255,0.95)' }}
               aria-label="עריכת תצוגה"
               title="עריכת תצוגה"
             >
-              ✏️
+              <Pencil size={16} className="text-brown-600" />
             </button>
           )}
 
@@ -330,21 +338,22 @@ export function HomePage() {
                   className="w-full h-full object-cover"
                   onError={(e) => { e.target.style.display = 'none' }}
                 />
-              : <span className="text-xl">👤</span>
+              : <User size={20} className="text-brown-400" />
             }
           </button>
         </div>
       </div>
 
       {/* ── Child card ──────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-3xl shadow-soft p-3 mb-4">
+      <div className="bg-white rounded-3xl p-3 mb-4 border border-cream-200" style={{ boxShadow: '0 4px 20px rgba(61,43,31,0.08), inset 0 1px 0 rgba(255,255,255,0.95)' }}>
         <div className="flex items-center gap-3">
           {activeChild ? (
             <>
               {/* Avatar — tap opens child detail sheet */}
               <button
                 onClick={() => setChildDetailOpen(true)}
-                className="w-14 h-14 rounded-full overflow-hidden bg-cream-200 flex items-center justify-center flex-shrink-0 ring-2 ring-cream-200 active:scale-95 transition-transform"
+                className="w-14 h-14 rounded-2xl overflow-hidden bg-cream-200 flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform cursor-pointer"
+                style={{ boxShadow: '0 0 0 2.5px #E8C9A8, 0 4px 12px rgba(61,43,31,0.12)' }}
               >
                 {activeChild.avatar_url
                   ? <img src={activeChild.avatar_url} alt={activeChild.name} className="w-full h-full object-cover" />
@@ -371,13 +380,15 @@ export function HomePage() {
             <button
               onClick={() => setViewDate(d => subDays(d, 1))}
               aria-label="יום קודם"
-              className="w-8 h-8 rounded-full bg-cream-100 text-brown-600 font-bold flex items-center justify-center active:scale-95 transition-transform text-lg leading-none"
-            >‹</button>
+              className="w-8 h-8 rounded-xl bg-cream-100 flex items-center justify-center active:scale-95 transition-all duration-150 cursor-pointer border border-cream-200"
+            >
+              <ChevronRight size={16} className="text-brown-600" />
+            </button>
             <button
               onClick={() => !isToday && setViewDate(new Date())}
               className={cn(
-                'font-rubik font-medium text-sm px-3 h-8 rounded-full transition-colors min-w-[52px] text-center',
-                isToday ? 'text-brown-600' : 'text-amber-700 bg-amber-50'
+                'font-rubik font-medium text-sm px-3 h-8 rounded-xl transition-colors min-w-[52px] text-center',
+                isToday ? 'text-brown-600' : 'text-amber-700 bg-amber-50 border border-amber-200'
               )}
             >
               {dateLabel}
@@ -386,8 +397,10 @@ export function HomePage() {
               onClick={() => setViewDate(d => addDays(d, 1))}
               disabled={isToday}
               aria-label="יום הבא"
-              className="w-8 h-8 rounded-full bg-cream-100 text-brown-600 font-bold flex items-center justify-center active:scale-95 transition-transform text-lg leading-none disabled:opacity-25"
-            >›</button>
+              className="w-8 h-8 rounded-xl bg-cream-100 flex items-center justify-center active:scale-95 transition-all duration-150 cursor-pointer border border-cream-200 disabled:opacity-25"
+            >
+              <ChevronLeft size={16} className="text-brown-600" />
+            </button>
           </div>
         </div>
 
@@ -466,12 +479,13 @@ export function HomePage() {
               >
                 {/* Drag handle */}
                 <div
-                  className="flex items-center justify-center w-10 flex-shrink-0 bg-white rounded-2xl shadow-card cursor-grab active:cursor-grabbing select-none touch-none"
+                  className="flex items-center justify-center w-10 flex-shrink-0 bg-white rounded-2xl cursor-grab active:cursor-grabbing select-none touch-none border border-cream-200"
+                  style={{ boxShadow: '0 2px 8px rgba(61,43,31,0.07), inset 0 1px 0 rgba(255,255,255,0.9)' }}
                   onTouchStart={(e) => handleTouchHandleStart(e, index)}
                   onTouchMove={handleTouchHandleMove}
                   onTouchEnd={handleTouchHandleEnd}
                 >
-                  <span className="text-brown-300 text-xl leading-none">⠿</span>
+                  <GripVertical size={20} className="text-brown-300" />
                 </div>
                 {/* Card with visibility-based styling */}
                 <div className={cn('flex-1 rounded-3xl ring-2 overflow-hidden transition-opacity', tracker._visible ? 'ring-brown-200 opacity-100' : 'ring-cream-300 opacity-40')}>
@@ -480,9 +494,13 @@ export function HomePage() {
                 {/* Eye toggle */}
                 <button
                   onClick={() => toggleVisible(index)}
-                  className="flex items-center justify-center w-10 flex-shrink-0 bg-white rounded-2xl shadow-card active:scale-95 transition-transform select-none"
+                  className="flex items-center justify-center w-10 flex-shrink-0 bg-white rounded-2xl active:scale-95 transition-all duration-150 select-none cursor-pointer border border-cream-200"
+                  style={{ boxShadow: '0 2px 8px rgba(61,43,31,0.07), inset 0 1px 0 rgba(255,255,255,0.9)' }}
                 >
-                  <span className="text-lg leading-none">{tracker._visible ? '👁️' : '🙈'}</span>
+                  {tracker._visible
+                    ? <Eye size={18} className="text-brown-500" />
+                    : <EyeOff size={18} className="text-brown-300" />
+                  }
                 </button>
               </div>
             ))
@@ -560,8 +578,8 @@ export function HomePage() {
                   alt={identity.memberName}
                   className="w-full h-full object-cover object-top"
                 />
-              : <div className="w-full h-full flex items-center justify-center">
-                  <span className="text-8xl opacity-40">👤</span>
+              : <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-cream-100 to-cream-200">
+                  <User size={80} className="text-brown-200" />
                 </div>
             }
             <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white/95 to-transparent" />
@@ -575,16 +593,21 @@ export function HomePage() {
             <button
               onClick={() => setPhotoSourceOpen(true)}
               disabled={uploadingAvatar}
-              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-cream-100 active:bg-cream-200 transition-colors disabled:opacity-60"
+              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-cream-100 active:bg-cream-200 transition-colors disabled:opacity-60 cursor-pointer border border-cream-200"
+              style={{ boxShadow: '0 2px 8px rgba(61,43,31,0.06)' }}
             >
-              <span className="text-lg">{uploadingAvatar ? '⏳' : '📷'}</span>
+              {uploadingAvatar
+                ? <Loader2 size={18} className="text-brown-500 animate-spin" />
+                : <Camera size={18} className="text-brown-600" />
+              }
               <span className="font-rubik font-medium text-brown-700 text-sm">החלף תמונה</span>
             </button>
             <button
               onClick={() => { setProfileSheetOpen(false); navigate('/profile') }}
-              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[#8B5E3C] active:opacity-90 transition-opacity"
+              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[#8B5E3C] active:opacity-90 transition-opacity cursor-pointer"
+              style={{ boxShadow: '0 4px 14px rgba(139,94,60,0.30)' }}
             >
-              <span className="text-lg">👤</span>
+              <User size={18} className="text-white" />
               <span className="font-rubik font-medium text-white text-sm">גש לפרופיל</span>
             </button>
           </div>
@@ -610,7 +633,7 @@ export function HomePage() {
           <div className="relative w-full h-72 bg-gradient-to-br from-amber-50 to-cream-200">
             {activeChild?.avatar_url
               ? <img src={activeChild.avatar_url} alt={activeChild.name} className="w-full h-full object-cover object-center" />
-              : <div className="w-full h-full flex items-center justify-center">
+              : <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-50 to-cream-200">
                   <span className="text-8xl opacity-30">👶</span>
                 </div>
             }
@@ -627,20 +650,22 @@ export function HomePage() {
             {children.length > 1 && (
               <button
                 onClick={() => { setChildDetailOpen(false); setTimeout(() => setChildPickerOpen(true), 80) }}
-                className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-cream-100 active:bg-cream-200 transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-cream-100 active:bg-cream-200 transition-colors cursor-pointer border border-cream-200"
+                style={{ boxShadow: '0 2px 8px rgba(61,43,31,0.06)' }}
               >
-                <span className="text-lg">🔄</span>
+                <RefreshCw size={17} className="text-brown-600" />
                 <span className="font-rubik font-medium text-brown-700 text-sm">החלף ילד</span>
               </button>
             )}
             <button
               onClick={() => { setChildDetailOpen(false); setTimeout(() => setChildEditOpen(true), 80) }}
               className={cn(
-                'flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[#8B5E3C] active:opacity-90 transition-opacity',
+                'flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[#8B5E3C] active:opacity-90 transition-opacity cursor-pointer',
                 children.length > 1 ? 'flex-1' : 'w-full'
               )}
+              style={{ boxShadow: '0 4px 14px rgba(139,94,60,0.30)' }}
             >
-              <span className="text-lg">✏️</span>
+              <Pencil size={17} className="text-white" />
               <span className="font-rubik font-medium text-white text-sm">ערוך פרופיל</span>
             </button>
           </div>
@@ -663,13 +688,25 @@ export function HomePage() {
 
       {/* Notifications bottom sheet */}
       <BottomSheet isOpen={bellOpen} onClose={() => setBellOpen(false)} title={t('notifications.title')}>
-        <div className="space-y-1 pb-2" dir="rtl">
+        <div className="space-y-2 pb-2" dir="rtl">
           {notifications.length === 0 ? (
-            <p className="text-center text-brown-400 font-rubik text-sm py-8">{t('notifications.noNotifications')}</p>
+            <div className="flex flex-col items-center py-10 gap-3">
+              <div
+                className="w-16 h-16 rounded-3xl bg-cream-100 border border-cream-200 flex items-center justify-center"
+                style={{ boxShadow: '0 2px 10px rgba(61,43,31,0.06)' }}
+              >
+                <Bell size={28} className="text-brown-300" />
+              </div>
+              <p className="text-center text-brown-400 font-rubik text-sm">{t('notifications.noNotifications')}</p>
+            </div>
           ) : (
             <>
               {notifications.slice(0, 10).map(n => (
-                <div key={n.id} className="flex items-start gap-3 px-1 py-2.5 border-b border-cream-100 last:border-0">
+                <div
+                  key={n.id}
+                  className="flex items-start gap-3 px-3 py-3 rounded-2xl bg-white border border-cream-200"
+                  style={{ boxShadow: '0 2px 8px rgba(61,43,31,0.05), inset 0 1px 0 rgba(255,255,255,0.95)' }}
+                >
                   <span className="text-xl flex-shrink-0 mt-0.5">{n.emoji}</span>
                   <div className="flex-1 min-w-0">
                     <p className="font-rubik text-sm text-brown-700 leading-snug">{n.message}</p>
@@ -680,9 +717,10 @@ export function HomePage() {
               {notifications.length > 10 && (
                 <button
                   onClick={() => { setBellOpen(false); navigate('/history') }}
-                  className="w-full pt-3 text-center font-rubik text-sm font-semibold text-brown-500 active:opacity-70"
+                  className="w-full pt-3 pb-1 flex items-center justify-center gap-1.5 font-rubik text-sm font-semibold text-brown-500 active:opacity-70 cursor-pointer"
                 >
-                  {t('notifications.showAll')} ›
+                  {t('notifications.showAll')}
+                  <ChevronLeft size={14} className="text-brown-400" />
                 </button>
               )}
             </>
