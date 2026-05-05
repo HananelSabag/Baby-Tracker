@@ -152,8 +152,13 @@ export function AdminPage() {
     ? [...families].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     : families
 
+  // last_seen_at (realtime app activity) is more accurate than last_sign_in (only on re-auth)
+  function bestLastSeen(u) {
+    return u.member?.last_seen_at ?? u.last_sign_in ?? null
+  }
+
   const filteredUsers = users.filter(u => {
-    if (userFilter === 'active')    return u.last_sign_in && (Date.now() - new Date(u.last_sign_in)) / 86_400_000 < 7
+    if (userFilter === 'active')    return bestLastSeen(u) && (Date.now() - new Date(bestLastSeen(u))) / 86_400_000 < 7
     if (userFilter === 'no-family') return !u.member
     return true
   })
@@ -329,8 +334,9 @@ export function AdminPage() {
                 {filteredUsers.map(u => {
                   const isHighlighted = u.id === highlightedUserId
                   const initial = (u.email?.[0] ?? '?').toUpperCase()
-                  const dot = activityDot(u.last_sign_in)
-                  const timeClass = activityTextClass(u.last_sign_in)
+                  const lastSeen = bestLastSeen(u)
+                  const dot = activityDot(lastSeen)
+                  const timeClass = activityTextClass(lastSeen)
 
                   return (
                     <div
@@ -361,7 +367,7 @@ export function AdminPage() {
                         )}
                         <p className="font-rubik text-brown-300 text-xs truncate mt-0.5">{u.email}</p>
                         <p className={`font-rubik text-[11px] mt-0.5 ${timeClass}`}>
-                          {u.last_sign_in ? `נכנס לפני ${timeAgo(u.last_sign_in)}` : 'מעולם לא נכנס'}
+                          {lastSeen ? `פעיל לפני ${timeAgo(lastSeen)}` : 'מעולם לא נכנס'}
                         </p>
                       </div>
 
