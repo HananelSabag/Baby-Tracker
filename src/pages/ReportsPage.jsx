@@ -16,6 +16,7 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, ReferenceLine, Cell,
 } from 'recharts'
+import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, BarChart2 } from 'lucide-react'
 import { Spinner } from '../components/ui/Spinner'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import {
@@ -267,8 +268,11 @@ export function ReportsPage() {
       <div className="flex items-center justify-between">
         <h1 className="font-rubik font-bold text-2xl text-brown-800">{t('reports.title')}</h1>
         {activeChild?.birth_date && (
-          <div className="bg-cream-100 rounded-full px-3 py-1">
-            <p className="font-rubik text-brown-500 text-xs font-medium">
+          <div
+            className="bg-white rounded-xl px-3 py-1.5 border border-cream-200"
+            style={{ boxShadow: '0 2px 8px rgba(61,43,31,0.06), inset 0 1px 0 rgba(255,255,255,0.9)' }}
+          >
+            <p className="font-rubik text-brown-600 text-xs font-semibold">
               {activeChild.name} · {formatAge(activeChild.birth_date)}
             </p>
           </div>
@@ -276,11 +280,16 @@ export function ReportsPage() {
       </div>
 
       {/* Week navigator */}
-      <div className="flex items-center gap-2 bg-white rounded-2xl shadow-soft px-3 py-3">
+      <div
+        className="flex items-center gap-2 bg-white rounded-2xl px-3 py-3 border border-cream-200"
+        style={{ boxShadow: '0 4px 16px rgba(61,43,31,0.07), inset 0 1px 0 rgba(255,255,255,0.95)' }}
+      >
         <button
           onClick={() => setWeekOffset(w => w - 1)}
-          className="w-9 h-9 rounded-full bg-cream-100 flex items-center justify-center text-brown-600 text-xl font-bold active:scale-95 transition-transform flex-shrink-0"
-        >‹</button>
+          className="w-9 h-9 rounded-xl bg-cream-100 border border-cream-200 flex items-center justify-center text-brown-600 active:scale-95 transition-transform flex-shrink-0"
+        >
+          <ChevronRight size={18} />
+        </button>
         <div className="flex-1 text-center">
           <p className="font-rubik font-bold text-brown-800 text-sm">{weekLabel}</p>
           <p className="font-rubik text-brown-400 text-xs mt-0.5">{weekContext}</p>
@@ -288,15 +297,22 @@ export function ReportsPage() {
         <button
           onClick={() => setWeekOffset(w => Math.min(0, w + 1))}
           disabled={weekOffset === 0}
-          className="w-9 h-9 rounded-full bg-cream-100 flex items-center justify-center text-brown-600 text-xl font-bold active:scale-95 transition-transform disabled:opacity-25 flex-shrink-0"
-        >›</button>
+          className="w-9 h-9 rounded-xl bg-cream-100 border border-cream-200 flex items-center justify-center text-brown-600 active:scale-95 transition-transform disabled:opacity-25 flex-shrink-0"
+        >
+          <ChevronLeft size={18} />
+        </button>
       </div>
 
       {loading ? (
         <div className="flex justify-center py-12"><Spinner size="lg" /></div>
       ) : activeTrackers.length === 0 ? (
         <div className="text-center py-16">
-          <div className="text-5xl mb-3">📊</div>
+          <div
+            className="w-16 h-16 rounded-2xl bg-cream-100 border border-cream-200 flex items-center justify-center mx-auto mb-3"
+            style={{ boxShadow: '0 4px 16px rgba(61,43,31,0.07), inset 0 1px 0 rgba(255,255,255,0.9)' }}
+          >
+            <BarChart2 size={28} className="text-brown-400" />
+          </div>
           <p className="font-rubik font-semibold text-brown-600">{t('reports.noData')}</p>
         </div>
       ) : (
@@ -394,7 +410,8 @@ function FeedingHeroCard({ tracker, events, prevEvents, weekDays, elapsedDays, w
   return (
     <button
       onClick={onClick}
-      className="w-full bg-white rounded-3xl shadow-soft overflow-hidden text-right active:scale-[0.98] transition-transform"
+      className="w-full bg-white rounded-3xl overflow-hidden text-right active:scale-[0.98] transition-transform border border-cream-200"
+      style={{ boxShadow: '0 6px 24px rgba(61,43,31,0.09), inset 0 1px 0 rgba(255,255,255,0.95)' }}
     >
       <div className="h-1.5" style={{ backgroundColor: tracker.color }} />
       <div className="p-4">
@@ -405,14 +422,21 @@ function FeedingHeroCard({ tracker, events, prevEvents, weekDays, elapsedDays, w
             <span className="text-2xl">{tracker.icon}</span>
             <div>
               <p className="font-rubik font-bold text-brown-800 text-base leading-tight">{tracker.name}</p>
-              <p className="font-rubik text-brown-300 text-[11px]">הקש לפרטים מלאים ›</p>
+              <div className="flex items-center gap-0.5">
+                <p className="font-rubik text-brown-300 text-[11px]">הקש לפרטים מלאים</p>
+                <ChevronLeft size={11} className="text-brown-300" />
+              </div>
             </div>
           </div>
           {delta && delta.pct !== 0 && (
-            <div className="rounded-full px-2.5 py-1 flex-shrink-0" style={{ backgroundColor: deltaBg }}>
-              <p className="font-rubik font-bold text-xs" style={{ color: deltaColor }}>
-                {delta.dir === 'up' ? '▲' : delta.dir === 'down' ? '▼' : '—'} {delta.text}
-              </p>
+            <div className="rounded-xl px-2.5 py-1.5 flex-shrink-0 flex items-center gap-1" style={{ backgroundColor: deltaBg }}>
+              {delta.dir === 'up'
+                ? <TrendingUp size={12} style={{ color: deltaColor }} />
+                : delta.dir === 'down'
+                  ? <TrendingDown size={12} style={{ color: deltaColor }} />
+                  : null
+              }
+              <p className="font-rubik font-bold text-xs" style={{ color: deltaColor }}>{delta.text}</p>
             </div>
           )}
         </div>
@@ -496,11 +520,16 @@ function FeedingHeroCard({ tracker, events, prevEvents, weekDays, elapsedDays, w
 // ── Delta pill (compact, muted — going up isn't always good) ─────────────────
 function DeltaPill({ delta, className = '' }) {
   if (!delta) return null
-  const arrow = delta.dir === 'up' ? '▲' : delta.dir === 'down' ? '▼' : '—'
   return (
-    <p className={`font-rubik text-brown-500 text-[11px] mt-1 leading-tight ${className}`}>
-      <span className="font-bold">{arrow}</span> {delta.text}
-    </p>
+    <div className={`flex items-center gap-1 mt-1 ${className}`}>
+      {delta.dir === 'up'
+        ? <TrendingUp size={11} className="text-brown-500 flex-shrink-0" />
+        : delta.dir === 'down'
+          ? <TrendingDown size={11} className="text-brown-500 flex-shrink-0" />
+          : null
+      }
+      <p className="font-rubik text-brown-500 text-[11px] leading-tight">{delta.text}</p>
+    </div>
   )
 }
 
@@ -509,13 +538,14 @@ function TrackerTile({ tracker, summary, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="bg-white rounded-2xl shadow-soft overflow-hidden text-right active:scale-[0.97] transition-transform w-full"
+      className="bg-white rounded-2xl overflow-hidden text-right active:scale-[0.97] transition-transform w-full border border-cream-200"
+      style={{ boxShadow: '0 4px 16px rgba(61,43,31,0.07), inset 0 1px 0 rgba(255,255,255,0.95)' }}
     >
       <div className="h-1.5" style={{ backgroundColor: tracker.color }} />
       <div className="p-3.5">
         <div className="flex items-center justify-between mb-2.5">
           <span className="text-2xl">{tracker.icon}</span>
-          <span className="text-brown-200 text-base">›</span>
+          <ChevronLeft size={16} className="text-brown-300" />
         </div>
         <p className="font-rubik text-brown-400 text-[11px] truncate mb-0.5">{tracker.name}</p>
         <p className="font-rubik font-bold text-2xl text-brown-800 leading-none">{summary.value}</p>
@@ -591,9 +621,12 @@ function ComparisonBanner({ tracker, thisValue, prevValue, unit, weekOffset, ela
           <p className="font-rubik text-[11px] text-brown-400">{displayUnit}</p>
         </div>
         <div className="flex flex-col items-center gap-0.5 px-1 flex-shrink-0">
-          <p className="font-rubik font-bold text-base" style={{ color: arrowColor }}>
-            {delta.dir === 'up' ? '▲' : delta.dir === 'down' ? '▼' : '—'}
-          </p>
+          {delta.dir === 'up'
+            ? <TrendingUp size={20} style={{ color: arrowColor }} />
+            : delta.dir === 'down'
+              ? <TrendingDown size={20} style={{ color: arrowColor }} />
+              : <span className="font-rubik font-bold text-base" style={{ color: arrowColor }}>—</span>
+          }
           {delta.pct !== null && delta.pct !== 0 && (
             <p className="font-rubik text-xs font-semibold" style={{ color: arrowColor }}>
               {Math.abs(delta.pct)}%
@@ -907,7 +940,10 @@ function PercentileMeter({ percentile }) {
 function MetricCard({ icon, label, value, unit, pLabel }) {
   if (value == null) return null
   return (
-    <div className="flex-1 bg-white rounded-2xl p-3 shadow-soft min-w-0">
+    <div
+      className="flex-1 bg-white rounded-2xl p-3 min-w-0 border border-cream-200"
+      style={{ boxShadow: '0 4px 16px rgba(61,43,31,0.07), inset 0 1px 0 rgba(255,255,255,0.95)' }}
+    >
       <div className="flex items-center gap-1 mb-1">
         <span className="text-sm">{icon}</span>
         <p className="font-rubik text-xs text-brown-400 truncate">{label}</p>
@@ -948,7 +984,10 @@ function CombinedPercentileChart({ measurements, gender, hasHead, childName }) {
   if (data.length < 2) return null
 
   return (
-    <div className="bg-white rounded-2xl p-3 shadow-soft">
+    <div
+      className="bg-white rounded-2xl p-3 border border-cream-200"
+      style={{ boxShadow: '0 4px 16px rgba(61,43,31,0.07), inset 0 1px 0 rgba(255,255,255,0.95)' }}
+    >
       <p className="font-rubik font-semibold text-brown-600 text-xs mb-3 text-center">גרף אחוזונים משולב</p>
       <ResponsiveContainer width="100%" height={200}>
         <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 16 }}>
@@ -1358,7 +1397,10 @@ function TimeOfDayBreakdown({ events, color, title = 'מתי קרה השבוע' 
 // ── Small stat card ──────────────────────────────────────────────────────────
 function MiniStat({ label, value }) {
   return (
-    <div className="bg-cream-100 rounded-2xl px-3 py-2.5 text-center">
+    <div
+      className="bg-white rounded-2xl px-3 py-2.5 text-center border border-cream-200"
+      style={{ boxShadow: '0 2px 10px rgba(61,43,31,0.05), inset 0 1px 0 rgba(255,255,255,0.9)' }}
+    >
       <p className="font-rubik font-bold text-xl text-brown-800 leading-none">{value}</p>
       <p className="font-rubik text-brown-400 text-xs mt-0.5">{label}</p>
     </div>
