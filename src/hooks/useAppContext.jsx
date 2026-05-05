@@ -56,6 +56,12 @@ export function AppProvider({ children }) {
         memberName: identity.memberName,
         memberAvatarUrl: localStorage.getItem(AVATAR_KEY) ?? null,
       })
+      // Session is confirmed — stamp last_seen_at immediately
+      supabase
+        .from('family_members')
+        .update({ last_seen_at: new Date().toISOString() })
+        .eq('id', identity.memberId)
+        .then(() => {})
       return
     }
 
@@ -76,6 +82,12 @@ export function AppProvider({ children }) {
         setFamilyData(resolved)
         if (customAvatar) localStorage.setItem(AVATAR_KEY, customAvatar)
         else localStorage.removeItem(AVATAR_KEY)
+        // Session is confirmed — stamp last_seen_at
+        supabase
+          .from('family_members')
+          .update({ last_seen_at: new Date().toISOString() })
+          .eq('id', memberRecord.id)
+          .then(() => {})
       }
       setFamilyLoading(false)
     })
