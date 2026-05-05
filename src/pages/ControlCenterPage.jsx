@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { Settings2, Pencil, Trash2, Plus, LayoutGrid, List } from 'lucide-react'
 import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
@@ -53,8 +54,9 @@ function TrackersTab({ familyId, openAdd }) {
       {/* Header + add button — always at top, never fixed */}
       <div className="flex items-center justify-between pt-6 mb-4">
         <h1 className="font-rubik font-bold text-2xl text-brown-800 leading-tight">המעקבים שלי</h1>
-        <Button onClick={() => setAddSheetOpen(true)} className="shadow-soft text-sm px-4 py-2">
-          + {t('settings.addTracker')}
+        <Button onClick={() => setAddSheetOpen(true)} className="shadow-soft text-sm px-4 py-2 flex items-center gap-1.5">
+          <Plus size={15} />
+          {t('settings.addTracker')}
         </Button>
       </div>
 
@@ -64,18 +66,28 @@ function TrackersTab({ familyId, openAdd }) {
           const isDose = tr.tracker_type === 'vitamin_d' || tr.tracker_type === 'dose'
 
           return (
-            <div key={tr.id} className="bg-white rounded-2xl shadow-soft overflow-hidden">
+            <div
+              key={tr.id}
+              className="bg-white rounded-2xl overflow-hidden border border-cream-200"
+              style={{ boxShadow: '0 4px 16px rgba(61,43,31,0.07), inset 0 1px 0 rgba(255,255,255,0.95)' }}
+            >
+              {/* Tracker color accent strip */}
               <div className="h-1 w-full" style={{ backgroundColor: tr.color }} />
 
               {/* Main row */}
               <div className="px-4 py-3 flex items-center gap-3">
-                <span className="text-2xl flex-shrink-0">{tr.icon}</span>
+                <div
+                  className="w-11 h-11 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0"
+                  style={{ backgroundColor: `${tr.color}20`, boxShadow: `inset 0 1px 0 rgba(255,255,255,0.7)` }}
+                >
+                  {tr.icon}
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-rubik font-medium text-brown-800">{tr.name}</p>
+                    <p className="font-rubik font-semibold text-brown-800">{tr.name}</p>
                     <span className={cn(
-                      'text-xs font-rubik px-2 py-0.5 rounded-full flex-shrink-0',
-                      isDefault ? 'bg-cream-200 text-brown-400' : 'bg-amber-50 text-amber-700'
+                      'text-[11px] font-rubik px-2 py-0.5 rounded-lg flex-shrink-0',
+                      isDefault ? 'bg-cream-100 text-brown-400' : 'bg-amber-50 text-amber-700'
                     )}>
                       {isDefault ? 'ברירת מחדל' : 'מותאם אישית'}
                     </span>
@@ -87,27 +99,33 @@ function TrackersTab({ familyId, openAdd }) {
               </div>
 
               {/* Action row */}
-              <div className="px-4 pb-3 flex items-center gap-2 border-t border-cream-100 pt-2 flex-wrap">
+              <div className="px-3 pb-3 pt-1 flex items-center gap-2 border-t border-cream-100 flex-wrap">
                 {isDose && (
                   <button
                     onClick={() => setEditTarget(tr)}
-                    className="flex items-center gap-1 text-xs font-rubik text-brown-500 bg-cream-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
+                    className="flex items-center gap-1.5 text-xs font-rubik font-semibold text-brown-600 bg-cream-100 px-3 py-2 rounded-xl cursor-pointer active:scale-95 transition-all duration-150 min-h-[36px]"
+                    style={{ boxShadow: '0 1px 4px rgba(61,43,31,0.06)' }}
                   >
-                    ⚙️ {t('settings.dosesButton')}
+                    <Settings2 size={13} />
+                    {t('settings.dosesButton')}
                   </button>
                 )}
                 <button
                   onClick={() => setEditTrackerTarget(tr)}
-                  className="flex items-center gap-1 text-xs font-rubik text-brown-500 bg-cream-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
+                  className="flex items-center gap-1.5 text-xs font-rubik font-semibold text-brown-600 bg-cream-100 px-3 py-2 rounded-xl cursor-pointer active:scale-95 transition-all duration-150 min-h-[36px]"
+                  style={{ boxShadow: '0 1px 4px rgba(61,43,31,0.06)' }}
                 >
-                  ✏️ {t('common.edit')}
+                  <Pencil size={13} />
+                  {t('common.edit')}
                 </button>
                 {!isDefault ? (
                   <button
                     onClick={() => setDeleteTarget(tr.id)}
-                    className="flex items-center gap-1 text-xs font-rubik text-red-400 bg-red-50 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
+                    className="flex items-center gap-1.5 text-xs font-rubik font-semibold text-red-400 bg-red-50 px-3 py-2 rounded-xl cursor-pointer active:scale-95 transition-all duration-150 min-h-[36px]"
+                    style={{ boxShadow: '0 1px 4px rgba(239,68,68,0.06)' }}
                   >
-                    🗑 {t('common.delete')}
+                    <Trash2 size={13} />
+                    {t('common.delete')}
                   </button>
                 ) : (
                   <span className="text-xs font-rubik text-brown-300 mr-auto">לא ניתן למחיקה</span>
@@ -120,9 +138,14 @@ function TrackersTab({ familyId, openAdd }) {
         {sorted.length === 0 && (
           <button
             onClick={() => setAddSheetOpen(true)}
-            className="w-full py-8 rounded-3xl border-2 border-dashed border-cream-300 text-brown-400 font-rubik text-sm active:scale-95 transition-transform"
+            className="w-full py-10 rounded-3xl border-2 border-dashed border-cream-300 text-brown-400 font-rubik text-sm cursor-pointer active:scale-95 transition-transform flex flex-col items-center gap-3"
           >
-            <div className="text-3xl mb-1">➕</div>
+            <div
+              className="w-14 h-14 rounded-2xl bg-cream-100 flex items-center justify-center border border-cream-200"
+              style={{ boxShadow: '0 2px 10px rgba(61,43,31,0.06)' }}
+            >
+              <Plus size={22} className="text-brown-400" />
+            </div>
             {t('settings.addTracker')}
           </button>
         )}
@@ -516,17 +539,19 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => handleSave('buttons')}
-                className="flex flex-col items-center gap-3 py-6 px-3 rounded-3xl border-2 border-cream-300 bg-white transition-all active:scale-95 hover:border-brown-400"
+                className="flex flex-col items-center gap-3 py-6 px-3 rounded-3xl border-2 border-cream-300 bg-white transition-all active:scale-95 cursor-pointer"
+                style={{ boxShadow: '0 2px 10px rgba(61,43,31,0.06)' }}
               >
-                <span className="text-3xl">🟦🟦</span>
+                <LayoutGrid size={32} className="text-brown-500" />
                 <span className="font-rubik font-bold text-brown-800 text-sm">{t('settings.displayModeButtons')}</span>
                 <span className="font-rubik text-brown-400 text-xs text-center leading-tight">{t('settings.displayModeButtonsDesc')}</span>
               </button>
               <button
                 onClick={() => handleSave('simple')}
-                className="flex flex-col items-center gap-3 py-6 px-3 rounded-3xl border-2 border-cream-300 bg-white transition-all active:scale-95 hover:border-brown-400"
+                className="flex flex-col items-center gap-3 py-6 px-3 rounded-3xl border-2 border-cream-300 bg-white transition-all active:scale-95 cursor-pointer"
+                style={{ boxShadow: '0 2px 10px rgba(61,43,31,0.06)' }}
               >
-                <span className="text-3xl">➕</span>
+                <List size={32} className="text-brown-500" />
                 <span className="font-rubik font-bold text-brown-800 text-sm">{t('settings.displayModeSimple')}</span>
                 <span className="font-rubik text-brown-400 text-xs text-center leading-tight">{t('settings.displayModeSimpleDesc')}</span>
               </button>
