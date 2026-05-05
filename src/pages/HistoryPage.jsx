@@ -3,7 +3,7 @@ import { format, subDays, startOfDay, endOfDay, isSameDay, differenceInCalendarD
 import { he } from 'date-fns/locale'
 import {
   Search, ChevronDown, ChevronUp, X,
-  CalendarDays, SlidersHorizontal, Trash2, Filter,
+  CalendarDays, Trash2, Filter, Pencil,
 } from 'lucide-react'
 import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
@@ -330,57 +330,30 @@ export function HistoryPage() {
             const monthName = format(dateObj, 'MMMM', { locale: he })
 
             return (
-              <div key={dateKey} id={`day-${dateKey}`} className="pt-4 first:pt-0">
+              <div key={dateKey} id={`day-${dateKey}`} className="pt-5 first:pt-0">
 
-                {/* ── Day header — dramatic gradient ── */}
-                <div
-                  className="flex items-center justify-between px-4 py-3.5 rounded-2xl mb-3"
-                  style={
-                    isToday
-                      ? {
-                          background: 'linear-gradient(135deg, #3D2B1F 0%, #8B5E3C 100%)',
-                          boxShadow: '0 6px 20px rgba(61,43,31,0.22), inset 0 1px 0 rgba(255,255,255,0.10)',
-                        }
-                      : isYesterday
-                        ? {
-                            background: 'linear-gradient(135deg, #F5E6D3 0%, #E8C9A8 100%)',
-                            border: '1px solid #D6C4B0',
-                            boxShadow: '0 2px 8px rgba(61,43,31,0.07), inset 0 1px 0 rgba(255,255,255,0.6)',
-                          }
-                        : {
-                            background: '#FFFAF5',
-                            border: '1px solid #EDD9C0',
-                            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8)',
-                          }
-                  }
-                >
-                  <div className="flex items-center gap-3">
-                    {/* Big date number */}
-                    <div className={isToday ? 'text-white' : 'text-brown-700'}>
-                      <span className="font-rubik font-black text-3xl leading-none block">{dayNum}</span>
-                      <span className="font-rubik font-semibold text-[10px] uppercase tracking-wider block opacity-70 -mt-0.5">{monthName}</span>
-                    </div>
-                    {/* Label + day name */}
-                    <div>
-                      <span className={`font-rubik font-bold text-sm leading-tight block ${isToday ? 'text-white' : 'text-brown-800'}`}>
-                        {dayLabel}
-                      </span>
-                      <span className={`font-rubik text-xs leading-tight block mt-0.5 ${isToday ? 'text-white/65' : 'text-brown-400'}`}>
-                        {dayName}
-                      </span>
-                    </div>
-                  </div>
-                  {/* Event count badge */}
-                  <div
-                    className={`font-rubik font-black text-sm px-3 py-1.5 rounded-xl min-w-[32px] text-center ${
-                      isToday ? 'bg-white/20 text-white' : 'bg-white/70 text-brown-700'
-                    }`}
-                  >
+                {/* ── Day separator ── */}
+                <div className="flex items-center gap-2.5 mb-3">
+                  {isToday && (
+                    <span className="font-rubik font-bold text-[11px] px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 flex-shrink-0 leading-5">
+                      היום
+                    </span>
+                  )}
+                  {isYesterday && (
+                    <span className="font-rubik font-bold text-[11px] px-2 py-0.5 rounded-md bg-cream-200 text-brown-600 flex-shrink-0 leading-5">
+                      אתמול
+                    </span>
+                  )}
+                  <span className="font-rubik text-brown-700 font-semibold text-sm flex-shrink-0">
+                    {dayName}, {dayNum} {monthName}
+                  </span>
+                  <div className="flex-1 h-px bg-cream-200" />
+                  <span className="font-rubik text-brown-400 text-xs flex-shrink-0">
                     {dayEvents.length}
-                  </div>
+                  </span>
                 </div>
 
-                {/* ── Event cards — bento 2-col grid ── */}
+                {/* ── Event cards — 2-col grid ── */}
                 <div className="grid grid-cols-2 gap-2.5">
                   {dayEvents.map(event => {
                     const summary = formatEventSummary(event)
@@ -392,34 +365,32 @@ export function HistoryPage() {
                         className="bg-white rounded-2xl flex flex-col cursor-pointer active:scale-[0.97] transition-all duration-150 select-none overflow-hidden"
                         style={{
                           border: '1px solid #EDD9C0',
-                          borderLeft: `3.5px solid ${color}`,
-                          boxShadow: '0 4px 16px rgba(61,43,31,0.07), inset 0 1px 0 rgba(255,255,255,0.95)',
+                          borderLeft: `3px solid ${color}`,
+                          boxShadow: '0 2px 10px rgba(61,43,31,0.06), inset 0 1px 0 rgba(255,255,255,0.95)',
                         }}
                       >
-                        {/* Tracker header row */}
-                        <div className="flex items-center gap-2 px-3 pt-3 pb-1">
+                        {/* Tracker header + pencil affordance */}
+                        <div className="flex items-center gap-1.5 px-3 pt-3 pb-1">
                           <div
-                            className="w-6 h-6 rounded-lg flex items-center justify-center text-sm flex-shrink-0"
-                            style={{ backgroundColor: `${color}22` }}
+                            className="w-5 h-5 rounded-md flex items-center justify-center text-xs flex-shrink-0"
+                            style={{ backgroundColor: `${color}1A` }}
                           >
                             {event.tracker?.icon}
                           </div>
-                          <span className="font-rubik text-brown-500 text-xs font-semibold truncate leading-none">
+                          <span className="font-rubik text-brown-500 text-[11px] font-semibold flex-1 truncate leading-none">
                             {event.tracker?.name}
                           </span>
+                          <Pencil size={10} className="text-brown-300 flex-shrink-0" />
                         </div>
 
-                        {/* Time — hero */}
-                        <p className="font-rubik font-black text-2xl text-brown-800 leading-none px-3 pb-1">
+                        {/* Time */}
+                        <p className="font-rubik font-bold text-lg text-brown-800 leading-none px-3 pb-1">
                           {formatTime(event.occurred_at)}
                         </p>
 
-                        {/* Summary — in tracker color */}
+                        {/* Summary — neutral color */}
                         {summary ? (
-                          <p
-                            className="font-rubik text-sm font-bold px-3 pb-2 leading-snug"
-                            style={{ color }}
-                          >
+                          <p className="font-rubik text-xs font-medium text-brown-500 px-3 pb-2 leading-snug">
                             {summary}
                           </p>
                         ) : <div className="pb-1" />}
