@@ -4,6 +4,7 @@ import { TRACKER_TYPES } from '../../lib/constants'
 import { formatTime, formatTimeAgo, cn } from '../../lib/utils'
 import { ageInMonths, getWeightPercentileLabel, getHeightPercentileLabel } from '../../lib/whoGrowthData'
 import { supabase } from '../../lib/supabase'
+import { BarChart2 } from 'lucide-react'
 
 const DOSE_EMOJIS = ['☀️', '🌅', '🌙', '⭐']
 
@@ -90,8 +91,8 @@ function DoseChip({ tracker, events, familyId, memberId, childId, isToday }) {
 
   return (
     <div
-      className="rounded-2xl px-2.5 py-2 flex-shrink-0"
-      style={{ backgroundColor: `${tracker.color}18` }}
+      className="rounded-2xl px-2.5 py-2 flex-shrink-0 border"
+      style={{ backgroundColor: `${tracker.color}12`, borderColor: `${tracker.color}25` }}
     >
       <div className="flex items-center gap-1.5 mb-1">
         <span className="text-base">{tracker.icon}</span>
@@ -108,15 +109,16 @@ function DoseChip({ tracker, events, familyId, memberId, childId, isToday }) {
               key={i}
               onClick={() => handleDoseTap(i)}
               disabled={isPending || !isToday}
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all active:scale-90 disabled:opacity-50"
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-sm transition-all active:scale-90 disabled:opacity-50"
               style={{
-                backgroundColor: isDone ? tracker.color : `${tracker.color}25`,
-                border: `1.5px solid ${isDone ? tracker.color : `${tracker.color}40`}`,
+                backgroundColor: isDone ? tracker.color : `${tracker.color}20`,
+                border: `1.5px solid ${isDone ? tracker.color : `${tracker.color}35`}`,
                 borderStyle: (!isDone && isToday) ? 'dashed' : 'solid',
+                boxShadow: isDone ? `0 2px 6px ${tracker.color}40` : 'none',
               }}
               title={doseLabels[i] ?? `מינון ${i + 1}`}
             >
-              {isPending ? '⏳' : isDone ? '✓' : (DOSE_EMOJIS[i] ?? '💊')}
+              {isPending ? '⌛' : isDone ? '✓' : (DOSE_EMOJIS[i] ?? '💊')}
             </button>
           )
         })}
@@ -194,8 +196,8 @@ function StaticChip({ tracker, events, now, child }) {
 
   return (
     <div
-      className="flex items-center gap-1.5 rounded-2xl px-2.5 py-2"
-      style={{ backgroundColor: `${tracker.color}18` }}
+      className="flex items-center gap-1.5 rounded-2xl px-2.5 py-2 border"
+      style={{ backgroundColor: `${tracker.color}12`, borderColor: `${tracker.color}25` }}
     >
       <span className="text-base flex-shrink-0">{tracker.icon}</span>
       <div className="min-w-0">
@@ -235,7 +237,7 @@ function SmartStatusLine({ trackers, eventsByTracker, now }) {
 
   if (lines.length === 0) return null
   return (
-    <div className="px-4 pb-3 pt-2 border-t border-cream-100 flex flex-col gap-1">
+    <div className="px-4 pb-3.5 pt-2.5 border-t border-cream-100 flex flex-col gap-1.5">
       {lines}
     </div>
   )
@@ -289,14 +291,17 @@ export function HeroCard({ trackers, eventsByTracker, isToday, child, familyId, 
   }, [anySleeping])
 
   return (
-    <div className="bg-white rounded-3xl shadow-card overflow-hidden mb-3">
+    <div className="bg-white rounded-3xl overflow-hidden mb-3 border border-cream-200" style={{ boxShadow: '0 6px 24px rgba(61,43,31,0.09), inset 0 1px 0 rgba(255,255,255,0.95)' }}>
 
       {/* Header with feeding summary */}
       <div className="px-4 pt-4 pb-4" style={{ background: 'linear-gradient(145deg, #FFFBF5 0%, #FFF3E0 100%)' }}>
-        <p className="font-rubik font-bold text-brown-600 text-sm mb-3">📊 סיכום היום</p>
+        <div className="flex items-center gap-1.5 mb-3">
+          <BarChart2 size={15} className="text-brown-500" />
+          <p className="font-rubik font-bold text-brown-600 text-sm">סיכום היום</p>
+        </div>
 
         {feedingTracker ? (
-          <div className="rounded-2xl px-4 py-3" style={{ backgroundColor: `${feedingTracker.color}18` }}>
+          <div className="rounded-2xl px-4 py-3" style={{ backgroundColor: `${feedingTracker.color}15`, boxShadow: `inset 0 1px 0 rgba(255,255,255,0.6)` }}>
             {displayFeeding ? (
               <div className="flex items-center justify-between">
                 <div>
@@ -340,7 +345,7 @@ export function HeroCard({ trackers, eventsByTracker, isToday, child, familyId, 
 
       {/* Chips row — dose trackers are interactive, others are static */}
       {otherTrackers.length > 0 && (
-        <div className="px-4 py-3 border-t border-cream-100 flex flex-wrap gap-2">
+        <div className="px-4 py-3.5 border-t border-cream-100 flex flex-wrap gap-2.5">
           {otherTrackers.map(tr =>
             isDoseTracker(tr) ? (
               <DoseChip
