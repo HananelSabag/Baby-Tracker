@@ -17,6 +17,7 @@ import { PushPromoPopup } from './components/PushPromoPopup'
 import { PrivacyPage } from './pages/PrivacyPage'
 import { FamilyPage } from './pages/FamilyPage'
 import { AccessibilityPage } from './pages/AccessibilityPage'
+import { AlbumPage } from './pages/AlbumPage'
 
 function AppRoutes() {
   const { user, identity, isAuthLoading, isSetupDone } = useApp()
@@ -47,6 +48,7 @@ function AppRoutes() {
         <Route path="/family" element={<FamilyPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/accessibility" element={<AccessibilityPage />} />
+        <Route path="/album" element={<AlbumPage />} />
         {isAdmin && <Route path="/admin" element={<AdminPage />} />}
         {/* Fallback to home */}
         <Route path="*" element={<HomePage />} />
