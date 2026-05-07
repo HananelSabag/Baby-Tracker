@@ -10,10 +10,11 @@ import { BottomSheet } from './BottomSheet'
 //   title     — optional override
 export function PhotoSourceSheet({ isOpen, onClose, onPick, title = 'תמונה' }) {
   function handle(mode) {
+    // Call onPick FIRST so input.click() fires within the user-gesture call
+    // stack — iOS Safari blocks file pickers from setTimeout/async callbacks.
+    // The picker dialog stays open over the closing sheet animation.
+    onPick(mode)
     onClose()
-    // Defer to next tick — closing the sheet first lets the file picker
-    // open without the sheet's backdrop swallowing the tap on iOS.
-    setTimeout(() => onPick(mode), 50)
   }
 
   return (
