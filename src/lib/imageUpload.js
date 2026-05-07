@@ -44,10 +44,17 @@ export function pickImage({ mode = 'any' } = {}) {
     // Note: omitting `capture` for 'gallery' is intentional — without it,
     // most mobile browsers offer both camera and gallery in the chooser.
 
-    input.onchange = () => resolve(input.files?.[0] ?? null)
-    input.oncancel = () => resolve(null)
-    // Fallback: if the user dismisses without picking, focus returns and there's no event.
-    // We don't try to detect that — the promise simply stays pending until GC.
+    // Must be in the DOM for some browsers (Firefox, older WebKit) to allow click.
+    input.style.cssText = 'position:fixed;top:-200px;left:-200px;opacity:0;'
+    document.body.appendChild(input)
+
+    const done = (file) => {
+      if (document.body.contains(input)) document.body.removeChild(input)
+      resolve(file)
+    }
+
+    input.onchange = () => done(input.files?.[0] ?? null)
+    input.oncancel = () => done(null)
     input.click()
   })
 }

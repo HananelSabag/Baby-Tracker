@@ -25,6 +25,9 @@ export function BottomSheet({ isOpen, onClose, title, children, hero = false }) 
     let closedByBackGesture = false
 
     function handlePopState() {
+      // If the new history state is still OUR entry, a nested sheet was
+      // closed (its history.back() brought us back here) — don't close us.
+      if (window.history.state?.sheetId === sheetId) return
       closedByBackGesture = true
       onCloseRef.current()
     }
