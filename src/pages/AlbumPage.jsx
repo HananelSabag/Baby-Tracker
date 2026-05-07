@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  BookImage, Camera, Pencil, Trash2, Download,
+  BookImage, Camera, Pencil, Trash2, Download, Film,
   Loader2, CheckCircle2, Sparkles,
 } from 'lucide-react'
 import { useApp } from '../hooks/useAppContext'
@@ -23,6 +23,11 @@ const MONTH_LABELS = [
 const MONTH_FILENAMES = [
   '01', '02', '03', '04', '05', '06',
   '07', '08', '09', '10', '11', '12-birthday',
+]
+
+const HE_MONTHS = [
+  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+  'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',
 ]
 
 const EFFECTS = [
@@ -58,13 +63,18 @@ export function AlbumPage() {
     activeChild?.id ?? null
   )
 
-  const [editMonth, setEditMonth] = useState(null)
-  const [exporting, setExporting] = useState(false)
-  const [exportStep, setExportStep] = useState(0)
-  const [exportDone, setExportDone] = useState(false)
+  const [editMonth,    setEditMonth]    = useState(null)
+  const [exporting,    setExporting]    = useState(false)
+  const [exportStep,   setExportStep]   = useState(0)
+  const [exportDone,   setExportDone]   = useState(false)
 
-  const filled = Object.keys(byMonth).length
-  // First month with no photo — highlighted as "next step" for the user
+  const [gifSheetOpen,  setGifSheetOpen]  = useState(false)
+  const [gifGenerating, setGifGenerating] = useState(false)
+  const [gifStep,       setGifStep]       = useState(0)
+  const [gifDone,       setGifDone]       = useState(false)
+  const [gifOptions,    setGifOptions]    = useState({ showDate: true, showCaption: true })
+
+  const filled     = Object.keys(byMonth).length
   const nextToFill = Array.from({ length: 12 }, (_, i) => i + 1).find(m => !byMonth[m]) ?? null
 
   function handleExport() {
@@ -78,6 +88,23 @@ export function AlbumPage() {
         setExporting(false)
         setExportDone(true)
         setTimeout(() => setExportDone(false), 3500)
+      },
+    })
+  }
+
+  function handleGifGenerate() {
+    setGifSheetOpen(false)
+    setGifGenerating(true)
+    setGifStep(0)
+    generateAlbumGif({
+      byMonth,
+      childName: activeChild?.name ?? 'album',
+      options: gifOptions,
+      onProgress: setGifStep,
+      onDone: () => {
+        setGifGenerating(false)
+        setGifDone(true)
+        setTimeout(() => setGifDone(false), 3500)
       },
     })
   }
@@ -185,6 +212,7 @@ export function AlbumPage() {
 
           {/* ── Export ── */}
           <div className="mt-6">
+            {/* ZIP export */}
             {exportDone ? (
               <div
                 className="flex items-center justify-center gap-2.5 py-4 rounded-3xl border border-green-200"
@@ -222,6 +250,45 @@ export function AlbumPage() {
                 {filled} תמונות · ZIP לשירות הדפסה
               </p>
             )}
+
+            {/* GIF export */}
+            {filled > 0 && (
+              <div className="mt-3">
+                {gifDone ? (
+                  <div
+                    className="flex items-center justify-center gap-2 py-3 rounded-2xl border border-green-200"
+                    style={{ background: 'linear-gradient(135deg, #F0FDF4, #DCFCE7)' }}
+                  >
+                    <CheckCircle2 size={16} className="text-green-500" />
+                    <span className="font-rubik font-bold text-green-700 text-sm">GIF הורד בהצלחה!</span>
+                  </div>
+                ) : gifGenerating ? (
+                  <div
+                    className="flex items-center justify-center gap-2.5 py-3.5 rounded-2xl bg-white border border-cream-200"
+                    style={{ boxShadow: '0 2px 10px rgba(61,43,31,0.06)' }}
+                  >
+                    <Loader2 size={16} className="text-amber-500 animate-spin" />
+                    <span className="font-rubik text-brown-500 text-sm">
+                      מקודד תמונה {gifStep} מתוך {filled}...
+                    </span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setGifSheetOpen(true)}
+                    className="w-full py-3.5 rounded-3xl font-rubik font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform cursor-pointer"
+                    style={{
+                      background: 'linear-gradient(135deg, #FFF8E6, #FEF3C7)',
+                      border: '1px solid rgba(232,184,75,0.4)',
+                      color: '#8B5E3C',
+                      boxShadow: '0 3px 12px rgba(232,184,75,0.18), inset 0 1px 0 rgba(255,255,255,0.9)',
+                    }}
+                  >
+                    <Film size={16} className="text-amber-500" />
+                    צור GIF אנימציה
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </>
       )}
@@ -242,6 +309,18 @@ export function AlbumPage() {
             setEditMonth(null)
           }}
           onClose={() => setEditMonth(null)}
+        />
+      )}
+
+      {/* ── GIF options sheet ── */}
+      {gifSheetOpen && (
+        <GifOptionsSheet
+          isOpen={gifSheetOpen}
+          onClose={() => setGifSheetOpen(false)}
+          options={gifOptions}
+          onOptionsChange={setGifOptions}
+          filled={filled}
+          onGenerate={handleGifGenerate}
         />
       )}
     </div>
@@ -617,6 +696,84 @@ function EditMonthSheet({ month, photo, childId, familyId, onSave, onDelete, onC
   )
 }
 
+// ── GIF options sheet ──────────────────────────────────────────────────────────
+
+function GifOptionsSheet({ isOpen, onClose, options, onOptionsChange, filled, onGenerate }) {
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="GIF אנימציה">
+      <div className="space-y-3 pb-2" dir="rtl">
+
+        <p className="font-rubik text-brown-400 text-xs text-center -mt-1">
+          {filled} {filled === 1 ? 'תמונה' : 'תמונות'} · כ-{(filled * 2.8).toFixed(0)} שניות
+        </p>
+
+        {/* Toggle: Show Date */}
+        <div
+          className="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-white border border-cream-200"
+          style={{ boxShadow: '0 2px 8px rgba(61,43,31,0.04), inset 0 1px 0 rgba(255,255,255,0.9)' }}
+        >
+          <div>
+            <p className="font-rubik font-semibold text-brown-800 text-sm">הצג תאריך</p>
+            <p className="font-rubik text-brown-400 text-xs mt-0.5">תאריך מה-EXIF של התמונה על כל פריים</p>
+          </div>
+          <button
+            onClick={() => onOptionsChange(o => ({ ...o, showDate: !o.showDate }))}
+            className={`relative flex-shrink-0 w-12 h-6 rounded-full transition-colors ${
+              options.showDate ? 'bg-amber-400' : 'bg-cream-200'
+            }`}
+            style={{ direction: 'ltr' }}
+            aria-label="הצג תאריך"
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${
+                options.showDate ? 'translate-x-6' : 'translate-x-0'
+              }`}
+            />
+          </button>
+        </div>
+
+        {/* Toggle: Show Caption */}
+        <div
+          className="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-white border border-cream-200"
+          style={{ boxShadow: '0 2px 8px rgba(61,43,31,0.04), inset 0 1px 0 rgba(255,255,255,0.9)' }}
+        >
+          <div>
+            <p className="font-rubik font-semibold text-brown-800 text-sm">הצג כיתוב</p>
+            <p className="font-rubik text-brown-400 text-xs mt-0.5">הכיתוב שנכתב לכל חודש</p>
+          </div>
+          <button
+            onClick={() => onOptionsChange(o => ({ ...o, showCaption: !o.showCaption }))}
+            className={`relative flex-shrink-0 w-12 h-6 rounded-full transition-colors ${
+              options.showCaption ? 'bg-amber-400' : 'bg-cream-200'
+            }`}
+            style={{ direction: 'ltr' }}
+            aria-label="הצג כיתוב"
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${
+                options.showCaption ? 'translate-x-6' : 'translate-x-0'
+              }`}
+            />
+          </button>
+        </div>
+
+        {/* Generate button */}
+        <button
+          onClick={onGenerate}
+          className="w-full py-4 rounded-3xl font-rubik font-black text-white text-base flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform cursor-pointer"
+          style={{
+            background: 'linear-gradient(135deg, #E8B84B, #D4A030)',
+            boxShadow: '0 6px 20px rgba(232,184,75,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
+          }}
+        >
+          <Film size={18} />
+          צור GIF
+        </button>
+      </div>
+    </BottomSheet>
+  )
+}
+
 // ── Export pipeline (Canvas + JSZip lazy-loaded) ───────────────────────────────
 
 const CANVAS_SIZE        = 2100 // 7 inches × 300 DPI
@@ -701,6 +858,150 @@ async function renderPage(photo, month) {
 
   return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92))
 }
+
+// ── GIF pipeline (gifenc + exifr, lazy-loaded) ─────────────────────────────────
+
+const GIF_SIZE = 480
+
+async function generateAlbumGif({ byMonth, childName, options, onProgress, onDone }) {
+  const { GIFEncoder, quantize, applyPalette } = await import('gifenc')
+
+  const gif    = GIFEncoder()
+  const photos = Object.entries(byMonth).sort(([a], [b]) => Number(a) - Number(b))
+
+  for (let i = 0; i < photos.length; i++) {
+    const [monthStr, photo] = photos[i]
+    const month = Number(monthStr)
+    onProgress(i + 1)
+
+    const rgba    = await renderGifFrame(photo, month, options)
+    const palette = quantize(rgba, 256)
+    const index   = applyPalette(rgba, palette)
+
+    gif.writeFrame(index, GIF_SIZE, GIF_SIZE, {
+      palette,
+      delay: 280,        // 2.8 seconds per frame (centiseconds)
+      repeat: 0,         // infinite loop
+    })
+  }
+
+  gif.finish()
+
+  const buffer = gif.bytes()
+  const blob   = new Blob([buffer], { type: 'image/gif' })
+  const url    = URL.createObjectURL(blob)
+  const a      = document.createElement('a')
+  a.href       = url
+  a.download   = `${childName.replace(/[^\w-]/g, '-')}-album.gif`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  onDone()
+}
+
+async function renderGifFrame(photo, month, options) {
+  const canvas  = document.createElement('canvas')
+  canvas.width  = GIF_SIZE
+  canvas.height = GIF_SIZE
+  const ctx     = canvas.getContext('2d')
+  const S       = GIF_SIZE
+
+  ctx.fillStyle = '#FFFAF5'
+  ctx.fillRect(0, 0, S, S)
+
+  // Photo with effect
+  const img    = await loadImageCrossOrigin(photo.photo_url)
+  const filter = getEffect(photo.effect_id).filter
+  if (filter) ctx.filter = filter
+  drawCover(ctx, img, 0, 0, S, S)
+  ctx.filter = 'none'
+
+  // Frame border
+  const fr = getFrame(photo.frame_id ?? 'none')
+  if (fr.canvasColor) {
+    const fw        = Math.round(fr.insetPx * (S / 100))
+    ctx.strokeStyle = fr.canvasColor
+    ctx.lineWidth   = fw
+    ctx.strokeRect(fw / 2, fw / 2, S - fw, S - fw)
+  }
+
+  // Bottom gradient for text readability
+  const bandH = Math.round(S * 0.34)
+  const grad  = ctx.createLinearGradient(0, S - bandH, 0, S)
+  grad.addColorStop(0, 'rgba(0,0,0,0)')
+  grad.addColorStop(1, 'rgba(0,0,0,0.72)')
+  ctx.fillStyle = grad
+  ctx.fillRect(0, S - bandH, S, bandH)
+
+  ctx.direction = 'rtl'
+  ctx.textAlign = 'right'
+
+  // Date — small badge at top, extracted from EXIF or created_at
+  if (options.showDate) {
+    const dateStr = await getPhotoDate(photo)
+    if (dateStr) {
+      // Subtle dark vignette at top for date readability
+      const topGrad = ctx.createLinearGradient(0, 0, 0, 56)
+      topGrad.addColorStop(0, 'rgba(0,0,0,0.38)')
+      topGrad.addColorStop(1, 'rgba(0,0,0,0)')
+      ctx.fillStyle = topGrad
+      ctx.fillRect(0, 0, S, 56)
+
+      ctx.font         = `bold ${Math.round(S * 0.038)}px Arial, sans-serif`
+      ctx.fillStyle    = 'rgba(255,255,255,0.88)'
+      ctx.shadowColor  = 'rgba(0,0,0,0.55)'
+      ctx.shadowBlur   = 5
+      ctx.fillText(dateStr, S - 12, 26)
+      ctx.shadowBlur   = 0
+    }
+  }
+
+  // Month label (always shown)
+  ctx.font         = `bold ${Math.round(S * 0.08)}px Arial, sans-serif`
+  ctx.fillStyle    = '#FFFFFF'
+  ctx.shadowColor  = 'rgba(0,0,0,0.6)'
+  ctx.shadowBlur   = 10
+  ctx.fillText(MONTH_LABELS[month - 1], S - 14, S - 18)
+  ctx.shadowBlur   = 0
+
+  // Caption above the month label
+  if (options.showCaption && photo.caption) {
+    ctx.font         = `${Math.round(S * 0.052)}px Arial, sans-serif`
+    ctx.fillStyle    = 'rgba(255,255,255,0.82)'
+    ctx.shadowColor  = 'rgba(0,0,0,0.5)'
+    ctx.shadowBlur   = 7
+    ctx.fillText(photo.caption, S - 14, S - 62)
+    ctx.shadowBlur   = 0
+  }
+
+  return ctx.getImageData(0, 0, S, S).data
+}
+
+async function getPhotoDate(photo) {
+  // Try EXIF first (requires CORS-enabled fetch of the image)
+  try {
+    const exifr = await import('exifr')
+    const data  = await exifr.parse(photo.photo_url.split('?')[0], ['DateTimeOriginal', 'DateTime'])
+    const d     = data?.DateTimeOriginal ?? data?.DateTime
+    if (d) return formatHebrewDate(d)
+  } catch { /* EXIF not available — fall through */ }
+
+  // Fallback: use the DB record's created_at timestamp
+  if (photo.created_at) return formatHebrewDate(new Date(photo.created_at))
+  return null
+}
+
+function formatHebrewDate(d) {
+  const dt = d instanceof Date ? d : new Date(d)
+  if (isNaN(dt.getTime())) return null
+  const day  = String(dt.getDate()).padStart(2, '0')
+  const mon  = HE_MONTHS[dt.getMonth()]
+  const year = dt.getFullYear()
+  return `${day} ${mon} ${year}`
+}
+
+// ── Shared canvas helpers ──────────────────────────────────────────────────────
 
 function loadImageCrossOrigin(src) {
   return new Promise((resolve, reject) => {
