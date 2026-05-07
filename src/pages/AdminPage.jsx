@@ -17,10 +17,33 @@ function timeAgo(dateStr) {
   if (h < 24) return `${h} שע׳`
   const d = Math.floor(h / 24)
   if (d === 1) return 'אתמול'
-  if (d < 7) return `${d} ימים`
-  if (d < 30) return `${Math.floor(d / 7)} שבועות`
-  if (d < 365) return `${Math.floor(d / 30)} חודשים`
-  return `${Math.floor(d / 365)} שנים`
+  const w = Math.floor(d / 7)
+  const mo = Math.floor(d / 30)
+  const yr = Math.floor(d / 365)
+  if (d < 7)   return `${d} ימים`
+  if (d < 30)  return w  === 1 ? 'שבוע'   : `${w} שבועות`
+  if (d < 365) return mo === 1 ? 'חודש'   : `${mo} חודשים`
+  return yr === 1 ? 'שנה' : `${yr} שנים`
+}
+
+// "כניסה אחרונה: לפני X" or "כניסה אחרונה: DD/MM/YY" for older entries
+function lastSeenLabel(dateStr) {
+  if (!dateStr) return 'מעולם לא נכנס'
+  const seconds = Math.floor((Date.now() - new Date(dateStr)) / 1000)
+  if (seconds < 60) return 'כניסה: כרגע'
+  const m = Math.floor(seconds / 60)
+  if (m < 60) return `כניסה: לפני ${m === 1 ? 'דקה' : `${m} דק׳`}`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `כניסה: לפני ${h === 1 ? 'שעה' : `${h} שע׳`}`
+  const d = Math.floor(h / 24)
+  if (d === 1) return 'כניסה: אתמול'
+  if (d < 7)  return `כניסה: לפני ${d} ימים`
+  // Older than a week → show actual date DD/MM/YY
+  const dt = new Date(dateStr)
+  const dd = String(dt.getDate()).padStart(2, '0')
+  const mm = String(dt.getMonth() + 1).padStart(2, '0')
+  const yy = String(dt.getFullYear()).slice(2)
+  return `כניסה: ${dd}/${mm}/${yy}`
 }
 
 function activityDot(dateStr) {
@@ -424,7 +447,7 @@ export function AdminPage() {
                         )}
                         <p className="font-rubik text-brown-300 text-xs truncate mt-0.5">{u.email}</p>
                         <p className={`font-rubik text-[11px] mt-0.5 font-medium ${timeClass}`}>
-                          {lastSeen ? `פעיל לפני ${timeAgo(lastSeen)}` : 'מעולם לא נכנס'}
+                          {lastSeenLabel(lastSeen)}
                         </p>
                       </div>
 
