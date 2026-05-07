@@ -63,6 +63,15 @@ const MENU_ITEMS = [
     bg: '#9B8EC418',
     iconBg: '#9B8EC425',
   },
+  {
+    key: 'album',
+    path: '/album',
+    icon: '📸',
+    label: 'אלבום',
+    sub: 'שנה ראשונה',
+    bg: '#E8B84B18',
+    iconBg: '#E8B84B25',
+  },
 ]
 
 const HELP_SLIDES = [
