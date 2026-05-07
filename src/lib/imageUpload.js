@@ -111,7 +111,37 @@ export async function uploadAvatar({ folder, subjectId, blob, mime, ext }) {
   return `${data.publicUrl}?v=${Date.now()}`
 }
 
-// ── helpers ────────────────────────────────────────────────────────────────
+/**
+ * Upload a milestone photo to the `milestones` bucket at
+ * `milestones/<childId>/<month>.jpg`. Full resolution — no downscaling.
+ * Returns the public URL on success.
+ */
+export async function uploadMilestonePhoto({ childId, month, blob, mime }) {
+  if (!childId || !month || !blob) throw new Error('uploadMilestonePhoto: missing arguments')
+  const path = `${childId}/${month}.jpg`
+  const { error } = await supabase.storage.from('milestones').upload(path, blob, {
+    upsert: true,
+    contentType: mime ?? 'image/jpeg',
+    cacheControl: '31536000',
+  })
+  if (error) throw error
+  const { data } = supabase.storage.from('milestones').getPublicUrl(path)
+  return `${data.publicUrl}?v=${Date.now()}`
+}
+
+/**
+ * Pick and prepare a milestone photo — same picker, but NO downscaling.
+ * Returns { blob, mime } ready for uploadMilestonePhoto.
+ */
+export async function pickMilestonePhoto(opts) {
+  const file = await pickImage(opts)
+  if (!file) return null
+  if (!ALLOWED_MIME.has(file.type)) {
+    throw new Error('סוג קובץ לא נתמך. בחר תמונת JPG / PNG / WEBP.')
+  }
+  // Return the original file as-is (full resolution for print quality)
+  return { blob: file, mime: file.type }
+}
 
 async function loadBitmap(file) {
   // createImageBitmap is faster + works without a DOM <img>, but Safari < 14 lacks it.

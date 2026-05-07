@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   Home, ClipboardList, BarChart2, User,
-  Bell, Users, ListChecks,
+  Bell, Users, ListChecks, BookImage,
   HelpCircle, ChevronRight, ChevronLeft,
   Accessibility, Palette, Zap,
 } from 'lucide-react'
@@ -75,6 +75,16 @@ const MENU_ITEMS = [
     bg: '#9B8EC418',
     iconBg: '#9B8EC422',
     iconColor: '#7B6EA4',
+  },
+  {
+    key: 'album',
+    path: '/album',
+    Icon: BookImage,
+    label: 'אלבום',
+    sub: 'שנה ראשונה',
+    bg: '#E8B84B18',
+    iconBg: '#E8B84B22',
+    iconColor: '#B8883B',
   },
 ]
 
