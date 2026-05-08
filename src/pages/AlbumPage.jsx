@@ -72,7 +72,13 @@ export function AlbumPage() {
   const [gifGenerating, setGifGenerating] = useState(false)
   const [gifStep,       setGifStep]       = useState(0)
   const [gifDone,       setGifDone]       = useState(false)
-  const [gifOptions,    setGifOptions]    = useState({ showDate: true, showCaption: true })
+  const [gifOptions,    setGifOptions]    = useState({
+    showDate:       true,
+    showCaption:    true,
+    showMonthLabel: true,
+    speed:          'normal',   // 'slow' | 'normal' | 'fast'
+    effectOverride: null,       // null = use each photo's saved effect
+  })
 
   const filled     = Object.keys(byMonth).length
   const nextToFill = Array.from({ length: 12 }, (_, i) => i + 1).find(m => !byMonth[m]) ?? null
@@ -696,65 +702,154 @@ function EditMonthSheet({ month, photo, childId, familyId, onSave, onDelete, onC
   )
 }
 
-// ── GIF options sheet ──────────────────────────────────────────────────────────
+// ── GIF options sheet (control center) ────────────────────────────────────────
+
+const GIF_SPEED_MS  = { slow: 450, normal: 280, fast: 150 }
+const SPEED_OPTIONS = [
+  { key: 'slow',   label: 'איטי',  sub: '4.5s' },
+  { key: 'normal', label: 'רגיל',  sub: '2.8s' },
+  { key: 'fast',   label: 'מהיר',  sub: '1.5s' },
+]
+const TEXT_TOGGLES  = [
+  { key: 'showMonthLabel', label: 'שם החודש',  desc: 'כותרת חודש בתחתית כל תמונה' },
+  { key: 'showDate',       label: 'תאריך',      desc: 'מה-EXIF או תאריך העלאה' },
+  { key: 'showCaption',    label: 'כיתוב',      desc: 'הטקסט שנכתב לכל חודש' },
+]
 
 function GifOptionsSheet({ isOpen, onClose, options, onOptionsChange, filled, onGenerate }) {
-  return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="GIF אנימציה">
-      <div className="space-y-3 pb-2" dir="rtl">
+  const totalSec = Math.round(filled * (GIF_SPEED_MS[options.speed] / 100))
 
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="מרכז שליטה — GIF">
+      <div className="space-y-4 pb-2" dir="rtl">
+
+        {/* Info pill */}
         <p className="font-rubik text-brown-400 text-xs text-center -mt-1">
-          {filled} {filled === 1 ? 'תמונה' : 'תמונות'} · כ-{(filled * 2.8).toFixed(0)} שניות
+          {filled} {filled === 1 ? 'תמונה' : 'תמונות'} · כ-{totalSec} שניות סה״כ
         </p>
 
-        {/* Toggle: Show Date */}
-        <div
-          className="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-white border border-cream-200"
-          style={{ boxShadow: '0 2px 8px rgba(61,43,31,0.04), inset 0 1px 0 rgba(255,255,255,0.9)' }}
-        >
-          <div>
-            <p className="font-rubik font-semibold text-brown-800 text-sm">הצג תאריך</p>
-            <p className="font-rubik text-brown-400 text-xs mt-0.5">תאריך מה-EXIF של התמונה על כל פריים</p>
-          </div>
-          <button
-            onClick={() => onOptionsChange(o => ({ ...o, showDate: !o.showDate }))}
-            className={`relative flex-shrink-0 w-12 h-6 rounded-full transition-colors ${
-              options.showDate ? 'bg-amber-400' : 'bg-cream-200'
-            }`}
-            style={{ direction: 'ltr' }}
-            aria-label="הצג תאריך"
+        {/* ── Speed segmented control ── */}
+        <div>
+          <p className="font-rubik text-brown-500 text-xs font-semibold mb-2">מהירות</p>
+          <div
+            className="grid grid-cols-3 gap-1.5 p-1.5 rounded-2xl border border-cream-200"
+            style={{ background: '#F0E4D6' }}
           >
-            <span
-              className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${
-                options.showDate ? 'translate-x-6' : 'translate-x-0'
-              }`}
-            />
-          </button>
+            {SPEED_OPTIONS.map(({ key, label, sub }) => (
+              <button
+                key={key}
+                onClick={() => onOptionsChange(o => ({ ...o, speed: key }))}
+                className="py-2.5 rounded-xl transition-all cursor-pointer flex flex-col items-center active:scale-95"
+                style={options.speed === key ? {
+                  background: 'linear-gradient(135deg, #E8B84B, #D4A030)',
+                  boxShadow: '0 3px 10px rgba(232,184,75,0.5), inset 0 1px 0 rgba(255,255,255,0.25)',
+                } : {}}
+              >
+                <span className={`font-rubik font-bold text-sm leading-tight ${options.speed === key ? 'text-white' : 'text-brown-600'}`}>
+                  {label}
+                </span>
+                <span className={`font-rubik text-[10px] ${options.speed === key ? 'text-white/70' : 'text-brown-400'}`}>
+                  {sub}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Toggle: Show Caption */}
-        <div
-          className="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-white border border-cream-200"
-          style={{ boxShadow: '0 2px 8px rgba(61,43,31,0.04), inset 0 1px 0 rgba(255,255,255,0.9)' }}
-        >
-          <div>
-            <p className="font-rubik font-semibold text-brown-800 text-sm">הצג כיתוב</p>
-            <p className="font-rubik text-brown-400 text-xs mt-0.5">הכיתוב שנכתב לכל חודש</p>
-          </div>
-          <button
-            onClick={() => onOptionsChange(o => ({ ...o, showCaption: !o.showCaption }))}
-            className={`relative flex-shrink-0 w-12 h-6 rounded-full transition-colors ${
-              options.showCaption ? 'bg-amber-400' : 'bg-cream-200'
-            }`}
-            style={{ direction: 'ltr' }}
-            aria-label="הצג כיתוב"
+        {/* ── Text overlay toggles ── */}
+        <div>
+          <p className="font-rubik text-brown-500 text-xs font-semibold mb-2">שכבות טקסט</p>
+          <div
+            className="rounded-2xl border border-cream-200 bg-white overflow-hidden"
+            style={{ boxShadow: '0 2px 10px rgba(61,43,31,0.05), inset 0 1px 0 rgba(255,255,255,0.9)' }}
           >
-            <span
-              className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${
-                options.showCaption ? 'translate-x-6' : 'translate-x-0'
+            {TEXT_TOGGLES.map(({ key, label, desc }, idx) => (
+              <div
+                key={key}
+                className={`flex items-center justify-between px-4 py-3 ${
+                  idx < TEXT_TOGGLES.length - 1 ? 'border-b border-cream-100' : ''
+                }`}
+              >
+                <div>
+                  <p className="font-rubik font-semibold text-brown-800 text-sm leading-tight">{label}</p>
+                  <p className="font-rubik text-brown-400 text-[10px] mt-0.5">{desc}</p>
+                </div>
+                {/* Toggle — direction:ltr forces knob to slide LTR regardless of RTL parent */}
+                <button
+                  onClick={() => onOptionsChange(o => ({ ...o, [key]: !o[key] }))}
+                  className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors ${
+                    options[key] ? 'bg-amber-400' : 'bg-cream-200'
+                  }`}
+                  style={{ direction: 'ltr' }}
+                  aria-label={label}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${
+                      options[key] ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Global effect override ── */}
+        <div>
+          <p className="font-rubik text-brown-500 text-xs font-semibold mb-2">
+            אפקט <span className="font-normal text-brown-400 text-[10px]">עוקף את הגדרות כל תמונה בנפרד</span>
+          </p>
+          <div
+            className="flex gap-2 pb-1"
+            style={{ overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            {/* "Per photo" option — mosaic of the 4 effect preview colours */}
+            <button
+              onClick={() => onOptionsChange(o => ({ ...o, effectOverride: null }))}
+              className={`flex-shrink-0 flex flex-col items-center gap-1.5 p-2 rounded-2xl border-2 transition-all cursor-pointer active:scale-95 ${
+                options.effectOverride === null ? 'border-amber-400 bg-amber-50' : 'border-cream-200 bg-white'
               }`}
-            />
-          </button>
+            >
+              <div
+                className="grid grid-cols-2 rounded-xl overflow-hidden"
+                style={{ width: 52, height: 52, gap: 2, padding: 2, backgroundColor: '#FFF0E0' }}
+              >
+                {EFFECTS.slice(0, 4).map(e => (
+                  <div
+                    key={e.id}
+                    className="rounded"
+                    style={{ backgroundColor: e.previewBg, filter: e.filter || undefined }}
+                  />
+                ))}
+              </div>
+              <span className={`font-rubik text-[11px] font-semibold ${options.effectOverride === null ? 'text-amber-600' : 'text-brown-400'}`}>
+                מקורי
+              </span>
+            </button>
+
+            {/* Effect swatches */}
+            {EFFECTS.map(eff => (
+              <button
+                key={eff.id}
+                onClick={() => onOptionsChange(o => ({ ...o, effectOverride: eff.id }))}
+                className={`flex-shrink-0 flex flex-col items-center gap-1.5 p-2 rounded-2xl border-2 transition-all cursor-pointer active:scale-95 ${
+                  options.effectOverride === eff.id ? 'border-amber-400 bg-amber-50' : 'border-cream-200 bg-white'
+                }`}
+              >
+                <div
+                  className="rounded-xl"
+                  style={{
+                    width: 52, height: 52,
+                    backgroundColor: eff.previewBg,
+                    filter: eff.filter || undefined,
+                  }}
+                />
+                <span className={`font-rubik text-[11px] font-semibold ${options.effectOverride === eff.id ? 'text-amber-600' : 'text-brown-400'}`}>
+                  {eff.label}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Generate button */}
@@ -880,7 +975,7 @@ async function generateAlbumGif({ byMonth, childName, options, onProgress, onDon
 
     gif.writeFrame(index, GIF_SIZE, GIF_SIZE, {
       palette,
-      delay: 280,        // 2.8 seconds per frame (centiseconds)
+      delay: GIF_SPEED_MS[options.speed ?? 'normal'],
       repeat: 0,         // infinite loop
     })
   }
@@ -910,9 +1005,9 @@ async function renderGifFrame(photo, month, options) {
   ctx.fillStyle = '#FFFAF5'
   ctx.fillRect(0, 0, S, S)
 
-  // Photo with effect
+  // Photo with effect (use global override if set, else each photo's own effect)
   const img    = await loadImageCrossOrigin(photo.photo_url)
-  const filter = getEffect(photo.effect_id).filter
+  const filter = getEffect(options.effectOverride ?? photo.effect_id).filter
   if (filter) ctx.filter = filter
   drawCover(ctx, img, 0, 0, S, S)
   ctx.filter = 'none'
@@ -957,21 +1052,25 @@ async function renderGifFrame(photo, month, options) {
     }
   }
 
-  // Month label (always shown)
-  ctx.font         = `bold ${Math.round(S * 0.08)}px Arial, sans-serif`
-  ctx.fillStyle    = '#FFFFFF'
-  ctx.shadowColor  = 'rgba(0,0,0,0.6)'
-  ctx.shadowBlur   = 10
-  ctx.fillText(MONTH_LABELS[month - 1], S - 14, S - 18)
-  ctx.shadowBlur   = 0
+  // Month label — position at bottom, caption sits above it
+  const yMonth   = S - 18
+  const yCaption = options.showMonthLabel ? S - 62 : S - 18
 
-  // Caption above the month label
+  if (options.showMonthLabel) {
+    ctx.font         = `bold ${Math.round(S * 0.08)}px Arial, sans-serif`
+    ctx.fillStyle    = '#FFFFFF'
+    ctx.shadowColor  = 'rgba(0,0,0,0.6)'
+    ctx.shadowBlur   = 10
+    ctx.fillText(MONTH_LABELS[month - 1], S - 14, yMonth)
+    ctx.shadowBlur   = 0
+  }
+
   if (options.showCaption && photo.caption) {
     ctx.font         = `${Math.round(S * 0.052)}px Arial, sans-serif`
     ctx.fillStyle    = 'rgba(255,255,255,0.82)'
     ctx.shadowColor  = 'rgba(0,0,0,0.5)'
     ctx.shadowBlur   = 7
-    ctx.fillText(photo.caption, S - 14, S - 62)
+    ctx.fillText(photo.caption, S - 14, yCaption)
     ctx.shadowBlur   = 0
   }
 
