@@ -66,9 +66,9 @@ const MUSIC_TRACKS = [
 ]
 
 // ── Video constants ────────────────────────────────────────────────────────────
-const VIDEO_SIZE       = 480  // same square as GIF
-const TRANSITION_MS    = 500  // cross-fade duration between photos
-const TRANSITION_STEPS = 15   // render passes inside each cross-fade
+const VIDEO_SIZE       = 720  // 720p square
+const TRANSITION_MS    = 600  // cross-fade duration between photos
+const TRANSITION_STEPS = 20   // render passes (each step ~30ms → 30fps smooth)
 
 // ── Main page ──────────────────────────────────────────────────────────────────
 
@@ -391,6 +391,7 @@ export function AlbumPage() {
         )}
         {exportSheet === 'gif' && (
           <GifOptionsContent
+            byMonth={byMonth}
             options={gifOptions}
             onOptionsChange={setGifOptions}
             filled={filled}
@@ -399,6 +400,7 @@ export function AlbumPage() {
         )}
         {exportSheet === 'video' && (
           <VideoOptionsContent
+            byMonth={byMonth}
             options={videoOptions}
             onOptionsChange={setVideoOptions}
             filled={filled}
@@ -796,13 +798,86 @@ const TEXT_TOGGLES  = [
   { key: 'showCaption',    label: 'כיתוב',      desc: 'הטקסט שנכתב לכל חודש' },
 ]
 
-function GifOptionsContent({ options, onOptionsChange, filled, onGenerate }) {
+// ── PreviewSlideshow — live canvas preview of export output ──────────────────
+// Renders each photo with the currently-selected options so the user can see
+// exactly how the exported file will look before clicking "Generate".
+
+function PreviewSlideshow({ byMonth, options }) {
+  const canvasRef = useRef(null)
+  const abortRef  = useRef(false)
+
+  const photos = Object.entries(byMonth)
+    .sort(([a], [b]) => Number(a) - Number(b))
+
+  useEffect(() => {
+    if (!photos.length || !canvasRef.current) return
+    abortRef.current = false
+    const canvas = canvasRef.current
+    const ctx    = canvas.getContext('2d')
+    const S      = PREVIEW_SIZE * 2  // 2× for retina
+
+    async function runLoop() {
+      const [imgCache, dateCache] = await Promise.all([
+        Promise.all(photos.map(([, p]) => loadImageCrossOrigin(p.photo_url))),
+        Promise.all(photos.map(([, p]) => getPhotoDate(p))),
+      ])
+      if (abortRef.current) return
+
+      let i = 0
+      while (!abortRef.current) {
+        const [monthStr, photo] = photos[i]
+        await drawAlbumFrame(ctx, S, imgCache[i], photo, Number(monthStr), options, dateCache[i])
+        await waitMs(GIF_SPEED_MS[options.speed ?? 'normal'])
+        if (!abortRef.current) i = (i + 1) % photos.length
+      }
+    }
+
+    runLoop()
+    return () => { abortRef.current = true }
+  }, [
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    photos.map(([m]) => m).join(','),
+    options.speed, options.effectOverride,
+    options.showDate, options.showCaption, options.showMonthLabel,
+  ])
+
+  if (!photos.length) return null
+
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <div
+        className="rounded-2xl overflow-hidden border-2 border-cream-200"
+        style={{
+          width: PREVIEW_SIZE, height: PREVIEW_SIZE,
+          boxShadow: '0 4px 16px rgba(61,43,31,0.12)',
+        }}
+      >
+        <canvas
+          ref={canvasRef}
+          width={PREVIEW_SIZE * 2}
+          height={PREVIEW_SIZE * 2}
+          style={{ width: '100%', height: '100%', display: 'block' }}
+        />
+      </div>
+      <p className="font-rubik text-brown-300 text-[10px]">תצוגה מקדימה · עודכן בזמן אמת</p>
+    </div>
+  )
+}
+
+// ── GIF options content ────────────────────────────────────────────────────────
+
+function GifOptionsContent({ byMonth, options, onOptionsChange, filled, onGenerate }) {
   const totalSec = Math.round(filled * GIF_SPEED_MS[options.speed] / 1000)
 
   return (
     <div className="space-y-4 pb-2" dir="rtl">
-      <p className="font-rubik text-brown-400 text-xs text-center -mt-1">
+      <PreviewSlideshow byMonth={byMonth} options={options} />
+
+      <p className="font-rubik text-brown-400 text-xs text-center">
         {filled} {filled === 1 ? 'תמונה' : 'תמונות'} · כ-{totalSec} שניות · לולאה אינסופית
+      </p>
+      <p className="font-rubik text-amber-600 text-[10px] text-center -mt-2 bg-amber-50 rounded-xl px-3 py-1.5 border border-amber-100">
+        GIF תומך ב-256 צבעים בלבד — לאיכות מלאה בחר &quot;וידאו עם מוזיקה&quot; ←
       </p>
 
       <OptionsSpeedBlock options={options} onOptionsChange={onOptionsChange} />
@@ -1013,7 +1088,7 @@ function ExportCard({ icon, iconBg, iconColor, gradient, title, desc, onClick })
 // ── VideoOptionsContent — video panel (no BottomSheet wrapper) ─────────────────
 // Audio state is lifted to AlbumPage so closeExportSheet can stop playback.
 
-function VideoOptionsContent({ options, onOptionsChange, filled, onGenerate, playingTrack, setPlayingTrack, audioRef }) {
+function VideoOptionsContent({ byMonth, options, onOptionsChange, filled, onGenerate, playingTrack, setPlayingTrack, audioRef }) {
   function stopPreview() {
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
     setPlayingTrack(null)
@@ -1034,8 +1109,10 @@ function VideoOptionsContent({ options, onOptionsChange, filled, onGenerate, pla
 
   return (
     <div className="space-y-4 pb-2" dir="rtl">
-      <p className="font-rubik text-brown-400 text-xs text-center -mt-1">
-        {filled} {filled === 1 ? 'תמונה' : 'תמונות'} · כ-{totalSec} שניות · MP4/WebM
+      <PreviewSlideshow byMonth={byMonth} options={options} />
+
+      <p className="font-rubik text-brown-400 text-xs text-center">
+        {filled} {filled === 1 ? 'תמונה' : 'תמונות'} · כ-{totalSec} שניות · MP4/WebM · 720p
       </p>
 
       <OptionsSpeedBlock options={options} onOptionsChange={onOptionsChange} />
@@ -1140,6 +1217,9 @@ function VideoOptionsContent({ options, onOptionsChange, filled, onGenerate, pla
   )
 }
 
+// ── Preview + GIF constants ────────────────────────────────────────────────────
+const PREVIEW_SIZE = 160  // logical px (canvas renders at 2× for retina)
+
 // ── Export pipeline (Canvas + JSZip lazy-loaded) ───────────────────────────────
 
 const CANVAS_SIZE        = 2100 // 7 inches × 300 DPI
@@ -1226,7 +1306,7 @@ async function renderPage(photo, month) {
 
 // ── Shared frame renderer (used by both GIF and video pipelines) ───────────────
 
-const GIF_SIZE = 480
+const GIF_SIZE = 600
 
 /**
  * Draws a fully-composited album frame onto `ctx` (size × size).
@@ -1399,7 +1479,10 @@ async function generateAlbumVideo({ byMonth, childName, options, onProgress, onD
 
   const combined = new MediaStream([...videoStream.getVideoTracks(), ...audioTracks])
   const chunks   = []
-  const recorder = new MediaRecorder(combined, { mimeType })
+  const recorder = new MediaRecorder(combined, {
+    mimeType,
+    videoBitsPerSecond: 8_000_000, // 8 Mbps — high quality for 720p
+  })
   recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
   // Set onstop BEFORE calling stop() to avoid a race where stop fires before the handler is registered
   const stoppedPromise = new Promise(resolve => { recorder.onstop = resolve })
@@ -1424,35 +1507,32 @@ async function generateAlbumVideo({ byMonth, childName, options, onProgress, onD
   }
 
   // Render loop
+  // Pre-render all frames to offscreen canvases once. The cross-fade loop then
+  // only calls drawImage×2 per step (~0ms), so waitMs() dominates and we get
+  // true 30fps instead of the previous ~5fps (where drawAlbumFrame per-step
+  // cost 20-80ms on mobile, overwhelming the 33ms step budget).
+  const offscreens = await Promise.all(photos.map(async ([monthStr, photo], i) => {
+    const off = document.createElement('canvas')
+    off.width = off.height = VIDEO_SIZE
+    await drawAlbumFrame(off.getContext('2d'), VIDEO_SIZE, imgs[i], photo, Number(monthStr), options, dates[i])
+    return off
+  }))
+
   for (let i = 0; i < photos.length; i++) {
-    const [monthStr, photo] = photos[i]
-    const month = Number(monthStr)
-    const img   = imgs[i]
-    const date  = dates[i]
     onProgress(i + 1)
 
-    // Hold this photo for frameDurationMs (draw once, canvas stream holds it)
-    await drawAlbumFrame(ctx, VIDEO_SIZE, img, photo, month, options, date)
+    // Hold this photo for frameDurationMs
+    ctx.drawImage(offscreens[i], 0, 0)
     await waitMs(frameDurationMs)
 
-    // Cross-fade to next photo
+    // Cross-fade to next photo — pure drawImage blend, no full redraw
     if (i < photos.length - 1) {
-      const nextPhoto = photos[i + 1][1]
-      const nextMonth = Number(photos[i + 1][0])
-      const nextImg   = imgs[i + 1]
-      const nextDate  = dates[i + 1]
-
-      // Pre-render next frame off-screen
-      const offCanvas = document.createElement('canvas')
-      offCanvas.width = offCanvas.height = VIDEO_SIZE
-      const offCtx = offCanvas.getContext('2d')
-      await drawAlbumFrame(offCtx, VIDEO_SIZE, nextImg, nextPhoto, nextMonth, options, nextDate)
-
       const stepMs = Math.round(TRANSITION_MS / TRANSITION_STEPS)
-      for (let f = 0; f < TRANSITION_STEPS; f++) {
-        await drawAlbumFrame(ctx, VIDEO_SIZE, img, photo, month, options, date)
-        ctx.globalAlpha = (f + 1) / TRANSITION_STEPS
-        ctx.drawImage(offCanvas, 0, 0)
+      for (let f = 1; f <= TRANSITION_STEPS; f++) {
+        ctx.globalAlpha = 1
+        ctx.drawImage(offscreens[i], 0, 0)
+        ctx.globalAlpha = f / TRANSITION_STEPS
+        ctx.drawImage(offscreens[i + 1], 0, 0)
         ctx.globalAlpha = 1
         await waitMs(stepMs)
       }
