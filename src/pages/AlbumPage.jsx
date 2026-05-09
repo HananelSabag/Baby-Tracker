@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, cloneElement } from 'react'
 import {
   BookImage, Camera, Pencil, Trash2, Download, Film,
-  Loader2, CheckCircle2, Sparkles,
+  Loader2, CheckCircle2, Sparkles, Video, FolderDown, ChevronLeft,
 } from 'lucide-react'
 import { useApp } from '../hooks/useAppContext'
 import { useChildren } from '../hooks/useChildren'
@@ -83,10 +83,16 @@ export function AlbumPage() {
   )
 
   const [editMonth,    setEditMonth]    = useState(null)
+
+  // ZIP export
   const [exporting,    setExporting]    = useState(false)
   const [exportStep,   setExportStep]   = useState(0)
   const [exportDone,   setExportDone]   = useState(false)
 
+  // Export hub sheet
+  const [exportHubOpen, setExportHubOpen] = useState(false)
+
+  // GIF export
   const [gifSheetOpen,  setGifSheetOpen]  = useState(false)
   const [gifGenerating, setGifGenerating] = useState(false)
   const [gifStep,       setGifStep]       = useState(0)
@@ -95,17 +101,30 @@ export function AlbumPage() {
     showDate:       true,
     showCaption:    true,
     showMonthLabel: true,
-    speed:          'normal',   // 'slow' | 'normal' | 'fast'
-    effectOverride: null,       // null = use each photo's saved effect
-    music:          null,       // null | MUSIC_TRACKS[n].id
-    musicStart:     0,          // seconds offset into the track
+    speed:          'normal',
+    effectOverride: null,
   })
-  const [gifType, setGifType] = useState('gif')  // 'gif' | 'video'
+
+  // Video export
+  const [videoSheetOpen,  setVideoSheetOpen]  = useState(false)
+  const [videoGenerating, setVideoGenerating] = useState(false)
+  const [videoStep,       setVideoStep]       = useState(0)
+  const [videoDone,       setVideoDone]       = useState(false)
+  const [videoOptions,    setVideoOptions]    = useState({
+    showDate:       true,
+    showCaption:    true,
+    showMonthLabel: true,
+    speed:          'normal',
+    effectOverride: null,
+    music:          null,
+    musicStart:     0,
+  })
 
   const filled     = Object.keys(byMonth).length
   const nextToFill = Array.from({ length: 12 }, (_, i) => i + 1).find(m => !byMonth[m]) ?? null
 
-  function handleExport() {
+  function handleZipExport() {
+    setExportHubOpen(false)
     setExporting(true)
     setExportStep(0)
     exportAlbum({
@@ -120,14 +139,11 @@ export function AlbumPage() {
     })
   }
 
-  function handleExportMedia() {
+  function handleGifGenerate() {
     setGifSheetOpen(false)
     setGifGenerating(true)
     setGifStep(0)
-    const isVideo = !!gifOptions.music
-    setGifType(isVideo ? 'video' : 'gif')
-    const exportFn = isVideo ? generateAlbumVideo : generateAlbumGif
-    exportFn({
+    generateAlbumGif({
       byMonth,
       childName: activeChild?.name ?? 'album',
       options: gifOptions,
@@ -139,7 +155,27 @@ export function AlbumPage() {
       },
     }).catch(err => {
       setGifGenerating(false)
-      alert(err.message ?? 'ייצוא נכשל')
+      alert(err.message ?? 'ייצוא GIF נכשל')
+    })
+  }
+
+  function handleVideoGenerate() {
+    setVideoSheetOpen(false)
+    setVideoGenerating(true)
+    setVideoStep(0)
+    generateAlbumVideo({
+      byMonth,
+      childName: activeChild?.name ?? 'album',
+      options: videoOptions,
+      onProgress: setVideoStep,
+      onDone: () => {
+        setVideoGenerating(false)
+        setVideoDone(true)
+        setTimeout(() => setVideoDone(false), 3500)
+      },
+    }).catch(err => {
+      setVideoGenerating(false)
+      alert(err.message ?? 'ייצוא וידאו נכשל')
     })
   }
 
@@ -245,29 +281,38 @@ export function AlbumPage() {
           </div>
 
           {/* ── Export ── */}
-          <div className="mt-6">
-            {/* ZIP export */}
-            {exportDone ? (
-              <div
-                className="flex items-center justify-center gap-2.5 py-4 rounded-3xl border border-green-200"
-                style={{ background: 'linear-gradient(135deg, #F0FDF4, #DCFCE7)' }}
-              >
-                <CheckCircle2 size={20} className="text-green-500" />
-                <span className="font-rubik font-bold text-green-700">הורד בהצלחה!</span>
-              </div>
-            ) : exporting ? (
-              <div
-                className="flex flex-col items-center gap-2.5 py-5 rounded-3xl border border-cream-200 bg-white"
-                style={{ boxShadow: '0 4px 20px rgba(61,43,31,0.08)' }}
-              >
-                <Loader2 size={22} className="text-brown-400 animate-spin" />
-                <p className="font-rubik text-brown-500 text-sm">
-                  מכין תמונה {exportStep} מתוך {filled}...
-                </p>
-              </div>
-            ) : (
+          <div className="mt-6 space-y-2.5">
+
+            {/* Status banners — shown while busy or just finished */}
+            {exporting && (
+              <ExportStatusBanner icon={<Loader2 size={18} className="text-brown-400 animate-spin" />}
+                text={`מכין תמונה ${exportStep} מתוך ${filled}...`} />
+            )}
+            {exportDone && (
+              <ExportStatusBanner icon={<CheckCircle2 size={18} className="text-green-500" />}
+                text="הורד בהצלחה!" green />
+            )}
+            {gifGenerating && (
+              <ExportStatusBanner icon={<Loader2 size={18} className="text-amber-500 animate-spin" />}
+                text={`מקודד GIF... ${gifStep}/${filled}`} />
+            )}
+            {gifDone && (
+              <ExportStatusBanner icon={<CheckCircle2 size={18} className="text-green-500" />}
+                text="GIF הורד בהצלחה!" green />
+            )}
+            {videoGenerating && (
+              <ExportStatusBanner icon={<Loader2 size={18} className="text-indigo-400 animate-spin" />}
+                text={`מייצר וידאו... ${videoStep}/${filled}`} />
+            )}
+            {videoDone && (
+              <ExportStatusBanner icon={<CheckCircle2 size={18} className="text-green-500" />}
+                text="וידאו הורד בהצלחה!" green />
+            )}
+
+            {/* Main export button — always visible when idle */}
+            {!exporting && !exportDone && (
               <button
-                onClick={handleExport}
+                onClick={() => setExportHubOpen(true)}
                 disabled={filled === 0}
                 className="w-full py-4 rounded-3xl font-rubik font-black text-white text-base flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform disabled:opacity-40 cursor-pointer"
                 style={{
@@ -276,56 +321,13 @@ export function AlbumPage() {
                 }}
               >
                 <Download size={20} />
-                שמור לזכרון — הורד אלבום
+                יצוא האלבום
               </button>
             )}
             {filled > 0 && !exporting && !exportDone && (
-              <p className="font-rubik text-brown-400 text-xs text-center mt-2">
-                {filled} תמונות · ZIP לשירות הדפסה
+              <p className="font-rubik text-brown-400 text-xs text-center">
+                {filled} {filled === 1 ? 'תמונה' : 'תמונות'} · ZIP · GIF · וידאו עם מוזיקה
               </p>
-            )}
-
-            {/* GIF export */}
-            {filled > 0 && (
-              <div className="mt-3">
-                {gifDone ? (
-                  <div
-                    className="flex items-center justify-center gap-2 py-3 rounded-2xl border border-green-200"
-                    style={{ background: 'linear-gradient(135deg, #F0FDF4, #DCFCE7)' }}
-                  >
-                    <CheckCircle2 size={16} className="text-green-500" />
-                    <span className="font-rubik font-bold text-green-700 text-sm">
-                      {gifType === 'video' ? 'וידאו הורד בהצלחה! 🎬' : 'GIF הורד בהצלחה!'}
-                    </span>
-                  </div>
-                ) : gifGenerating ? (
-                  <div
-                    className="flex items-center justify-center gap-2.5 py-3.5 rounded-2xl bg-white border border-cream-200"
-                    style={{ boxShadow: '0 2px 10px rgba(61,43,31,0.06)' }}
-                  >
-                    <Loader2 size={16} className="text-amber-500 animate-spin" />
-                    <span className="font-rubik text-brown-500 text-sm">
-                      {gifType === 'video'
-                        ? `מייצר וידאו... ${gifStep}/${filled}`
-                        : `מקודד תמונה ${gifStep} מתוך ${filled}...`}
-                    </span>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setGifSheetOpen(true)}
-                    className="w-full py-3.5 rounded-3xl font-rubik font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform cursor-pointer"
-                    style={{
-                      background: 'linear-gradient(135deg, #FFF8E6, #FEF3C7)',
-                      border: '1px solid rgba(232,184,75,0.4)',
-                      color: '#8B5E3C',
-                      boxShadow: '0 3px 12px rgba(232,184,75,0.18), inset 0 1px 0 rgba(255,255,255,0.9)',
-                    }}
-                  >
-                    <Film size={16} className="text-amber-500" />
-                    צור GIF אנימציה
-                  </button>
-                )}
-              </div>
             )}
           </div>
         </>
@@ -350,6 +352,18 @@ export function AlbumPage() {
         />
       )}
 
+      {/* ── Export hub sheet ── */}
+      {exportHubOpen && (
+        <ExportHubSheet
+          isOpen={exportHubOpen}
+          onClose={() => setExportHubOpen(false)}
+          filled={filled}
+          onZip={handleZipExport}
+          onGif={() => { setExportHubOpen(false); setGifSheetOpen(true) }}
+          onVideo={() => { setExportHubOpen(false); setVideoSheetOpen(true) }}
+        />
+      )}
+
       {/* ── GIF options sheet ── */}
       {gifSheetOpen && (
         <GifOptionsSheet
@@ -358,7 +372,19 @@ export function AlbumPage() {
           options={gifOptions}
           onOptionsChange={setGifOptions}
           filled={filled}
-          onGenerate={handleExportMedia}
+          onGenerate={handleGifGenerate}
+        />
+      )}
+
+      {/* ── Video options sheet ── */}
+      {videoSheetOpen && (
+        <VideoOptionsSheet
+          isOpen={videoSheetOpen}
+          onClose={() => setVideoSheetOpen(false)}
+          options={videoOptions}
+          onOptionsChange={setVideoOptions}
+          filled={filled}
+          onGenerate={handleVideoGenerate}
         />
       )}
     </div>
@@ -749,6 +775,230 @@ const TEXT_TOGGLES  = [
 ]
 
 function GifOptionsSheet({ isOpen, onClose, options, onOptionsChange, filled, onGenerate }) {
+  const totalSec = Math.round(filled * GIF_SPEED_MS[options.speed] / 1000)
+
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="מרכז שליטה — GIF">
+      <div className="space-y-4 pb-2" dir="rtl">
+
+        <p className="font-rubik text-brown-400 text-xs text-center -mt-1">
+          {filled} {filled === 1 ? 'תמונה' : 'תמונות'} · כ-{totalSec} שניות · GIF
+        </p>
+
+        <OptionsSpeedBlock options={options} onOptionsChange={onOptionsChange} />
+        <OptionsTextToggles options={options} onOptionsChange={onOptionsChange} />
+        <OptionsEffectPicker options={options} onOptionsChange={onOptionsChange} />
+
+        <button
+          onClick={onGenerate}
+          className="w-full py-4 rounded-3xl font-rubik font-black text-white text-base flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform cursor-pointer"
+          style={{
+            background: 'linear-gradient(135deg, #E8B84B, #D4A030)',
+            boxShadow: '0 6px 20px rgba(232,184,75,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
+          }}
+        >
+          <Film size={18} />
+          צור GIF
+        </button>
+      </div>
+    </BottomSheet>
+  )
+}
+
+// ── Shared option sub-blocks (used by both GifOptionsSheet and VideoOptionsSheet) ─
+
+function OptionsSpeedBlock({ options, onOptionsChange }) {
+  return (
+    <div>
+      <p className="font-rubik text-brown-500 text-xs font-semibold mb-2">מהירות</p>
+      <div
+        className="grid grid-cols-3 gap-1.5 p-1.5 rounded-2xl border border-cream-200"
+        style={{ background: '#F0E4D6' }}
+      >
+        {SPEED_OPTIONS.map(({ key, label, sub }) => (
+          <button
+            key={key}
+            onClick={() => onOptionsChange(o => ({ ...o, speed: key }))}
+            className="py-2.5 rounded-xl transition-all cursor-pointer flex flex-col items-center active:scale-95"
+            style={options.speed === key ? {
+              background: 'linear-gradient(135deg, #E8B84B, #D4A030)',
+              boxShadow: '0 3px 10px rgba(232,184,75,0.5), inset 0 1px 0 rgba(255,255,255,0.25)',
+            } : {}}
+          >
+            <span className={`font-rubik font-bold text-sm leading-tight ${options.speed === key ? 'text-white' : 'text-brown-600'}`}>
+              {label}
+            </span>
+            <span className={`font-rubik text-[10px] ${options.speed === key ? 'text-white/70' : 'text-brown-400'}`}>
+              {sub}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function OptionsTextToggles({ options, onOptionsChange }) {
+  return (
+    <div>
+      <p className="font-rubik text-brown-500 text-xs font-semibold mb-2">שכבות טקסט</p>
+      <div
+        className="rounded-2xl border border-cream-200 bg-white overflow-hidden"
+        style={{ boxShadow: '0 2px 10px rgba(61,43,31,0.05), inset 0 1px 0 rgba(255,255,255,0.9)' }}
+      >
+        {TEXT_TOGGLES.map(({ key, label, desc }, idx) => (
+          <div
+            key={key}
+            className={`flex items-center justify-between px-4 py-3 ${
+              idx < TEXT_TOGGLES.length - 1 ? 'border-b border-cream-100' : ''
+            }`}
+          >
+            <div>
+              <p className="font-rubik font-semibold text-brown-800 text-sm leading-tight">{label}</p>
+              <p className="font-rubik text-brown-400 text-[10px] mt-0.5">{desc}</p>
+            </div>
+            <button
+              onClick={() => onOptionsChange(o => ({ ...o, [key]: !o[key] }))}
+              className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors ${options[key] ? 'bg-amber-400' : 'bg-cream-200'}`}
+              style={{ direction: 'ltr' }}
+              aria-label={label}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${options[key] ? 'translate-x-5' : 'translate-x-0'}`} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function OptionsEffectPicker({ options, onOptionsChange }) {
+  return (
+    <div>
+      <p className="font-rubik text-brown-500 text-xs font-semibold mb-2">
+        אפקט <span className="font-normal text-brown-400 text-[10px]">עוקף את הגדרות כל תמונה בנפרד</span>
+      </p>
+      <div className="flex gap-2 pb-1" style={{ overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+        <button
+          onClick={() => onOptionsChange(o => ({ ...o, effectOverride: null }))}
+          className={`flex-shrink-0 flex flex-col items-center gap-1.5 p-2 rounded-2xl border-2 transition-all cursor-pointer active:scale-95 ${
+            options.effectOverride === null ? 'border-amber-400 bg-amber-50' : 'border-cream-200 bg-white'
+          }`}
+        >
+          <div className="grid grid-cols-2 rounded-xl overflow-hidden" style={{ width: 52, height: 52, gap: 2, padding: 2, backgroundColor: '#FFF0E0' }}>
+            {EFFECTS.slice(0, 4).map(e => (
+              <div key={e.id} className="rounded" style={{ backgroundColor: e.previewBg, filter: e.filter || undefined }} />
+            ))}
+          </div>
+          <span className={`font-rubik text-[11px] font-semibold ${options.effectOverride === null ? 'text-amber-600' : 'text-brown-400'}`}>מקורי</span>
+        </button>
+        {EFFECTS.map(eff => (
+          <button
+            key={eff.id}
+            onClick={() => onOptionsChange(o => ({ ...o, effectOverride: eff.id }))}
+            className={`flex-shrink-0 flex flex-col items-center gap-1.5 p-2 rounded-2xl border-2 transition-all cursor-pointer active:scale-95 ${
+              options.effectOverride === eff.id ? 'border-amber-400 bg-amber-50' : 'border-cream-200 bg-white'
+            }`}
+          >
+            <div className="rounded-xl" style={{ width: 52, height: 52, backgroundColor: eff.previewBg, filter: eff.filter || undefined }} />
+            <span className={`font-rubik text-[11px] font-semibold ${options.effectOverride === eff.id ? 'text-amber-600' : 'text-brown-400'}`}>{eff.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── ExportStatusBanner ─────────────────────────────────────────────────────────
+
+function ExportStatusBanner({ icon, text, green }) {
+  return (
+    <div
+      className="flex items-center justify-center gap-2.5 py-3.5 rounded-2xl border"
+      style={green
+        ? { background: 'linear-gradient(135deg, #F0FDF4, #DCFCE7)', borderColor: '#BBF7D0' }
+        : { background: '#FFFFFF', borderColor: '#F5E6D3', boxShadow: '0 2px 10px rgba(61,43,31,0.06)' }
+      }
+    >
+      {icon}
+      <span className={`font-rubik font-semibold text-sm ${green ? 'text-green-700' : 'text-brown-500'}`}>{text}</span>
+    </div>
+  )
+}
+
+// ── ExportHubSheet — 3 distinct export cards ───────────────────────────────────
+
+function ExportHubSheet({ isOpen, onClose, filled, onZip, onGif, onVideo }) {
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="יצוא האלבום">
+      <div className="space-y-3 pb-2" dir="rtl">
+        <p className="font-rubik text-brown-400 text-xs text-center -mt-1">
+          {filled} {filled === 1 ? 'תמונה' : 'תמונות'} · בחר פורמט
+        </p>
+
+        {/* ZIP — print quality */}
+        <ExportCard
+          icon={<FolderDown size={22} />}
+          iconBg="#F5E6D3"
+          iconColor="#8B5E3C"
+          gradient="linear-gradient(135deg, #FDF6F0, #FFF0E0)"
+          title="הדפסה — ZIP"
+          desc={`${filled} תמונות · 2100×2100 · איכות מלאה לשירות הדפסה`}
+          onClick={onZip}
+        />
+
+        {/* GIF animation */}
+        <ExportCard
+          icon={<Film size={22} />}
+          iconBg="#FEF3C7"
+          iconColor="#D4A030"
+          gradient="linear-gradient(135deg, #FFFBEB, #FEF3C7)"
+          title="GIF אנימציה"
+          desc="לשיתוף ב-WhatsApp ורשתות חברתיות · לולאה אינסופית"
+          onClick={onGif}
+        />
+
+        {/* Video with music */}
+        <ExportCard
+          icon={<Video size={22} />}
+          iconBg="#E0E7FF"
+          iconColor="#4F46E5"
+          gradient="linear-gradient(135deg, #EEF2FF, #E0E7FF)"
+          title="וידאו עם מוזיקה"
+          desc="MP4 / WebM · 8 שירים לבחירה · מעברים חלקים בין תמונות"
+          onClick={onVideo}
+        />
+      </div>
+    </BottomSheet>
+  )
+}
+
+function ExportCard({ icon, iconBg, iconColor, gradient, title, desc, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      dir="rtl"
+      className="w-full flex items-center gap-3.5 px-4 py-4 rounded-2xl border border-cream-200 active:scale-[0.98] transition-transform cursor-pointer text-right"
+      style={{ background: gradient, boxShadow: '0 2px 12px rgba(61,43,31,0.06), inset 0 1px 0 rgba(255,255,255,0.85)' }}
+    >
+      <div
+        className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+        style={{ background: iconBg, color: iconColor }}
+      >
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0 text-right">
+        <p className="font-rubik font-bold text-brown-800 text-sm">{title}</p>
+        <p className="font-rubik text-brown-400 text-xs mt-0.5 leading-relaxed">{desc}</p>
+      </div>
+      <ChevronLeft size={18} className="text-brown-300 flex-shrink-0" />
+    </button>
+  )
+}
+
+// ── VideoOptionsSheet ──────────────────────────────────────────────────────────
+
+function VideoOptionsSheet({ isOpen, onClose, options, onOptionsChange, filled, onGenerate }) {
   const [playingTrack, setPlayingTrack] = useState(null)
   const audioRef = useRef(null)
 
@@ -767,166 +1017,43 @@ function GifOptionsSheet({ isOpen, onClose, options, onOptionsChange, filled, on
     setPlayingTrack(trackId)
   }
 
-  // Stop audio when sheet is closed / unmounted
   useEffect(() => () => stopPreview(), [])
 
-  const isVideo = !!options.music
-  const transitionMs = isVideo && filled > 1 ? (filled - 1) * TRANSITION_MS : 0
+  const transitionMs = filled > 1 ? (filled - 1) * TRANSITION_MS : 0
   const totalSec = Math.round((filled * GIF_SPEED_MS[options.speed] + transitionMs) / 1000)
 
   return (
-    <BottomSheet
-      isOpen={isOpen}
-      onClose={() => { stopPreview(); onClose() }}
-      title={isVideo ? 'מרכז שליטה — וידאו 🎬' : 'מרכז שליטה — GIF'}
-    >
+    <BottomSheet isOpen={isOpen} onClose={() => { stopPreview(); onClose() }} title="מרכז שליטה — וידאו 🎬">
       <div className="space-y-4 pb-2" dir="rtl">
 
-        {/* Info pill */}
         <p className="font-rubik text-brown-400 text-xs text-center -mt-1">
-          {filled} {filled === 1 ? 'תמונה' : 'תמונות'} · כ-{totalSec} שניות
-          {isVideo ? ' · וידאו עם מוזיקה' : ' · GIF'}
+          {filled} {filled === 1 ? 'תמונה' : 'תמונות'} · כ-{totalSec} שניות · MP4/WebM
         </p>
 
-        {/* ── Speed segmented control ── */}
-        <div>
-          <p className="font-rubik text-brown-500 text-xs font-semibold mb-2">מהירות</p>
-          <div
-            className="grid grid-cols-3 gap-1.5 p-1.5 rounded-2xl border border-cream-200"
-            style={{ background: '#F0E4D6' }}
-          >
-            {SPEED_OPTIONS.map(({ key, label, sub }) => (
-              <button
-                key={key}
-                onClick={() => onOptionsChange(o => ({ ...o, speed: key }))}
-                className="py-2.5 rounded-xl transition-all cursor-pointer flex flex-col items-center active:scale-95"
-                style={options.speed === key ? {
-                  background: 'linear-gradient(135deg, #E8B84B, #D4A030)',
-                  boxShadow: '0 3px 10px rgba(232,184,75,0.5), inset 0 1px 0 rgba(255,255,255,0.25)',
-                } : {}}
-              >
-                <span className={`font-rubik font-bold text-sm leading-tight ${options.speed === key ? 'text-white' : 'text-brown-600'}`}>
-                  {label}
-                </span>
-                <span className={`font-rubik text-[10px] ${options.speed === key ? 'text-white/70' : 'text-brown-400'}`}>
-                  {sub}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Text overlay toggles ── */}
-        <div>
-          <p className="font-rubik text-brown-500 text-xs font-semibold mb-2">שכבות טקסט</p>
-          <div
-            className="rounded-2xl border border-cream-200 bg-white overflow-hidden"
-            style={{ boxShadow: '0 2px 10px rgba(61,43,31,0.05), inset 0 1px 0 rgba(255,255,255,0.9)' }}
-          >
-            {TEXT_TOGGLES.map(({ key, label, desc }, idx) => (
-              <div
-                key={key}
-                className={`flex items-center justify-between px-4 py-3 ${
-                  idx < TEXT_TOGGLES.length - 1 ? 'border-b border-cream-100' : ''
-                }`}
-              >
-                <div>
-                  <p className="font-rubik font-semibold text-brown-800 text-sm leading-tight">{label}</p>
-                  <p className="font-rubik text-brown-400 text-[10px] mt-0.5">{desc}</p>
-                </div>
-                <button
-                  onClick={() => onOptionsChange(o => ({ ...o, [key]: !o[key] }))}
-                  className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors ${
-                    options[key] ? 'bg-amber-400' : 'bg-cream-200'
-                  }`}
-                  style={{ direction: 'ltr' }}
-                  aria-label={label}
-                >
-                  <span
-                    className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${
-                      options[key] ? 'translate-x-5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Global effect override ── */}
-        <div>
-          <p className="font-rubik text-brown-500 text-xs font-semibold mb-2">
-            אפקט <span className="font-normal text-brown-400 text-[10px]">עוקף את הגדרות כל תמונה בנפרד</span>
-          </p>
-          <div
-            className="flex gap-2 pb-1"
-            style={{ overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-          >
-            <button
-              onClick={() => onOptionsChange(o => ({ ...o, effectOverride: null }))}
-              className={`flex-shrink-0 flex flex-col items-center gap-1.5 p-2 rounded-2xl border-2 transition-all cursor-pointer active:scale-95 ${
-                options.effectOverride === null ? 'border-amber-400 bg-amber-50' : 'border-cream-200 bg-white'
-              }`}
-            >
-              <div
-                className="grid grid-cols-2 rounded-xl overflow-hidden"
-                style={{ width: 52, height: 52, gap: 2, padding: 2, backgroundColor: '#FFF0E0' }}
-              >
-                {EFFECTS.slice(0, 4).map(e => (
-                  <div key={e.id} className="rounded" style={{ backgroundColor: e.previewBg, filter: e.filter || undefined }} />
-                ))}
-              </div>
-              <span className={`font-rubik text-[11px] font-semibold ${options.effectOverride === null ? 'text-amber-600' : 'text-brown-400'}`}>
-                מקורי
-              </span>
-            </button>
-
-            {EFFECTS.map(eff => (
-              <button
-                key={eff.id}
-                onClick={() => onOptionsChange(o => ({ ...o, effectOverride: eff.id }))}
-                className={`flex-shrink-0 flex flex-col items-center gap-1.5 p-2 rounded-2xl border-2 transition-all cursor-pointer active:scale-95 ${
-                  options.effectOverride === eff.id ? 'border-amber-400 bg-amber-50' : 'border-cream-200 bg-white'
-                }`}
-              >
-                <div className="rounded-xl" style={{ width: 52, height: 52, backgroundColor: eff.previewBg, filter: eff.filter || undefined }} />
-                <span className={`font-rubik text-[11px] font-semibold ${options.effectOverride === eff.id ? 'text-amber-600' : 'text-brown-400'}`}>
-                  {eff.label}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
+        <OptionsSpeedBlock options={options} onOptionsChange={onOptionsChange} />
+        <OptionsTextToggles options={options} onOptionsChange={onOptionsChange} />
+        <OptionsEffectPicker options={options} onOptionsChange={onOptionsChange} />
 
         {/* ── Music section ── */}
         <div>
           <p className="font-rubik text-brown-500 text-xs font-semibold mb-2">
             מוזיקה
-            <span className="font-normal text-brown-300 mr-1">· בחר שיר לייצוא כוידאו</span>
+            <span className="font-normal text-brown-300 mr-1">· ▶ להאזנה מקדימה לפני הבחירה</span>
           </p>
 
-          {/* Track cards */}
-          <div
-            className="flex gap-2 pb-1"
-            style={{ overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-          >
+          <div className="flex gap-2 pb-1" style={{ overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {/* No music */}
             <button
               onClick={() => { stopPreview(); onOptionsChange(o => ({ ...o, music: null, musicStart: 0 })) }}
               className={`flex-shrink-0 flex flex-col items-center gap-1.5 p-2 rounded-2xl border-2 transition-all cursor-pointer active:scale-95 ${
-                !options.music ? 'border-amber-400 bg-amber-50' : 'border-cream-200 bg-white'
+                !options.music ? 'border-indigo-400 bg-indigo-50' : 'border-cream-200 bg-white'
               }`}
               style={{ width: 68 }}
             >
-              <div
-                className="w-11 h-11 rounded-xl flex items-center justify-center text-xl"
-                style={{ background: !options.music ? '#FEF3C7' : '#FFF8F0' }}
-              >
-                🔇
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: !options.music ? '#E0E7FF' : '#FFF8F0' }}>
+                <Video size={20} style={{ color: !options.music ? '#4F46E5' : '#C9956C' }} />
               </div>
-              <span className={`font-rubik text-[10px] font-semibold ${!options.music ? 'text-amber-600' : 'text-brown-400'}`}>
-                ללא
-              </span>
+              <span className={`font-rubik text-[10px] font-semibold ${!options.music ? 'text-indigo-600' : 'text-brown-400'}`}>ללא</span>
             </button>
 
             {/* Track cards */}
@@ -937,31 +1064,26 @@ function GifOptionsSheet({ isOpen, onClose, options, onOptionsChange, filled, on
                 <div
                   key={track.id}
                   className={`flex-shrink-0 flex flex-col items-center gap-1 p-2 rounded-2xl border-2 transition-all ${
-                    selected ? 'border-amber-400 bg-amber-50' : 'border-cream-200 bg-white'
+                    selected ? 'border-indigo-400 bg-indigo-50' : 'border-cream-200 bg-white'
                   }`}
                   style={{ width: 68 }}
                 >
-                  {/* Select track */}
                   <button
                     onClick={() => { stopPreview(); onOptionsChange(o => ({ ...o, music: track.id, musicStart: 0 })) }}
                     className="flex flex-col items-center gap-1.5 cursor-pointer active:scale-95 transition-transform w-full"
                   >
-                    <div
-                      className="w-11 h-11 rounded-xl flex items-center justify-center text-xl"
-                      style={{ background: selected ? '#FEF3C7' : '#FFF8F0' }}
-                    >
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl"
+                      style={{ background: selected ? '#E0E7FF' : '#FFF8F0' }}>
                       {track.emoji}
                     </div>
-                    <span className={`font-rubik text-[10px] font-semibold text-center leading-tight ${selected ? 'text-amber-600' : 'text-brown-400'}`}>
+                    <span className={`font-rubik text-[10px] font-semibold text-center leading-tight ${selected ? 'text-indigo-600' : 'text-brown-400'}`}>
                       {track.label}
                     </span>
                   </button>
-
-                  {/* Preview play/pause */}
                   <button
                     onClick={e => { e.stopPropagation(); togglePreview(track.id) }}
                     className={`w-full flex items-center justify-center gap-0.5 py-0.5 rounded-lg text-[10px] cursor-pointer transition-colors ${
-                      playing ? 'text-amber-600 bg-amber-100' : 'text-brown-400'
+                      playing ? 'text-indigo-600 bg-indigo-100' : 'text-brown-400'
                     }`}
                   >
                     <span>{playing ? '⏸' : '▶'}</span>
@@ -972,22 +1094,19 @@ function GifOptionsSheet({ isOpen, onClose, options, onOptionsChange, filled, on
             })}
           </div>
 
-          {/* Start-time slider (shown when a track is selected) */}
+          {/* Start-time slider */}
           {options.music && (
             <div className="mt-2.5 px-1">
               <div className="flex items-center justify-between mb-1">
                 <span className="font-rubik text-brown-500 text-[11px] font-semibold">התחל שיר מ:</span>
-                <span className="font-rubik text-amber-600 text-[11px] font-bold">{formatTime(options.musicStart)}</span>
+                <span className="font-rubik text-indigo-500 text-[11px] font-bold">{formatTime(options.musicStart)}</span>
               </div>
               <input
-                type="range"
-                min={0}
-                max={60}
-                step={1}
+                type="range" min={0} max={60} step={1}
                 value={options.musicStart}
                 onChange={e => onOptionsChange(o => ({ ...o, musicStart: Number(e.target.value) }))}
                 className="w-full"
-                style={{ accentColor: '#E8B84B' }}
+                style={{ accentColor: '#6366F1' }}
               />
               <div className="flex justify-between mt-0.5">
                 <span className="font-rubik text-brown-300 text-[9px]">0:00</span>
@@ -1002,16 +1121,12 @@ function GifOptionsSheet({ isOpen, onClose, options, onOptionsChange, filled, on
           onClick={() => { stopPreview(); onGenerate() }}
           className="w-full py-4 rounded-3xl font-rubik font-black text-white text-base flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform cursor-pointer"
           style={{
-            background: isVideo
-              ? 'linear-gradient(135deg, #6366F1, #4F46E5)'
-              : 'linear-gradient(135deg, #E8B84B, #D4A030)',
-            boxShadow: isVideo
-              ? '0 6px 20px rgba(99,102,241,0.4), inset 0 1px 0 rgba(255,255,255,0.2)'
-              : '0 6px 20px rgba(232,184,75,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
+            background: 'linear-gradient(135deg, #6366F1, #4F46E5)',
+            boxShadow: '0 6px 20px rgba(99,102,241,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
           }}
         >
-          {isVideo ? <span className="text-lg">🎬</span> : <Film size={18} />}
-          {isVideo ? 'צור וידאו עם מוזיקה' : 'צור GIF'}
+          <Video size={18} />
+          צור וידאו
         </button>
       </div>
     </BottomSheet>
