@@ -89,11 +89,15 @@ export function AlbumPage() {
   const [exportStep,   setExportStep]   = useState(0)
   const [exportDone,   setExportDone]   = useState(false)
 
-  // Export hub sheet
-  const [exportHubOpen, setExportHubOpen] = useState(false)
+  // Single export sheet — null | 'hub' | 'gif' | 'video'
+  // One BottomSheet handles all three panels to avoid history-back collisions
+  // when transitioning hub→gif or hub→video (BottomSheet pushes a history entry
+  // on open; if two sheets open/close in the same render, one's cleanup calls
+  // history.back() which the other's popstate handler treats as an OS back gesture
+  // and immediately closes the newly-opened sheet).
+  const [exportSheet, setExportSheet] = useState(null)
 
   // GIF export
-  const [gifSheetOpen,  setGifSheetOpen]  = useState(false)
   const [gifGenerating, setGifGenerating] = useState(false)
   const [gifStep,       setGifStep]       = useState(0)
   const [gifDone,       setGifDone]       = useState(false)
@@ -106,7 +110,6 @@ export function AlbumPage() {
   })
 
   // Video export
-  const [videoSheetOpen,  setVideoSheetOpen]  = useState(false)
   const [videoGenerating, setVideoGenerating] = useState(false)
   const [videoStep,       setVideoStep]       = useState(0)
   const [videoDone,       setVideoDone]       = useState(false)
@@ -120,11 +123,25 @@ export function AlbumPage() {
     musicStart:     0,
   })
 
+  // Video preview audio — lifted here so closeExportSheet can stop it
+  const videoAudioRef      = useRef(null)
+  const [videoPlayingTrack, setVideoPlayingTrack] = useState(null)
+
+  function stopVideoPreview() {
+    if (videoAudioRef.current) { videoAudioRef.current.pause(); videoAudioRef.current = null }
+    setVideoPlayingTrack(null)
+  }
+
+  function closeExportSheet() {
+    stopVideoPreview()
+    setExportSheet(null)
+  }
+
   const filled     = Object.keys(byMonth).length
   const nextToFill = Array.from({ length: 12 }, (_, i) => i + 1).find(m => !byMonth[m]) ?? null
 
   function handleZipExport() {
-    setExportHubOpen(false)
+    closeExportSheet()
     setExporting(true)
     setExportStep(0)
     exportAlbum({
@@ -140,7 +157,7 @@ export function AlbumPage() {
   }
 
   function handleGifGenerate() {
-    setGifSheetOpen(false)
+    closeExportSheet()
     setGifGenerating(true)
     setGifStep(0)
     generateAlbumGif({
@@ -160,7 +177,8 @@ export function AlbumPage() {
   }
 
   function handleVideoGenerate() {
-    setVideoSheetOpen(false)
+    stopVideoPreview()
+    closeExportSheet()
     setVideoGenerating(true)
     setVideoStep(0)
     generateAlbumVideo({
@@ -312,7 +330,7 @@ export function AlbumPage() {
             {/* Main export button — always visible when idle */}
             {!exporting && !exportDone && (
               <button
-                onClick={() => setExportHubOpen(true)}
+                onClick={() => setExportSheet('hub')}
                 disabled={filled === 0}
                 className="w-full py-4 rounded-3xl font-rubik font-black text-white text-base flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform disabled:opacity-40 cursor-pointer"
                 style={{
@@ -352,41 +370,45 @@ export function AlbumPage() {
         />
       )}
 
-      {/* ── Export hub sheet ── */}
-      {exportHubOpen && (
-        <ExportHubSheet
-          isOpen={exportHubOpen}
-          onClose={() => setExportHubOpen(false)}
-          filled={filled}
-          onZip={handleZipExport}
-          onGif={() => { setExportHubOpen(false); setGifSheetOpen(true) }}
-          onVideo={() => { setExportHubOpen(false); setVideoSheetOpen(true) }}
-        />
-      )}
-
-      {/* ── GIF options sheet ── */}
-      {gifSheetOpen && (
-        <GifOptionsSheet
-          isOpen={gifSheetOpen}
-          onClose={() => setGifSheetOpen(false)}
-          options={gifOptions}
-          onOptionsChange={setGifOptions}
-          filled={filled}
-          onGenerate={handleGifGenerate}
-        />
-      )}
-
-      {/* ── Video options sheet ── */}
-      {videoSheetOpen && (
-        <VideoOptionsSheet
-          isOpen={videoSheetOpen}
-          onClose={() => setVideoSheetOpen(false)}
-          options={videoOptions}
-          onOptionsChange={setVideoOptions}
-          filled={filled}
-          onGenerate={handleVideoGenerate}
-        />
-      )}
+      {/* ── Unified export sheet — one BottomSheet, three panels ── */}
+      <BottomSheet
+        isOpen={exportSheet !== null}
+        onClose={closeExportSheet}
+        title={
+          exportSheet === 'hub'   ? 'יצוא האלבום' :
+          exportSheet === 'gif'   ? 'GIF אנימציה' :
+          exportSheet === 'video' ? 'וידאו עם מוזיקה' :
+          ''
+        }
+      >
+        {exportSheet === 'hub' && (
+          <ExportHubContent
+            filled={filled}
+            onZip={handleZipExport}
+            onGif={() => setExportSheet('gif')}
+            onVideo={() => setExportSheet('video')}
+          />
+        )}
+        {exportSheet === 'gif' && (
+          <GifOptionsContent
+            options={gifOptions}
+            onOptionsChange={setGifOptions}
+            filled={filled}
+            onGenerate={handleGifGenerate}
+          />
+        )}
+        {exportSheet === 'video' && (
+          <VideoOptionsContent
+            options={videoOptions}
+            onOptionsChange={setVideoOptions}
+            filled={filled}
+            onGenerate={handleVideoGenerate}
+            playingTrack={videoPlayingTrack}
+            setPlayingTrack={setVideoPlayingTrack}
+            audioRef={videoAudioRef}
+          />
+        )}
+      </BottomSheet>
     </div>
   )
 }
@@ -774,34 +796,31 @@ const TEXT_TOGGLES  = [
   { key: 'showCaption',    label: 'כיתוב',      desc: 'הטקסט שנכתב לכל חודש' },
 ]
 
-function GifOptionsSheet({ isOpen, onClose, options, onOptionsChange, filled, onGenerate }) {
+function GifOptionsContent({ options, onOptionsChange, filled, onGenerate }) {
   const totalSec = Math.round(filled * GIF_SPEED_MS[options.speed] / 1000)
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="מרכז שליטה — GIF">
-      <div className="space-y-4 pb-2" dir="rtl">
+    <div className="space-y-4 pb-2" dir="rtl">
+      <p className="font-rubik text-brown-400 text-xs text-center -mt-1">
+        {filled} {filled === 1 ? 'תמונה' : 'תמונות'} · כ-{totalSec} שניות · לולאה אינסופית
+      </p>
 
-        <p className="font-rubik text-brown-400 text-xs text-center -mt-1">
-          {filled} {filled === 1 ? 'תמונה' : 'תמונות'} · כ-{totalSec} שניות · GIF
-        </p>
+      <OptionsSpeedBlock options={options} onOptionsChange={onOptionsChange} />
+      <OptionsTextToggles options={options} onOptionsChange={onOptionsChange} />
+      <OptionsEffectPicker options={options} onOptionsChange={onOptionsChange} />
 
-        <OptionsSpeedBlock options={options} onOptionsChange={onOptionsChange} />
-        <OptionsTextToggles options={options} onOptionsChange={onOptionsChange} />
-        <OptionsEffectPicker options={options} onOptionsChange={onOptionsChange} />
-
-        <button
-          onClick={onGenerate}
-          className="w-full py-4 rounded-3xl font-rubik font-black text-white text-base flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform cursor-pointer"
-          style={{
-            background: 'linear-gradient(135deg, #E8B84B, #D4A030)',
-            boxShadow: '0 6px 20px rgba(232,184,75,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
-          }}
-        >
-          <Film size={18} />
-          צור GIF
-        </button>
-      </div>
-    </BottomSheet>
+      <button
+        onClick={onGenerate}
+        className="w-full py-4 rounded-3xl font-rubik font-black text-white text-base flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform cursor-pointer"
+        style={{
+          background: 'linear-gradient(135deg, #E8B84B, #D4A030)',
+          boxShadow: '0 6px 20px rgba(232,184,75,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
+        }}
+      >
+        <Film size={18} />
+        צור GIF
+      </button>
+    </div>
   )
 }
 
@@ -926,50 +945,45 @@ function ExportStatusBanner({ icon, text, green }) {
   )
 }
 
-// ── ExportHubSheet — 3 distinct export cards ───────────────────────────────────
+// ── ExportHubContent — 3 distinct export cards (no BottomSheet wrapper) ──────────
 
-function ExportHubSheet({ isOpen, onClose, filled, onZip, onGif, onVideo }) {
+function ExportHubContent({ filled, onZip, onGif, onVideo }) {
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="יצוא האלבום">
-      <div className="space-y-3 pb-2" dir="rtl">
-        <p className="font-rubik text-brown-400 text-xs text-center -mt-1">
-          {filled} {filled === 1 ? 'תמונה' : 'תמונות'} · בחר פורמט
-        </p>
+    <div className="space-y-3 pb-2" dir="rtl">
+      <p className="font-rubik text-brown-400 text-xs text-center -mt-1">
+        {filled} {filled === 1 ? 'תמונה' : 'תמונות'} · בחר פורמט
+      </p>
 
-        {/* ZIP — print quality */}
-        <ExportCard
-          icon={<FolderDown size={22} />}
-          iconBg="#F5E6D3"
-          iconColor="#8B5E3C"
-          gradient="linear-gradient(135deg, #FDF6F0, #FFF0E0)"
-          title="הדפסה — ZIP"
-          desc={`${filled} תמונות · 2100×2100 · איכות מלאה לשירות הדפסה`}
-          onClick={onZip}
-        />
+      <ExportCard
+        icon={<FolderDown size={22} />}
+        iconBg="#F5E6D3"
+        iconColor="#8B5E3C"
+        gradient="linear-gradient(135deg, #FDF6F0, #FFF0E0)"
+        title="הדפסה — ZIP"
+        desc={`${filled} תמונות · 2100×2100 · כל חודש כקובץ JPG נפרד באיכות הדפסה`}
+        onClick={onZip}
+      />
 
-        {/* GIF animation */}
-        <ExportCard
-          icon={<Film size={22} />}
-          iconBg="#FEF3C7"
-          iconColor="#D4A030"
-          gradient="linear-gradient(135deg, #FFFBEB, #FEF3C7)"
-          title="GIF אנימציה"
-          desc="לשיתוף ב-WhatsApp ורשתות חברתיות · לולאה אינסופית"
-          onClick={onGif}
-        />
+      <ExportCard
+        icon={<Film size={22} />}
+        iconBg="#FEF3C7"
+        iconColor="#D4A030"
+        gradient="linear-gradient(135deg, #FFFBEB, #FEF3C7)"
+        title="GIF אנימציה"
+        desc="אנימציה מסתובבת · לשיתוף ב-WhatsApp ורשתות חברתיות"
+        onClick={onGif}
+      />
 
-        {/* Video with music */}
-        <ExportCard
-          icon={<Video size={22} />}
-          iconBg="#E0E7FF"
-          iconColor="#4F46E5"
-          gradient="linear-gradient(135deg, #EEF2FF, #E0E7FF)"
-          title="וידאו עם מוזיקה"
-          desc="MP4 / WebM · 8 שירים לבחירה · מעברים חלקים בין תמונות"
-          onClick={onVideo}
-        />
-      </div>
-    </BottomSheet>
+      <ExportCard
+        icon={<Video size={22} />}
+        iconBg="#E0E7FF"
+        iconColor="#4F46E5"
+        gradient="linear-gradient(135deg, #EEF2FF, #E0E7FF)"
+        title="וידאו עם מוזיקה"
+        desc="סרטון MP4 עם מעברים חלקים · 8 שירי רקע לבחירה"
+        onClick={onVideo}
+      />
+    </div>
   )
 }
 
@@ -996,12 +1010,10 @@ function ExportCard({ icon, iconBg, iconColor, gradient, title, desc, onClick })
   )
 }
 
-// ── VideoOptionsSheet ──────────────────────────────────────────────────────────
+// ── VideoOptionsContent — video panel (no BottomSheet wrapper) ─────────────────
+// Audio state is lifted to AlbumPage so closeExportSheet can stop playback.
 
-function VideoOptionsSheet({ isOpen, onClose, options, onOptionsChange, filled, onGenerate }) {
-  const [playingTrack, setPlayingTrack] = useState(null)
-  const audioRef = useRef(null)
-
+function VideoOptionsContent({ options, onOptionsChange, filled, onGenerate, playingTrack, setPlayingTrack, audioRef }) {
   function stopPreview() {
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
     setPlayingTrack(null)
@@ -1017,119 +1029,114 @@ function VideoOptionsSheet({ isOpen, onClose, options, onOptionsChange, filled, 
     setPlayingTrack(trackId)
   }
 
-  useEffect(() => () => stopPreview(), [])
-
   const transitionMs = filled > 1 ? (filled - 1) * TRANSITION_MS : 0
   const totalSec = Math.round((filled * GIF_SPEED_MS[options.speed] + transitionMs) / 1000)
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={() => { stopPreview(); onClose() }} title="מרכז שליטה — וידאו 🎬">
-      <div className="space-y-4 pb-2" dir="rtl">
+    <div className="space-y-4 pb-2" dir="rtl">
+      <p className="font-rubik text-brown-400 text-xs text-center -mt-1">
+        {filled} {filled === 1 ? 'תמונה' : 'תמונות'} · כ-{totalSec} שניות · MP4/WebM
+      </p>
 
-        <p className="font-rubik text-brown-400 text-xs text-center -mt-1">
-          {filled} {filled === 1 ? 'תמונה' : 'תמונות'} · כ-{totalSec} שניות · MP4/WebM
+      <OptionsSpeedBlock options={options} onOptionsChange={onOptionsChange} />
+      <OptionsTextToggles options={options} onOptionsChange={onOptionsChange} />
+      <OptionsEffectPicker options={options} onOptionsChange={onOptionsChange} />
+
+      {/* ── Music section ── */}
+      <div>
+        <p className="font-rubik text-brown-500 text-xs font-semibold mb-2">
+          מוזיקה
+          <span className="font-normal text-brown-300 mr-1">· לחץ ▶ להאזנה מקדימה</span>
         </p>
 
-        <OptionsSpeedBlock options={options} onOptionsChange={onOptionsChange} />
-        <OptionsTextToggles options={options} onOptionsChange={onOptionsChange} />
-        <OptionsEffectPicker options={options} onOptionsChange={onOptionsChange} />
-
-        {/* ── Music section ── */}
-        <div>
-          <p className="font-rubik text-brown-500 text-xs font-semibold mb-2">
-            מוזיקה
-            <span className="font-normal text-brown-300 mr-1">· ▶ להאזנה מקדימה לפני הבחירה</span>
-          </p>
-
-          <div className="flex gap-2 pb-1" style={{ overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            {/* No music */}
-            <button
-              onClick={() => { stopPreview(); onOptionsChange(o => ({ ...o, music: null, musicStart: 0 })) }}
-              className={`flex-shrink-0 flex flex-col items-center gap-1.5 p-2 rounded-2xl border-2 transition-all cursor-pointer active:scale-95 ${
-                !options.music ? 'border-indigo-400 bg-indigo-50' : 'border-cream-200 bg-white'
-              }`}
-              style={{ width: 68 }}
-            >
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: !options.music ? '#E0E7FF' : '#FFF8F0' }}>
-                <Video size={20} style={{ color: !options.music ? '#4F46E5' : '#C9956C' }} />
-              </div>
-              <span className={`font-rubik text-[10px] font-semibold ${!options.music ? 'text-indigo-600' : 'text-brown-400'}`}>ללא</span>
-            </button>
-
-            {/* Track cards */}
-            {MUSIC_TRACKS.map(track => {
-              const selected = options.music === track.id
-              const playing  = playingTrack === track.id
-              return (
-                <div
-                  key={track.id}
-                  className={`flex-shrink-0 flex flex-col items-center gap-1 p-2 rounded-2xl border-2 transition-all ${
-                    selected ? 'border-indigo-400 bg-indigo-50' : 'border-cream-200 bg-white'
-                  }`}
-                  style={{ width: 68 }}
-                >
-                  <button
-                    onClick={() => { stopPreview(); onOptionsChange(o => ({ ...o, music: track.id, musicStart: 0 })) }}
-                    className="flex flex-col items-center gap-1.5 cursor-pointer active:scale-95 transition-transform w-full"
-                  >
-                    <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl"
-                      style={{ background: selected ? '#E0E7FF' : '#FFF8F0' }}>
-                      {track.emoji}
-                    </div>
-                    <span className={`font-rubik text-[10px] font-semibold text-center leading-tight ${selected ? 'text-indigo-600' : 'text-brown-400'}`}>
-                      {track.label}
-                    </span>
-                  </button>
-                  <button
-                    onClick={e => { e.stopPropagation(); togglePreview(track.id) }}
-                    className={`w-full flex items-center justify-center gap-0.5 py-0.5 rounded-lg text-[10px] cursor-pointer transition-colors ${
-                      playing ? 'text-indigo-600 bg-indigo-100' : 'text-brown-400'
-                    }`}
-                  >
-                    <span>{playing ? '⏸' : '▶'}</span>
-                    <span className="font-rubik text-[9px]">{playing ? 'עצור' : 'נגן'}</span>
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Start-time slider */}
-          {options.music && (
-            <div className="mt-2.5 px-1">
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-rubik text-brown-500 text-[11px] font-semibold">התחל שיר מ:</span>
-                <span className="font-rubik text-indigo-500 text-[11px] font-bold">{formatTime(options.musicStart)}</span>
-              </div>
-              <input
-                type="range" min={0} max={60} step={1}
-                value={options.musicStart}
-                onChange={e => onOptionsChange(o => ({ ...o, musicStart: Number(e.target.value) }))}
-                className="w-full"
-                style={{ accentColor: '#6366F1' }}
-              />
-              <div className="flex justify-between mt-0.5">
-                <span className="font-rubik text-brown-300 text-[9px]">0:00</span>
-                <span className="font-rubik text-brown-300 text-[9px]">1:00</span>
-              </div>
+        <div className="flex gap-2 pb-1" style={{ overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          {/* No music */}
+          <button
+            onClick={() => { stopPreview(); onOptionsChange(o => ({ ...o, music: null, musicStart: 0 })) }}
+            className={`flex-shrink-0 flex flex-col items-center gap-1.5 p-2 rounded-2xl border-2 transition-all cursor-pointer active:scale-95 ${
+              !options.music ? 'border-indigo-400 bg-indigo-50' : 'border-cream-200 bg-white'
+            }`}
+            style={{ width: 68 }}
+          >
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: !options.music ? '#E0E7FF' : '#FFF8F0' }}>
+              <Video size={20} style={{ color: !options.music ? '#4F46E5' : '#C9956C' }} />
             </div>
-          )}
+            <span className={`font-rubik text-[10px] font-semibold ${!options.music ? 'text-indigo-600' : 'text-brown-400'}`}>ללא</span>
+          </button>
+
+          {/* Track cards */}
+          {MUSIC_TRACKS.map(track => {
+            const selected = options.music === track.id
+            const playing  = playingTrack === track.id
+            return (
+              <div
+                key={track.id}
+                className={`flex-shrink-0 flex flex-col items-center gap-1 p-2 rounded-2xl border-2 transition-all ${
+                  selected ? 'border-indigo-400 bg-indigo-50' : 'border-cream-200 bg-white'
+                }`}
+                style={{ width: 68 }}
+              >
+                <button
+                  onClick={() => { stopPreview(); onOptionsChange(o => ({ ...o, music: track.id, musicStart: 0 })) }}
+                  className="flex flex-col items-center gap-1.5 cursor-pointer active:scale-95 transition-transform w-full"
+                >
+                  <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl"
+                    style={{ background: selected ? '#E0E7FF' : '#FFF8F0' }}>
+                    {track.emoji}
+                  </div>
+                  <span className={`font-rubik text-[10px] font-semibold text-center leading-tight ${selected ? 'text-indigo-600' : 'text-brown-400'}`}>
+                    {track.label}
+                  </span>
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); togglePreview(track.id) }}
+                  className={`w-full flex items-center justify-center gap-0.5 py-0.5 rounded-lg text-[10px] cursor-pointer transition-colors ${
+                    playing ? 'text-indigo-600 bg-indigo-100' : 'text-brown-400'
+                  }`}
+                >
+                  <span>{playing ? '⏸' : '▶'}</span>
+                  <span className="font-rubik text-[9px]">{playing ? 'עצור' : 'נגן'}</span>
+                </button>
+              </div>
+            )
+          })}
         </div>
 
-        {/* Generate button */}
-        <button
-          onClick={() => { stopPreview(); onGenerate() }}
-          className="w-full py-4 rounded-3xl font-rubik font-black text-white text-base flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform cursor-pointer"
-          style={{
-            background: 'linear-gradient(135deg, #6366F1, #4F46E5)',
-            boxShadow: '0 6px 20px rgba(99,102,241,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
-          }}
-        >
-          <Video size={18} />
-          צור וידאו
-        </button>
+        {/* Start-time slider */}
+        {options.music && (
+          <div className="mt-2.5 px-1">
+            <div className="flex items-center justify-between mb-1">
+              <span className="font-rubik text-brown-500 text-[11px] font-semibold">התחל שיר מ:</span>
+              <span className="font-rubik text-indigo-500 text-[11px] font-bold">{formatTime(options.musicStart)}</span>
+            </div>
+            <input
+              type="range" min={0} max={60} step={1}
+              value={options.musicStart}
+              onChange={e => onOptionsChange(o => ({ ...o, musicStart: Number(e.target.value) }))}
+              className="w-full"
+              style={{ accentColor: '#6366F1' }}
+            />
+            <div className="flex justify-between mt-0.5">
+              <span className="font-rubik text-brown-300 text-[9px]">0:00</span>
+              <span className="font-rubik text-brown-300 text-[9px]">1:00</span>
+            </div>
+          </div>
+        )}
       </div>
-    </BottomSheet>
+
+      {/* Generate button */}
+      <button
+        onClick={onGenerate}
+        className="w-full py-4 rounded-3xl font-rubik font-black text-white text-base flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform cursor-pointer"
+        style={{
+          background: 'linear-gradient(135deg, #6366F1, #4F46E5)',
+          boxShadow: '0 6px 20px rgba(99,102,241,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
+        }}
+      >
+        <Video size={18} />
+        צור וידאו
+      </button>
+    </div>
   )
 }
 
