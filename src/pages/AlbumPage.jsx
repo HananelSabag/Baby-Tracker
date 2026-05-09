@@ -704,7 +704,7 @@ function EditMonthSheet({ month, photo, childId, familyId, onSave, onDelete, onC
 
 // ── GIF options sheet (control center) ────────────────────────────────────────
 
-const GIF_SPEED_MS  = { slow: 450, normal: 280, fast: 150 }
+const GIF_SPEED_MS  = { slow: 4500, normal: 2800, fast: 1500 }   // gifenc expects ms → divides by 10 internally
 const SPEED_OPTIONS = [
   { key: 'slow',   label: 'איטי',  sub: '4.5s' },
   { key: 'normal', label: 'רגיל',  sub: '2.8s' },
@@ -717,7 +717,7 @@ const TEXT_TOGGLES  = [
 ]
 
 function GifOptionsSheet({ isOpen, onClose, options, onOptionsChange, filled, onGenerate }) {
-  const totalSec = Math.round(filled * (GIF_SPEED_MS[options.speed] / 100))
+  const totalSec = Math.round(filled * (GIF_SPEED_MS[options.speed] / 1000))
 
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="מרכז שליטה — GIF">
