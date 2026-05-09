@@ -560,13 +560,13 @@ function EditMonthSheet({ month, photo, childId, familyId, onSave, onDelete, onC
             <textarea
               value={caption}
               onChange={e => setCaption(e.target.value)}
-              maxLength={80}
+              maxLength={60}
               rows={2}
               placeholder={isBday ? 'שנה שלמה של אהבה...' : 'תאר את הרגע הקסום...'}
               className="w-full font-rubik text-brown-800 text-sm bg-transparent resize-none outline-none placeholder-brown-400 leading-relaxed"
               dir="rtl"
             />
-            <p className="font-rubik text-brown-400 text-[10px] text-left mt-0.5">{caption.length}/80</p>
+            <p className="font-rubik text-brown-400 text-[10px] text-left mt-0.5">{caption.length}/60</p>
           </div>
 
           {/* ── Effect picker ── */}
@@ -944,11 +944,16 @@ async function renderPage(photo, month) {
   ctx.direction = 'rtl'
   ctx.fillText(MONTH_LABELS[month - 1], CANVAS_SIZE - 80, CANVAS_SIZE - 90)
 
-  // Optional caption
+  // Optional caption — wrapped to max 2 lines so long text doesn't overflow
   if (photo.caption) {
-    ctx.font      = '52px Arial, sans-serif'
-    ctx.fillStyle = 'rgba(255,255,255,0.82)'
-    ctx.fillText(photo.caption, CANVAS_SIZE - 80, CANVAS_SIZE - 28)
+    const capFontSize = 52
+    const capLineH    = Math.round(capFontSize * 1.3)
+    ctx.font          = `${capFontSize}px Arial, sans-serif`
+    ctx.fillStyle     = 'rgba(255,255,255,0.82)'
+    const capLines    = wrapCanvasText(ctx, photo.caption, CANVAS_SIZE - 160)
+    capLines.reverse().forEach((ln, i) => {
+      ctx.fillText(ln, CANVAS_SIZE - 80, CANVAS_SIZE - 28 - i * capLineH)
+    })
   }
 
   return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92))
@@ -1066,12 +1071,17 @@ async function renderGifFrame(photo, month, options) {
   }
 
   if (options.showCaption && photo.caption) {
-    ctx.font         = `${Math.round(S * 0.052)}px Arial, sans-serif`
-    ctx.fillStyle    = 'rgba(255,255,255,0.82)'
-    ctx.shadowColor  = 'rgba(0,0,0,0.5)'
-    ctx.shadowBlur   = 7
-    ctx.fillText(photo.caption, S - 14, yCaption)
-    ctx.shadowBlur   = 0
+    const capFontSize = Math.round(S * 0.052)
+    const capLineH    = Math.round(capFontSize * 1.3)
+    ctx.font          = `${capFontSize}px Arial, sans-serif`
+    ctx.fillStyle     = 'rgba(255,255,255,0.82)'
+    ctx.shadowColor   = 'rgba(0,0,0,0.5)'
+    ctx.shadowBlur    = 7
+    const capLines    = wrapCanvasText(ctx, photo.caption, S - 28)
+    capLines.reverse().forEach((ln, i) => {
+      ctx.fillText(ln, S - 14, yCaption - i * capLineH)
+    })
+    ctx.shadowBlur    = 0
   }
 
   return ctx.getImageData(0, 0, S, S).data
@@ -1102,21 +1112,56 @@ function formatHebrewDate(d) {
 
 // ── Shared canvas helpers ──────────────────────────────────────────────────────
 
+// Splits `text` into lines that fit within `maxWidth` px (at the current ctx font).
+// Returns at most `maxLines` lines; the last line is truncated with "…" if needed.
+function wrapCanvasText(ctx, text, maxWidth, maxLines = 2) {
+  const words = text.split(' ')
+  const lines = []
+  let line    = ''
+
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word
+    if (ctx.measureText(candidate).width <= maxWidth) {
+      line = candidate
+    } else {
+      if (line) lines.push(line)
+      line = word
+      if (lines.length >= maxLines) break
+    }
+  }
+  if (line && lines.length < maxLines) lines.push(line)
+
+  // Truncate last line with ellipsis if it still overflows
+  if (lines.length > 0) {
+    let last = lines[lines.length - 1]
+    if (ctx.measureText(last).width > maxWidth) {
+      while (last.length > 0 && ctx.measureText(last + '…').width > maxWidth) {
+        last = last.slice(0, -1)
+      }
+      lines[lines.length - 1] = last + '…'
+    }
+  }
+
+  return lines.slice(0, maxLines)
+}
+
 function loadImageCrossOrigin(src) {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.onload  = () => resolve(img)
     img.onerror = () => {
-      // Fallback: retry with no cache params (helps with some CDN CORS configs)
+      // Fallback: retry without query params (helps with some CDN CORS configs)
       const fb = new Image()
       fb.crossOrigin = 'anonymous'
       fb.onload  = () => resolve(fb)
       fb.onerror = reject
       fb.src = src.split('?')[0]
     }
-    // Strip existing cache buster and add a fresh CORS-friendly param
-    img.src = src.split('?')[0] + '?t=1'
+    // Use the URL as-is — uploadMilestonePhoto already appends ?v=<timestamp>
+    // so the browser never serves a stale cached version after a re-upload.
+    // Do NOT replace it with a constant like ?t=1 which defeats the cache-buster.
+    img.src = src
   })
 }
 

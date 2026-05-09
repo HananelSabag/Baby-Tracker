@@ -129,7 +129,7 @@ export async function uploadMilestonePhoto({ childId, month, blob, mime }) {
   const { error } = await supabase.storage.from('milestones').upload(path, blob, {
     upsert: true,
     contentType: mime ?? 'image/jpeg',
-    cacheControl: '31536000',
+    cacheControl: '3600',
   })
   if (error) throw error
   const { data } = supabase.storage.from('milestones').getPublicUrl(path)
