@@ -66,7 +66,7 @@ const MUSIC_TRACKS = [
 ]
 
 // ── Video constants ────────────────────────────────────────────────────────────
-const VIDEO_SIZE       = 720  // 720p square
+const VIDEO_SIZE       = 1080 // 1080p square
 const TRANSITION_MS    = 600  // cross-fade duration between photos
 const TRANSITION_STEPS = 20   // render passes (each step ~30ms → 30fps smooth)
 
@@ -1112,7 +1112,7 @@ function VideoOptionsContent({ byMonth, options, onOptionsChange, filled, onGene
       <PreviewSlideshow byMonth={byMonth} options={options} />
 
       <p className="font-rubik text-brown-400 text-xs text-center">
-        {filled} {filled === 1 ? 'תמונה' : 'תמונות'} · כ-{totalSec} שניות · MP4/WebM · 720p
+        {filled} {filled === 1 ? 'תמונה' : 'תמונות'} · כ-{totalSec} שניות · MP4/WebM · 1080p
       </p>
 
       <OptionsSpeedBlock options={options} onOptionsChange={onOptionsChange} />
@@ -1481,7 +1481,7 @@ async function generateAlbumVideo({ byMonth, childName, options, onProgress, onD
   const chunks   = []
   const recorder = new MediaRecorder(combined, {
     mimeType,
-    videoBitsPerSecond: 8_000_000, // 8 Mbps — high quality for 720p
+    videoBitsPerSecond: 12_000_000, // 12 Mbps — high quality for 1080p
   })
   recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
   // Set onstop BEFORE calling stop() to avoid a race where stop fires before the handler is registered
