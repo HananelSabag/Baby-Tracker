@@ -1038,13 +1038,7 @@ async function exportAlbum({ byMonth, childName, onProgress, onDone }) {
   }
 
   const zipBlob = await zip.generateAsync({ type: 'blob' })
-  const url = URL.createObjectURL(zipBlob)
-  const a   = document.createElement('a')
-  a.href    = url
-  // ASCII-safe download filename (Hebrew chars stripped to avoid OS issues)
-  a.download = `${childName.replace(/[^\w-]/g, '-')}-album.zip`
-  a.click()
-  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  triggerDownload(zipBlob, `BabyTracker-${childName.replace(/[^\w-]/g, '-')}-album.zip`)
   onDone()
 }
 
@@ -1240,6 +1234,7 @@ async function generateAlbumVideo({ byMonth, childName, options, onProgress, onD
   const ext = mimeType.startsWith('video/mp4') ? 'mp4' : 'webm'
 
   const photos = Object.entries(byMonth).sort(([a], [b]) => Number(a) - Number(b))
+  if (photos.length === 0) throw new Error('אין תמונות לייצוא.')
 
   // Preload images and dates in parallel so the render loop stays synchronous
   const [imgs, dates] = await Promise.all([
@@ -1284,13 +1279,17 @@ async function generateAlbumVideo({ byMonth, childName, options, onProgress, onD
   const chunks   = []
   const recorder = new MediaRecorder(combined, { mimeType })
   recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
+  // Set onstop BEFORE calling stop() to avoid a race where stop fires before the handler is registered
+  const stoppedPromise = new Promise(resolve => { recorder.onstop = resolve })
 
   const frameDurationMs = GIF_SPEED_MS[options.speed ?? 'normal']
   const totalVideoMs    =
     photos.length * frameDurationMs +
     (photos.length > 1 ? (photos.length - 1) * TRANSITION_MS : 0)
 
-  recorder.start()
+  // 1000ms timeslice: collect data every second instead of one huge chunk at the end
+  // This avoids memory spikes on mobile and keeps iOS from silently dropping frames.
+  recorder.start(1000)
 
   // Start music + schedule fade-out at video end
   if (musicSource && gainNode && audioCtx) {
@@ -1342,7 +1341,7 @@ async function generateAlbumVideo({ byMonth, childName, options, onProgress, onD
   try { musicSource?.stop() } catch { /* already ended */ }
   if (audioCtx) await audioCtx.close()
 
-  await new Promise(resolve => { recorder.onstop = resolve })
+  await stoppedPromise
 
   const blob = new Blob(chunks, { type: mimeType })
   triggerDownload(blob, `BabyTracker-${childName.replace(/[^\w-]/g, '-')}.${ext}`)

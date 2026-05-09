@@ -36,11 +36,12 @@ export function useMilestones(familyId, childId) {
   }
 
   async function deletePhoto(month) {
-    await supabase
+    const { error } = await supabase
       .from('milestone_photos')
       .delete()
       .eq('child_id', childId)
       .eq('month', month)
+    if (error) throw error
     setPhotos(prev => prev.filter(p => p.month !== month))
   }
 
