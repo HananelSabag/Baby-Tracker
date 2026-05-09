@@ -1,24 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
 export function useTrackers(familyId) {
   const [trackers, setTrackers] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  const fetchTrackers = useCallback(async () => {
     if (!familyId) return
-    fetchTrackers()
-
-    // Real-time subscription
-    const channel = supabase
-      .channel(`trackers:${familyId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'trackers', filter: `family_id=eq.${familyId}` }, fetchTrackers)
-      .subscribe()
-
-    return () => supabase.removeChannel(channel)
-  }, [familyId])
-
-  async function fetchTrackers() {
     const { data } = await supabase
       .from('trackers')
       .select()
@@ -27,7 +15,19 @@ export function useTrackers(familyId) {
       .order('display_order')
     setTrackers(data ?? [])
     setLoading(false)
-  }
+  }, [familyId])
+
+  useEffect(() => {
+    if (!familyId) return
+    fetchTrackers()
+
+    const channel = supabase
+      .channel(`trackers:${familyId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trackers', filter: `family_id=eq.${familyId}` }, fetchTrackers)
+      .subscribe()
+
+    return () => supabase.removeChannel(channel)
+  }, [fetchTrackers, familyId])
 
   async function addTracker(trackerData) {
     const maxOrder = trackers.length ? Math.max(...trackers.map(t => t.display_order)) : -1

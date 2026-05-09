@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   BookImage, Camera, Pencil, Trash2, Download, Film,
   Loader2, CheckCircle2, Sparkles,
@@ -51,6 +51,25 @@ const FRAMES = [
 function getEffect(effectId) { return EFFECTS.find(e => e.id === effectId) ?? EFFECTS[0] }
 function getFrame(frameId)   { return FRAMES.find(f => f.id === frameId)   ?? FRAMES[0] }
 
+// ── Music tracks (Supabase Music bucket) ──────────────────────────────────────
+const SUPABASE_MUSIC_URL = 'https://ssvrfjmlmeilanwgppko.supabase.co/storage/v1/object/public/Music'
+
+const MUSIC_TRACKS = [
+  { id: 'BabyBass',     label: 'בייבי בס',     emoji: '🎸' },
+  { id: 'BabySleep',    label: 'שיר ערש',       emoji: '🌙' },
+  { id: 'Calmbabysong', label: 'מנגינה רגועה',  emoji: '🎵' },
+  { id: 'Carnvel',      label: 'קרנבל',         emoji: '🎪' },
+  { id: 'HappyDance',   label: 'ריקוד שמח',     emoji: '💃' },
+  { id: 'HappyJoyBaby', label: 'שמחה ועליצות',  emoji: '🎉' },
+  { id: 'HappyPiano',   label: 'פסנתר שמח',     emoji: '🎹' },
+  { id: 'Hiphop',       label: 'היפ הופ',       emoji: '🎤' },
+]
+
+// ── Video constants ────────────────────────────────────────────────────────────
+const VIDEO_SIZE       = 480  // same square as GIF
+const TRANSITION_MS    = 500  // cross-fade duration between photos
+const TRANSITION_STEPS = 15   // render passes inside each cross-fade
+
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export function AlbumPage() {
@@ -78,7 +97,10 @@ export function AlbumPage() {
     showMonthLabel: true,
     speed:          'normal',   // 'slow' | 'normal' | 'fast'
     effectOverride: null,       // null = use each photo's saved effect
+    music:          null,       // null | MUSIC_TRACKS[n].id
+    musicStart:     0,          // seconds offset into the track
   })
+  const [gifType, setGifType] = useState('gif')  // 'gif' | 'video'
 
   const filled     = Object.keys(byMonth).length
   const nextToFill = Array.from({ length: 12 }, (_, i) => i + 1).find(m => !byMonth[m]) ?? null
@@ -98,11 +120,14 @@ export function AlbumPage() {
     })
   }
 
-  function handleGifGenerate() {
+  function handleExportMedia() {
     setGifSheetOpen(false)
     setGifGenerating(true)
     setGifStep(0)
-    generateAlbumGif({
+    const isVideo = !!gifOptions.music
+    setGifType(isVideo ? 'video' : 'gif')
+    const exportFn = isVideo ? generateAlbumVideo : generateAlbumGif
+    exportFn({
       byMonth,
       childName: activeChild?.name ?? 'album',
       options: gifOptions,
@@ -112,6 +137,9 @@ export function AlbumPage() {
         setGifDone(true)
         setTimeout(() => setGifDone(false), 3500)
       },
+    }).catch(err => {
+      setGifGenerating(false)
+      alert(err.message ?? 'ייצוא נכשל')
     })
   }
 
@@ -266,7 +294,9 @@ export function AlbumPage() {
                     style={{ background: 'linear-gradient(135deg, #F0FDF4, #DCFCE7)' }}
                   >
                     <CheckCircle2 size={16} className="text-green-500" />
-                    <span className="font-rubik font-bold text-green-700 text-sm">GIF הורד בהצלחה!</span>
+                    <span className="font-rubik font-bold text-green-700 text-sm">
+                      {gifType === 'video' ? 'וידאו הורד בהצלחה! 🎬' : 'GIF הורד בהצלחה!'}
+                    </span>
                   </div>
                 ) : gifGenerating ? (
                   <div
@@ -275,7 +305,9 @@ export function AlbumPage() {
                   >
                     <Loader2 size={16} className="text-amber-500 animate-spin" />
                     <span className="font-rubik text-brown-500 text-sm">
-                      מקודד תמונה {gifStep} מתוך {filled}...
+                      {gifType === 'video'
+                        ? `מייצר וידאו... ${gifStep}/${filled}`
+                        : `מקודד תמונה ${gifStep} מתוך ${filled}...`}
                     </span>
                   </div>
                 ) : (
@@ -326,7 +358,7 @@ export function AlbumPage() {
           options={gifOptions}
           onOptionsChange={setGifOptions}
           filled={filled}
-          onGenerate={handleGifGenerate}
+          onGenerate={handleExportMedia}
         />
       )}
     </div>
@@ -717,15 +749,43 @@ const TEXT_TOGGLES  = [
 ]
 
 function GifOptionsSheet({ isOpen, onClose, options, onOptionsChange, filled, onGenerate }) {
-  const totalSec = Math.round(filled * (GIF_SPEED_MS[options.speed] / 1000))
+  const [playingTrack, setPlayingTrack] = useState(null)
+  const audioRef = useRef(null)
+
+  function stopPreview() {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
+    setPlayingTrack(null)
+  }
+
+  function togglePreview(trackId) {
+    if (playingTrack === trackId) { stopPreview(); return }
+    stopPreview()
+    const audio = new Audio(`${SUPABASE_MUSIC_URL}/${trackId}.mp3`)
+    audio.onended = () => setPlayingTrack(null)
+    audio.play().catch(() => {})
+    audioRef.current = audio
+    setPlayingTrack(trackId)
+  }
+
+  // Stop audio when sheet is closed / unmounted
+  useEffect(() => () => stopPreview(), [])
+
+  const isVideo = !!options.music
+  const transitionMs = isVideo && filled > 1 ? (filled - 1) * TRANSITION_MS : 0
+  const totalSec = Math.round((filled * GIF_SPEED_MS[options.speed] + transitionMs) / 1000)
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="מרכז שליטה — GIF">
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={() => { stopPreview(); onClose() }}
+      title={isVideo ? 'מרכז שליטה — וידאו 🎬' : 'מרכז שליטה — GIF'}
+    >
       <div className="space-y-4 pb-2" dir="rtl">
 
         {/* Info pill */}
         <p className="font-rubik text-brown-400 text-xs text-center -mt-1">
-          {filled} {filled === 1 ? 'תמונה' : 'תמונות'} · כ-{totalSec} שניות סה״כ
+          {filled} {filled === 1 ? 'תמונה' : 'תמונות'} · כ-{totalSec} שניות
+          {isVideo ? ' · וידאו עם מוזיקה' : ' · GIF'}
         </p>
 
         {/* ── Speed segmented control ── */}
@@ -774,7 +834,6 @@ function GifOptionsSheet({ isOpen, onClose, options, onOptionsChange, filled, on
                   <p className="font-rubik font-semibold text-brown-800 text-sm leading-tight">{label}</p>
                   <p className="font-rubik text-brown-400 text-[10px] mt-0.5">{desc}</p>
                 </div>
-                {/* Toggle — direction:ltr forces knob to slide LTR regardless of RTL parent */}
                 <button
                   onClick={() => onOptionsChange(o => ({ ...o, [key]: !o[key] }))}
                   className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors ${
@@ -803,7 +862,6 @@ function GifOptionsSheet({ isOpen, onClose, options, onOptionsChange, filled, on
             className="flex gap-2 pb-1"
             style={{ overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
-            {/* "Per photo" option — mosaic of the 4 effect preview colours */}
             <button
               onClick={() => onOptionsChange(o => ({ ...o, effectOverride: null }))}
               className={`flex-shrink-0 flex flex-col items-center gap-1.5 p-2 rounded-2xl border-2 transition-all cursor-pointer active:scale-95 ${
@@ -815,11 +873,7 @@ function GifOptionsSheet({ isOpen, onClose, options, onOptionsChange, filled, on
                 style={{ width: 52, height: 52, gap: 2, padding: 2, backgroundColor: '#FFF0E0' }}
               >
                 {EFFECTS.slice(0, 4).map(e => (
-                  <div
-                    key={e.id}
-                    className="rounded"
-                    style={{ backgroundColor: e.previewBg, filter: e.filter || undefined }}
-                  />
+                  <div key={e.id} className="rounded" style={{ backgroundColor: e.previewBg, filter: e.filter || undefined }} />
                 ))}
               </div>
               <span className={`font-rubik text-[11px] font-semibold ${options.effectOverride === null ? 'text-amber-600' : 'text-brown-400'}`}>
@@ -827,7 +881,6 @@ function GifOptionsSheet({ isOpen, onClose, options, onOptionsChange, filled, on
               </span>
             </button>
 
-            {/* Effect swatches */}
             {EFFECTS.map(eff => (
               <button
                 key={eff.id}
@@ -836,14 +889,7 @@ function GifOptionsSheet({ isOpen, onClose, options, onOptionsChange, filled, on
                   options.effectOverride === eff.id ? 'border-amber-400 bg-amber-50' : 'border-cream-200 bg-white'
                 }`}
               >
-                <div
-                  className="rounded-xl"
-                  style={{
-                    width: 52, height: 52,
-                    backgroundColor: eff.previewBg,
-                    filter: eff.filter || undefined,
-                  }}
-                />
+                <div className="rounded-xl" style={{ width: 52, height: 52, backgroundColor: eff.previewBg, filter: eff.filter || undefined }} />
                 <span className={`font-rubik text-[11px] font-semibold ${options.effectOverride === eff.id ? 'text-amber-600' : 'text-brown-400'}`}>
                   {eff.label}
                 </span>
@@ -852,17 +898,120 @@ function GifOptionsSheet({ isOpen, onClose, options, onOptionsChange, filled, on
           </div>
         </div>
 
+        {/* ── Music section ── */}
+        <div>
+          <p className="font-rubik text-brown-500 text-xs font-semibold mb-2">
+            מוזיקה
+            <span className="font-normal text-brown-300 mr-1">· בחר שיר לייצוא כוידאו</span>
+          </p>
+
+          {/* Track cards */}
+          <div
+            className="flex gap-2 pb-1"
+            style={{ overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            {/* No music */}
+            <button
+              onClick={() => { stopPreview(); onOptionsChange(o => ({ ...o, music: null, musicStart: 0 })) }}
+              className={`flex-shrink-0 flex flex-col items-center gap-1.5 p-2 rounded-2xl border-2 transition-all cursor-pointer active:scale-95 ${
+                !options.music ? 'border-amber-400 bg-amber-50' : 'border-cream-200 bg-white'
+              }`}
+              style={{ width: 68 }}
+            >
+              <div
+                className="w-11 h-11 rounded-xl flex items-center justify-center text-xl"
+                style={{ background: !options.music ? '#FEF3C7' : '#FFF8F0' }}
+              >
+                🔇
+              </div>
+              <span className={`font-rubik text-[10px] font-semibold ${!options.music ? 'text-amber-600' : 'text-brown-400'}`}>
+                ללא
+              </span>
+            </button>
+
+            {/* Track cards */}
+            {MUSIC_TRACKS.map(track => {
+              const selected = options.music === track.id
+              const playing  = playingTrack === track.id
+              return (
+                <div
+                  key={track.id}
+                  className={`flex-shrink-0 flex flex-col items-center gap-1 p-2 rounded-2xl border-2 transition-all ${
+                    selected ? 'border-amber-400 bg-amber-50' : 'border-cream-200 bg-white'
+                  }`}
+                  style={{ width: 68 }}
+                >
+                  {/* Select track */}
+                  <button
+                    onClick={() => { stopPreview(); onOptionsChange(o => ({ ...o, music: track.id, musicStart: 0 })) }}
+                    className="flex flex-col items-center gap-1.5 cursor-pointer active:scale-95 transition-transform w-full"
+                  >
+                    <div
+                      className="w-11 h-11 rounded-xl flex items-center justify-center text-xl"
+                      style={{ background: selected ? '#FEF3C7' : '#FFF8F0' }}
+                    >
+                      {track.emoji}
+                    </div>
+                    <span className={`font-rubik text-[10px] font-semibold text-center leading-tight ${selected ? 'text-amber-600' : 'text-brown-400'}`}>
+                      {track.label}
+                    </span>
+                  </button>
+
+                  {/* Preview play/pause */}
+                  <button
+                    onClick={e => { e.stopPropagation(); togglePreview(track.id) }}
+                    className={`w-full flex items-center justify-center gap-0.5 py-0.5 rounded-lg text-[10px] cursor-pointer transition-colors ${
+                      playing ? 'text-amber-600 bg-amber-100' : 'text-brown-400'
+                    }`}
+                  >
+                    <span>{playing ? '⏸' : '▶'}</span>
+                    <span className="font-rubik text-[9px]">{playing ? 'עצור' : 'נגן'}</span>
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Start-time slider (shown when a track is selected) */}
+          {options.music && (
+            <div className="mt-2.5 px-1">
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-rubik text-brown-500 text-[11px] font-semibold">התחל שיר מ:</span>
+                <span className="font-rubik text-amber-600 text-[11px] font-bold">{formatTime(options.musicStart)}</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={60}
+                step={1}
+                value={options.musicStart}
+                onChange={e => onOptionsChange(o => ({ ...o, musicStart: Number(e.target.value) }))}
+                className="w-full"
+                style={{ accentColor: '#E8B84B' }}
+              />
+              <div className="flex justify-between mt-0.5">
+                <span className="font-rubik text-brown-300 text-[9px]">0:00</span>
+                <span className="font-rubik text-brown-300 text-[9px]">1:00</span>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Generate button */}
         <button
-          onClick={onGenerate}
+          onClick={() => { stopPreview(); onGenerate() }}
           className="w-full py-4 rounded-3xl font-rubik font-black text-white text-base flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform cursor-pointer"
           style={{
-            background: 'linear-gradient(135deg, #E8B84B, #D4A030)',
-            boxShadow: '0 6px 20px rgba(232,184,75,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
+            background: isVideo
+              ? 'linear-gradient(135deg, #6366F1, #4F46E5)'
+              : 'linear-gradient(135deg, #E8B84B, #D4A030)',
+            boxShadow: isVideo
+              ? '0 6px 20px rgba(99,102,241,0.4), inset 0 1px 0 rgba(255,255,255,0.2)'
+              : '0 6px 20px rgba(232,184,75,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
           }}
         >
-          <Film size={18} />
-          צור GIF
+          {isVideo ? <span className="text-lg">🎬</span> : <Film size={18} />}
+          {isVideo ? 'צור וידאו עם מוזיקה' : 'צור GIF'}
         </button>
       </div>
     </BottomSheet>
@@ -889,13 +1038,7 @@ async function exportAlbum({ byMonth, childName, onProgress, onDone }) {
   }
 
   const zipBlob = await zip.generateAsync({ type: 'blob' })
-  const url = URL.createObjectURL(zipBlob)
-  const a   = document.createElement('a')
-  a.href    = url
-  // ASCII-safe download filename (Hebrew chars stripped to avoid OS issues)
-  a.download = `${childName.replace(/[^\w-]/g, '-')}-album.zip`
-  a.click()
-  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  triggerDownload(zipBlob, `BabyTracker-${childName.replace(/[^\w-]/g, '-')}-album.zip`)
   onDone()
 }
 
@@ -959,9 +1102,89 @@ async function renderPage(photo, month) {
   return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92))
 }
 
-// ── GIF pipeline (gifenc + exifr, lazy-loaded) ─────────────────────────────────
+// ── Shared frame renderer (used by both GIF and video pipelines) ───────────────
 
 const GIF_SIZE = 480
+
+/**
+ * Draws a fully-composited album frame onto `ctx` (size × size).
+ * Pass `precomputedDate` to skip the async EXIF lookup on repeated calls
+ * (e.g. inside a cross-fade transition loop).
+ */
+async function drawAlbumFrame(ctx, size, img, photo, month, options, precomputedDate) {
+  const S = size
+
+  ctx.fillStyle = '#FFFAF5'
+  ctx.fillRect(0, 0, S, S)
+
+  const filter = getEffect(options.effectOverride ?? photo.effect_id).filter
+  if (filter) ctx.filter = filter
+  drawCover(ctx, img, 0, 0, S, S)
+  ctx.filter = 'none'
+
+  const fr = getFrame(photo.frame_id ?? 'none')
+  if (fr.canvasColor) {
+    const fw        = Math.round(fr.insetPx * (S / 100))
+    ctx.strokeStyle = fr.canvasColor
+    ctx.lineWidth   = fw
+    ctx.strokeRect(fw / 2, fw / 2, S - fw, S - fw)
+  }
+
+  const bandH = Math.round(S * 0.34)
+  const grad  = ctx.createLinearGradient(0, S - bandH, 0, S)
+  grad.addColorStop(0, 'rgba(0,0,0,0)')
+  grad.addColorStop(1, 'rgba(0,0,0,0.72)')
+  ctx.fillStyle = grad
+  ctx.fillRect(0, S - bandH, S, bandH)
+
+  ctx.direction = 'rtl'
+  ctx.textAlign = 'right'
+
+  if (options.showDate) {
+    const dateStr = precomputedDate !== undefined ? precomputedDate : await getPhotoDate(photo)
+    if (dateStr) {
+      const topGrad = ctx.createLinearGradient(0, 0, 0, 56)
+      topGrad.addColorStop(0, 'rgba(0,0,0,0.38)')
+      topGrad.addColorStop(1, 'rgba(0,0,0,0)')
+      ctx.fillStyle = topGrad
+      ctx.fillRect(0, 0, S, 56)
+      ctx.font        = `bold ${Math.round(S * 0.038)}px Arial, sans-serif`
+      ctx.fillStyle   = 'rgba(255,255,255,0.88)'
+      ctx.shadowColor = 'rgba(0,0,0,0.55)'
+      ctx.shadowBlur  = 5
+      ctx.fillText(dateStr, S - 12, 26)
+      ctx.shadowBlur  = 0
+    }
+  }
+
+  const yMonth   = S - 18
+  const yCaption = options.showMonthLabel ? S - 62 : S - 18
+
+  if (options.showMonthLabel) {
+    ctx.font        = `bold ${Math.round(S * 0.08)}px Arial, sans-serif`
+    ctx.fillStyle   = '#FFFFFF'
+    ctx.shadowColor = 'rgba(0,0,0,0.6)'
+    ctx.shadowBlur  = 10
+    ctx.fillText(MONTH_LABELS[month - 1], S - 14, yMonth)
+    ctx.shadowBlur  = 0
+  }
+
+  if (options.showCaption && photo.caption) {
+    const capFontSize = Math.round(S * 0.052)
+    const capLineH    = Math.round(capFontSize * 1.3)
+    ctx.font          = `${capFontSize}px Arial, sans-serif`
+    ctx.fillStyle     = 'rgba(255,255,255,0.82)'
+    ctx.shadowColor   = 'rgba(0,0,0,0.5)'
+    ctx.shadowBlur    = 7
+    const capLines    = wrapCanvasText(ctx, photo.caption, S - 28)
+    capLines.reverse().forEach((ln, idx) => {
+      ctx.fillText(ln, S - 14, yCaption - idx * capLineH)
+    })
+    ctx.shadowBlur = 0
+  }
+}
+
+// ── GIF pipeline (gifenc + exifr, lazy-loaded) ─────────────────────────────────
 
 async function generateAlbumGif({ byMonth, childName, options, onProgress, onDone }) {
   const { GIFEncoder, quantize, applyPalette } = await import('gifenc')
@@ -974,117 +1197,155 @@ async function generateAlbumGif({ byMonth, childName, options, onProgress, onDon
     const month = Number(monthStr)
     onProgress(i + 1)
 
-    const rgba    = await renderGifFrame(photo, month, options)
+    const canvas = document.createElement('canvas')
+    canvas.width = canvas.height = GIF_SIZE
+    const ctx = canvas.getContext('2d')
+    const img = await loadImageCrossOrigin(photo.photo_url)
+    await drawAlbumFrame(ctx, GIF_SIZE, img, photo, month, options)
+
+    const rgba    = ctx.getImageData(0, 0, GIF_SIZE, GIF_SIZE).data
     const palette = quantize(rgba, 256)
     const index   = applyPalette(rgba, palette)
 
     gif.writeFrame(index, GIF_SIZE, GIF_SIZE, {
       palette,
-      delay: GIF_SPEED_MS[options.speed ?? 'normal'],
-      repeat: 0,         // infinite loop
+      delay:  GIF_SPEED_MS[options.speed ?? 'normal'],
+      repeat: 0,
     })
   }
 
   gif.finish()
-
   const buffer = gif.bytes()
   const blob   = new Blob([buffer], { type: 'image/gif' })
-  const url    = URL.createObjectURL(blob)
-  const a      = document.createElement('a')
-  a.href       = url
-  a.download   = `${childName.replace(/[^\w-]/g, '-')}-album.gif`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  triggerDownload(blob, `BabyTracker-${childName.replace(/[^\w-]/g, '-')}.gif`)
   onDone()
 }
 
-async function renderGifFrame(photo, month, options) {
-  const canvas  = document.createElement('canvas')
-  canvas.width  = GIF_SIZE
-  canvas.height = GIF_SIZE
-  const ctx     = canvas.getContext('2d')
-  const S       = GIF_SIZE
+// ── Video pipeline (MediaRecorder + Web Audio API) ─────────────────────────────
 
-  ctx.fillStyle = '#FFFAF5'
-  ctx.fillRect(0, 0, S, S)
-
-  // Photo with effect (use global override if set, else each photo's own effect)
-  const img    = await loadImageCrossOrigin(photo.photo_url)
-  const filter = getEffect(options.effectOverride ?? photo.effect_id).filter
-  if (filter) ctx.filter = filter
-  drawCover(ctx, img, 0, 0, S, S)
-  ctx.filter = 'none'
-
-  // Frame border
-  const fr = getFrame(photo.frame_id ?? 'none')
-  if (fr.canvasColor) {
-    const fw        = Math.round(fr.insetPx * (S / 100))
-    ctx.strokeStyle = fr.canvasColor
-    ctx.lineWidth   = fw
-    ctx.strokeRect(fw / 2, fw / 2, S - fw, S - fw)
+async function generateAlbumVideo({ byMonth, childName, options, onProgress, onDone }) {
+  if (typeof MediaRecorder === 'undefined') {
+    throw new Error('הדפדפן שלך אינו תומך ביצוא וידאו. נסה Chrome או Safari עדכני.')
   }
 
-  // Bottom gradient for text readability
-  const bandH = Math.round(S * 0.34)
-  const grad  = ctx.createLinearGradient(0, S - bandH, 0, S)
-  grad.addColorStop(0, 'rgba(0,0,0,0)')
-  grad.addColorStop(1, 'rgba(0,0,0,0.72)')
-  ctx.fillStyle = grad
-  ctx.fillRect(0, S - bandH, S, bandH)
+  const mimeType =
+    ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp8,opus', 'video/webm']
+      .find(t => MediaRecorder.isTypeSupported(t)) ?? 'video/webm'
+  const ext = mimeType.startsWith('video/mp4') ? 'mp4' : 'webm'
 
-  ctx.direction = 'rtl'
-  ctx.textAlign = 'right'
+  const photos = Object.entries(byMonth).sort(([a], [b]) => Number(a) - Number(b))
+  if (photos.length === 0) throw new Error('אין תמונות לייצוא.')
 
-  // Date — small badge at top, extracted from EXIF or created_at
-  if (options.showDate) {
-    const dateStr = await getPhotoDate(photo)
-    if (dateStr) {
-      // Subtle dark vignette at top for date readability
-      const topGrad = ctx.createLinearGradient(0, 0, 0, 56)
-      topGrad.addColorStop(0, 'rgba(0,0,0,0.38)')
-      topGrad.addColorStop(1, 'rgba(0,0,0,0)')
-      ctx.fillStyle = topGrad
-      ctx.fillRect(0, 0, S, 56)
+  // Preload images and dates in parallel so the render loop stays synchronous
+  const [imgs, dates] = await Promise.all([
+    Promise.all(photos.map(([, p]) => loadImageCrossOrigin(p.photo_url))),
+    Promise.all(photos.map(([, p]) => getPhotoDate(p))),
+  ])
 
-      ctx.font         = `bold ${Math.round(S * 0.038)}px Arial, sans-serif`
-      ctx.fillStyle    = 'rgba(255,255,255,0.88)'
-      ctx.shadowColor  = 'rgba(0,0,0,0.55)'
-      ctx.shadowBlur   = 5
-      ctx.fillText(dateStr, S - 12, 26)
-      ctx.shadowBlur   = 0
+  // Canvas + video stream
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = VIDEO_SIZE
+  const ctx = canvas.getContext('2d')
+
+  // Draw the first frame before starting the stream so it's not blank
+  await drawAlbumFrame(ctx, VIDEO_SIZE, imgs[0], photos[0][1], Number(photos[0][0]), options, dates[0])
+
+  const videoStream = canvas.captureStream(30)
+
+  // Audio (optional)
+  let audioCtx    = null
+  let musicSource = null
+  let gainNode    = null
+  const audioTracks = []
+
+  const musicTrack = options.music ? MUSIC_TRACKS.find(t => t.id === options.music) : null
+  if (musicTrack) {
+    audioCtx = new AudioContext()
+    const resp   = await fetch(`${SUPABASE_MUSIC_URL}/${musicTrack.id}.mp3`)
+    if (!resp.ok) throw new Error('לא הצלחתי לטעון את השיר. בדוק חיבור אינטרנט.')
+    const buf    = await resp.arrayBuffer()
+    const decoded = await audioCtx.decodeAudioData(buf)
+
+    const dest = audioCtx.createMediaStreamDestination()
+    gainNode   = audioCtx.createGain()
+    gainNode.connect(dest)
+    musicSource = audioCtx.createBufferSource()
+    musicSource.buffer = decoded
+    musicSource.connect(gainNode)
+    audioTracks.push(...dest.stream.getAudioTracks())
+  }
+
+  const combined = new MediaStream([...videoStream.getVideoTracks(), ...audioTracks])
+  const chunks   = []
+  const recorder = new MediaRecorder(combined, { mimeType })
+  recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
+  // Set onstop BEFORE calling stop() to avoid a race where stop fires before the handler is registered
+  const stoppedPromise = new Promise(resolve => { recorder.onstop = resolve })
+
+  const frameDurationMs = GIF_SPEED_MS[options.speed ?? 'normal']
+  const totalVideoMs    =
+    photos.length * frameDurationMs +
+    (photos.length > 1 ? (photos.length - 1) * TRANSITION_MS : 0)
+
+  // 1000ms timeslice: collect data every second instead of one huge chunk at the end
+  // This avoids memory spikes on mobile and keeps iOS from silently dropping frames.
+  recorder.start(1000)
+
+  // Start music + schedule fade-out at video end
+  if (musicSource && gainNode && audioCtx) {
+    musicSource.start(0, options.musicStart ?? 0)
+    const fadeStart = audioCtx.currentTime + Math.max(0, (totalVideoMs - 2000) / 1000)
+    const fadeEnd   = audioCtx.currentTime + totalVideoMs / 1000
+    gainNode.gain.setValueAtTime(1, audioCtx.currentTime)
+    gainNode.gain.setValueAtTime(1, fadeStart)
+    gainNode.gain.linearRampToValueAtTime(0, fadeEnd)
+  }
+
+  // Render loop
+  for (let i = 0; i < photos.length; i++) {
+    const [monthStr, photo] = photos[i]
+    const month = Number(monthStr)
+    const img   = imgs[i]
+    const date  = dates[i]
+    onProgress(i + 1)
+
+    // Hold this photo for frameDurationMs (draw once, canvas stream holds it)
+    await drawAlbumFrame(ctx, VIDEO_SIZE, img, photo, month, options, date)
+    await waitMs(frameDurationMs)
+
+    // Cross-fade to next photo
+    if (i < photos.length - 1) {
+      const nextPhoto = photos[i + 1][1]
+      const nextMonth = Number(photos[i + 1][0])
+      const nextImg   = imgs[i + 1]
+      const nextDate  = dates[i + 1]
+
+      // Pre-render next frame off-screen
+      const offCanvas = document.createElement('canvas')
+      offCanvas.width = offCanvas.height = VIDEO_SIZE
+      const offCtx = offCanvas.getContext('2d')
+      await drawAlbumFrame(offCtx, VIDEO_SIZE, nextImg, nextPhoto, nextMonth, options, nextDate)
+
+      const stepMs = Math.round(TRANSITION_MS / TRANSITION_STEPS)
+      for (let f = 0; f < TRANSITION_STEPS; f++) {
+        await drawAlbumFrame(ctx, VIDEO_SIZE, img, photo, month, options, date)
+        ctx.globalAlpha = (f + 1) / TRANSITION_STEPS
+        ctx.drawImage(offCanvas, 0, 0)
+        ctx.globalAlpha = 1
+        await waitMs(stepMs)
+      }
     }
   }
 
-  // Month label — position at bottom, caption sits above it
-  const yMonth   = S - 18
-  const yCaption = options.showMonthLabel ? S - 62 : S - 18
+  recorder.stop()
+  try { musicSource?.stop() } catch { /* already ended */ }
+  if (audioCtx) await audioCtx.close()
 
-  if (options.showMonthLabel) {
-    ctx.font         = `bold ${Math.round(S * 0.08)}px Arial, sans-serif`
-    ctx.fillStyle    = '#FFFFFF'
-    ctx.shadowColor  = 'rgba(0,0,0,0.6)'
-    ctx.shadowBlur   = 10
-    ctx.fillText(MONTH_LABELS[month - 1], S - 14, yMonth)
-    ctx.shadowBlur   = 0
-  }
+  await stoppedPromise
 
-  if (options.showCaption && photo.caption) {
-    const capFontSize = Math.round(S * 0.052)
-    const capLineH    = Math.round(capFontSize * 1.3)
-    ctx.font          = `${capFontSize}px Arial, sans-serif`
-    ctx.fillStyle     = 'rgba(255,255,255,0.82)'
-    ctx.shadowColor   = 'rgba(0,0,0,0.5)'
-    ctx.shadowBlur    = 7
-    const capLines    = wrapCanvasText(ctx, photo.caption, S - 28)
-    capLines.reverse().forEach((ln, i) => {
-      ctx.fillText(ln, S - 14, yCaption - i * capLineH)
-    })
-    ctx.shadowBlur    = 0
-  }
-
-  return ctx.getImageData(0, 0, S, S).data
+  const blob = new Blob(chunks, { type: mimeType })
+  triggerDownload(blob, `BabyTracker-${childName.replace(/[^\w-]/g, '-')}.${ext}`)
+  onDone()
 }
 
 async function getPhotoDate(photo) {
@@ -1108,6 +1369,25 @@ function formatHebrewDate(d) {
   const mon  = HE_MONTHS[dt.getMonth()]
   const year = dt.getFullYear()
   return `${day} ${mon} ${year}`
+}
+
+// ── Small utilities ────────────────────────────────────────────────────────────
+
+function waitMs(ms) { return new Promise(resolve => setTimeout(resolve, ms)) }
+
+function formatTime(sec) {
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`
+}
+
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const a   = document.createElement('a')
+  a.href    = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
 // ── Shared canvas helpers ──────────────────────────────────────────────────────

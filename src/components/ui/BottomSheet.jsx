@@ -82,7 +82,10 @@ export function BottomSheet({ isOpen, onClose, title, children, hero = false }) 
           </div>
         )}
 
-        <div className={hero ? '' : 'px-4 pt-4 pb-6'}>
+        <div
+          className={hero ? '' : 'px-4 pt-4 pb-6 overflow-y-auto'}
+          style={hero ? {} : { maxHeight: '72vh' }}
+        >
           {children}
         </div>
       </div>
