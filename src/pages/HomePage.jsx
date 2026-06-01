@@ -21,13 +21,13 @@ import { PhotoSourceSheet } from '../components/ui/PhotoSourceSheet'
 import { ToastContainer } from '../components/ui/Toast'
 import { format, addDays, subDays, isSameDay } from 'date-fns'
 import { he } from 'date-fns/locale'
-import { formatTime, formatAge, formatChildAge, cn } from '../lib/utils'
+import { formatTime, formatTimeAgo, formatAge, formatChildAge, cn } from '../lib/utils'
 import { Bell, Pencil, GripVertical, Eye, EyeOff, Camera, User, RefreshCw, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { pickAndCompressImage, uploadAvatar } from '../lib/imageUpload'
 
 export function HomePage() {
-  const { identity, setActiveChildId, notifications, unreadCount, markNotificationsRead, setMemberAvatarUrl } = useApp()
+  const { identity, setActiveChildId, notifications, unreadCount, markNotificationsRead, clearNotifications, setMemberAvatarUrl } = useApp()
   const navigate = useNavigate()
   const { trackers: allTrackers, loading, reorderTrackers } = useTrackers(identity.familyId)
   const trackers = allTrackers.filter(t => t.is_active !== false)
@@ -681,7 +681,17 @@ export function HomePage() {
             </div>
           ) : (
             <>
-              {notifications.slice(0, 10).map(n => (
+              {/* Clear all */}
+              <div className="flex justify-end pb-1">
+                <button
+                  onClick={clearNotifications}
+                  className="font-rubik text-xs text-brown-400 active:opacity-60 cursor-pointer px-1 py-0.5"
+                >
+                  נקה הכל
+                </button>
+              </div>
+
+              {notifications.slice(0, 30).map(n => (
                 <div
                   key={n.id}
                   className="flex items-start gap-3 px-3 py-3 rounded-2xl bg-white border border-cream-200"
@@ -690,11 +700,11 @@ export function HomePage() {
                   <span className="text-xl flex-shrink-0 mt-0.5">{n.emoji}</span>
                   <div className="flex-1 min-w-0">
                     <p className="font-rubik text-sm text-brown-700 leading-snug">{n.message}</p>
-                    <p className="font-rubik text-xs text-brown-400 mt-0.5">{formatTime(n.timestamp)}</p>
+                    <p className="font-rubik text-xs text-brown-400 mt-0.5">לפני {formatTimeAgo(n.timestamp)}</p>
                   </div>
                 </div>
               ))}
-              {notifications.length > 10 && (
+              {notifications.length > 30 && (
                 <button
                   onClick={() => { setBellOpen(false); navigate('/history') }}
                   className="w-full pt-3 pb-1 flex items-center justify-center gap-1.5 font-rubik text-sm font-semibold text-brown-500 active:opacity-70 cursor-pointer"

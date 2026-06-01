@@ -32,6 +32,11 @@ export function AppProvider({ children }) {
     setUnreadCount(0)
   }
 
+  function clearNotifications() {
+    setNotifications([])
+    setUnreadCount(0)
+  }
+
   function setActiveChildId(id) {
     if (id) {
       localStorage.setItem(STORAGE_KEYS.CHILD_ID, id)
@@ -158,6 +163,7 @@ export function AppProvider({ children }) {
       unreadCount,
       addNotification,
       markNotificationsRead,
+      clearNotifications,
     }}>
       {children}
     </AppContext.Provider>
