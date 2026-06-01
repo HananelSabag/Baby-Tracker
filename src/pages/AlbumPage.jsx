@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, cloneElement } from 'react'
 import {
   BookImage, Camera, Pencil, Trash2, Download, Film,
-  Loader2, CheckCircle2, Sparkles, Video, FolderDown, ChevronLeft,
+  Loader2, CheckCircle2, Sparkles, Video, FolderDown, ChevronLeft, AlertCircle,
 } from 'lucide-react'
 import { useApp } from '../hooks/useAppContext'
 import { useChildren } from '../hooks/useChildren'
@@ -523,16 +523,18 @@ function EditMonthSheet({ month, photo, childId, familyId, onSave, onDelete, onC
   const [effectId,   setEffectId]   = useState(photo?.effect_id ?? 'none')
   const [frameId,    setFrameId]    = useState(photo?.frame_id  ?? 'none')
   const [photoUrl,   setPhotoUrl]   = useState(photo?.photo_url ?? null)
-  const [uploading,  setUploading]  = useState(false)
-  const [sourceOpen, setSourceOpen] = useState(false)
-  const [saving,     setSaving]     = useState(false)
-  const [confirmDel, setConfirmDel] = useState(false)
+  const [uploading,    setUploading]    = useState(false)
+  const [uploadError,  setUploadError]  = useState(null)
+  const [sourceOpen,   setSourceOpen]   = useState(false)
+  const [saving,       setSaving]       = useState(false)
+  const [confirmDel,   setConfirmDel]   = useState(false)
 
   const isBday = month === 12
   const ef = getEffect(effectId)
   const fr = getFrame(frameId)
 
   async function handlePickPhoto(mode) {
+    setUploadError(null)
     try {
       setUploading(true)
       const result = await pickMilestonePhoto({ mode })
@@ -540,7 +542,14 @@ function EditMonthSheet({ month, photo, childId, familyId, onSave, onDelete, onC
       const url = await uploadMilestonePhoto({ childId, month, blob: result.blob, mime: result.mime })
       setPhotoUrl(url)
     } catch (err) {
-      alert(err.message)
+      const msg = err?.message ?? 'העלאת התמונה נכשלה'
+      setUploadError(
+        msg.includes('not supported') || msg.includes('לא נתמך')
+          ? 'סוג קובץ לא נתמך — בחר תמונת JPG, PNG או WEBP.'
+          : msg.includes('network') || msg.includes('fetch')
+            ? 'שגיאת רשת — בדוק חיבור לאינטרנט ונסה שוב.'
+            : msg
+      )
     } finally {
       setUploading(false)
     }
@@ -614,6 +623,14 @@ function EditMonthSheet({ month, photo, childId, familyId, onSave, onDelete, onC
               </button>
             )}
           </div>
+
+          {/* ── Upload error ── */}
+          {uploadError && (
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-2xl bg-red-50 border border-red-200">
+              <AlertCircle size={15} className="text-red-500 flex-shrink-0" />
+              <p className="font-rubik text-red-600 text-xs leading-snug">{uploadError}</p>
+            </div>
+          )}
 
           {/* ── Caption ── */}
           <div
