@@ -49,5 +49,37 @@ export function useTrackers(familyId) {
     if (error) throw error
   }
 
-  return { trackers, loading, addTracker, updateTracker, deleteTracker }
+  // Optimistic reorder: updates local state immediately so the UI feels instant.
+  // `orderedTrackers` is the localOrder array from edit mode (may include `_visible`).
+  // DB writes happen in parallel; on failure reverts to DB truth.
+  async function reorderTrackers(orderedTrackers) {
+    // Build the canonical objects that normal view expects
+    const optimistic = orderedTrackers.map((t, i) => ({
+      ...t,
+      display_order: i,
+      is_active: t._visible !== undefined ? t._visible : t.is_active,
+    }))
+    setTrackers(optimistic)
+
+    const results = await Promise.allSettled(
+      orderedTrackers.map((tracker, index) =>
+        supabase
+          .from('trackers')
+          .update({
+            display_order: index,
+            is_active: tracker._visible !== undefined ? tracker._visible : tracker.is_active,
+          })
+          .eq('id', tracker.id)
+          .then(({ error }) => { if (error) throw error })
+      )
+    )
+
+    const failures = results.filter(r => r.status === 'rejected').length
+    if (failures > 0) {
+      await fetchTrackers() // revert to DB truth
+      throw new Error(`שמירת ${failures} מעקב${failures > 1 ? 'ים' : ''} נכשלה — נסה שוב`)
+    }
+  }
+
+  return { trackers, loading, addTracker, updateTracker, deleteTracker, reorderTrackers }
 }

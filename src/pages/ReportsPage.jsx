@@ -16,7 +16,7 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, ReferenceLine, Cell,
 } from 'recharts'
-import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, BarChart2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, BarChart2, Share2, Check } from 'lucide-react'
 import { Spinner } from '../components/ui/Spinner'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import {
@@ -262,21 +262,67 @@ export function ReportsPage() {
   const feedingTracker     = activeTrackers.find(t => t.tracker_type === TRACKER_TYPES.FEEDING)
   const nonFeedingTrackers = activeTrackers.filter(t => t.tracker_type !== TRACKER_TYPES.FEEDING)
 
+  const [shareSuccess, setShareSuccess] = useState(false)
+
+  async function handleShareReport() {
+    const childName = activeChild?.name ?? ''
+    const lines = [
+      `📊 דוח שבועי — ${childName}`,
+      `📅 ${weekLabel}`,
+      '',
+    ]
+    activeTrackers.forEach(tr => {
+      const s = summaries[tr.id]
+      if (!s) return
+      const delta = s.delta?.text ? ` (${s.delta.text})` : ''
+      lines.push(`${tr.icon} ${tr.name}: ${s.value} ${s.unit}${delta}`)
+    })
+    lines.push('', '— Baby Tracker App')
+    const text = lines.join('\n')
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `דוח שבועי — ${childName}`, text })
+      } else {
+        await navigator.clipboard.writeText(text)
+      }
+      setShareSuccess(true)
+      setTimeout(() => setShareSuccess(false), 2500)
+    } catch {
+      // user cancelled share dialog — no action needed
+    }
+  }
+
   return (
     <div className="px-4 pt-6 pb-6 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="font-rubik font-bold text-2xl text-brown-800">{t('reports.title')}</h1>
-        {activeChild?.birth_date && (
-          <div
-            className="bg-white rounded-xl px-3 py-1.5 border border-cream-200"
-            style={{ boxShadow: '0 2px 8px rgba(61,43,31,0.06), inset 0 1px 0 rgba(255,255,255,0.9)' }}
-          >
-            <p className="font-rubik text-brown-600 text-xs font-semibold">
-              {activeChild.name} · {formatAge(activeChild.birth_date)}
-            </p>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {activeChild?.birth_date && (
+            <div
+              className="bg-white rounded-xl px-3 py-1.5 border border-cream-200"
+              style={{ boxShadow: '0 2px 8px rgba(61,43,31,0.06), inset 0 1px 0 rgba(255,255,255,0.9)' }}
+            >
+              <p className="font-rubik text-brown-600 text-xs font-semibold">
+                {activeChild.name} · {formatAge(activeChild.birth_date)}
+              </p>
+            </div>
+          )}
+          {!loading && activeTrackers.length > 0 && (
+            <button
+              onClick={handleShareReport}
+              className="w-9 h-9 rounded-xl bg-white border border-cream-200 flex items-center justify-center cursor-pointer active:scale-95 transition-all duration-150"
+              style={{ boxShadow: '0 2px 8px rgba(61,43,31,0.06), inset 0 1px 0 rgba(255,255,255,0.9)' }}
+              aria-label="שתף דוח"
+            >
+              {shareSuccess
+                ? <Check size={16} className="text-green-500" />
+                : <Share2 size={16} className="text-brown-500" />
+              }
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Week navigator */}
