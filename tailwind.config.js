@@ -37,6 +37,15 @@ export default {
         card: '0 4px 24px rgba(61, 43, 31, 0.10)',
         fab: '0 8px 32px rgba(139, 94, 60, 0.35)',
       },
+      keyframes: {
+        float: {
+          '0%, 100%': { transform: 'translateY(0px)' },
+          '50%':        { transform: 'translateY(-6px)' },
+        },
+      },
+      animation: {
+        float: 'float 3s ease-in-out infinite',
+      },
     },
   },
   plugins: [],

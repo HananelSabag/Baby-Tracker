@@ -260,25 +260,41 @@ export function AlbumPage() {
           {/* ── Emotional empty-state banner (only when album is brand new) ── */}
           {filled === 0 && (
             <div
-              className="mb-5 rounded-3xl border border-amber-100 px-5 py-5 text-center"
+              className="mb-5 rounded-3xl border border-amber-100 px-5 py-6 text-center"
               style={{
                 background: 'linear-gradient(145deg, #FFFDF9 0%, #FFF8F0 100%)',
                 boxShadow: '0 4px 20px rgba(232,184,75,0.12), inset 0 1px 0 rgba(255,255,255,0.95)',
               }}
             >
-              <div
-                className="w-14 h-14 rounded-2xl bg-white border border-amber-100 flex items-center justify-center mx-auto mb-3"
-                style={{ boxShadow: '0 4px 14px rgba(232,184,75,0.25), inset 0 1px 0 rgba(255,255,255,0.9)' }}
-              >
-                <Camera size={26} className="text-amber-400" />
+              {/* Floating camera icon */}
+              <div className="relative w-fit mx-auto mb-3">
+                {/* Sparkle dots */}
+                <span
+                  className="absolute -top-1.5 -right-1.5 w-2 h-2 rounded-full bg-amber-300 motion-safe:animate-ping"
+                  style={{ animationDuration: '2s', animationDelay: '0s' }}
+                />
+                <span
+                  className="absolute -bottom-1 -left-1 w-1.5 h-1.5 rounded-full bg-amber-200 motion-safe:animate-ping"
+                  style={{ animationDuration: '2s', animationDelay: '0.7s' }}
+                />
+                <div
+                  className="w-16 h-16 rounded-2xl bg-white border border-amber-100 flex items-center justify-center motion-safe:animate-float"
+                  style={{ boxShadow: '0 4px 14px rgba(232,184,75,0.25), inset 0 1px 0 rgba(255,255,255,0.9)' }}
+                >
+                  <Camera size={28} className="text-amber-400" />
+                </div>
               </div>
               <p className="font-rubik font-bold text-brown-700 text-sm mb-1.5">
                 כל חודש הוא פרק חדש
               </p>
-              <p className="font-rubik text-brown-400 text-xs leading-relaxed">
-                לחצי על חודש ראשון כדי להתחיל<br />
+              <p className="font-rubik text-brown-400 text-xs leading-relaxed mb-3">
+                לחצ{activeChild.gender === 'female' ? 'י' : ''} על חודש ראשון כדי להתחיל<br />
                 את מסע השנה הראשונה של {activeChild.name}
               </p>
+              {/* Animated arrow pointing down to the grid */}
+              <div className="flex justify-center motion-safe:animate-bounce" style={{ animationDuration: '1.5s' }}>
+                <ChevronLeft size={18} className="text-amber-400 rotate-[-90deg]" />
+              </div>
             </div>
           )}
 
