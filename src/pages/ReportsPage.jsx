@@ -242,9 +242,13 @@ export function ReportsPage() {
           const e = lastGrowthEvent
           const lastW = e?.data?.weight_kg
           const lastH = e?.data?.height_cm
+          const birthDate = activeChild?.birth_date
+          const gender = activeChild?.gender
           if (lastW != null) {
             const date = e?.occurred_at ? format(new Date(e.occurred_at), 'd/M', { locale: he }) : null
-            map[tr.id] = { value: parseFloat(lastW), unit: `ק"ג${date ? ` · ${date}` : ''}`, delta: null }
+            const age = birthDate && e?.occurred_at ? ageInMonths(birthDate, e.occurred_at) : null
+            const pLabel = age != null ? getWeightPercentileLabel(parseFloat(lastW), age, gender) : null
+            map[tr.id] = { value: parseFloat(lastW), unit: `ק"ג${date ? ` · ${date}` : ''}`, delta: null, pLabel }
           } else if (lastH != null) {
             map[tr.id] = { value: parseFloat(lastH), unit: 'ס"מ גובה', delta: null }
           } else {
@@ -257,7 +261,7 @@ export function ReportsPage() {
       }
     })
     return map
-  }, [events, prevEvents, activeTrackers, weekOffset, elapsedDaysInWeek, lastGrowthEvent])
+  }, [events, prevEvents, activeTrackers, weekOffset, elapsedDaysInWeek, lastGrowthEvent, activeChild])
 
   const feedingTracker     = activeTrackers.find(t => t.tracker_type === TRACKER_TYPES.FEEDING)
   const nonFeedingTrackers = activeTrackers.filter(t => t.tracker_type !== TRACKER_TYPES.FEEDING)
@@ -596,6 +600,27 @@ function TrackerTile({ tracker, summary, onClick }) {
         <p className="font-rubik text-brown-400 text-[11px] truncate mb-0.5">{tracker.name}</p>
         <p className="font-rubik font-bold text-2xl text-brown-800 leading-none">{summary.value}</p>
         <p className="font-rubik text-brown-400 text-xs mt-0.5">{summary.unit}</p>
+        {summary.pLabel && (
+          <div className="mt-1.5">
+            <div className="relative h-1.5 rounded-full" style={{
+              background: 'linear-gradient(to right, #EF444430 0% 3%, #F59E0B30 3% 15%, #22C55E30 15% 85%, #F59E0B30 85% 97%, #EF444430 97% 100%)',
+            }}>
+              <div
+                className="absolute w-2.5 h-2.5 rounded-full border border-white"
+                style={{
+                  left: `${Math.max(2, Math.min(98, summary.pLabel.percentile))}%`,
+                  top: '50%',
+                  transform: 'translate(-50%,-50%)',
+                  backgroundColor: summary.pLabel.bandColor,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                }}
+              />
+            </div>
+            <p className="font-rubik text-[10px] font-semibold mt-1" style={{ color: summary.pLabel.bandColor }}>
+              P{summary.pLabel.percentile}
+            </p>
+          </div>
+        )}
         {summary.delta && <DeltaPill delta={summary.delta} />}
       </div>
     </button>
