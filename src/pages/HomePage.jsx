@@ -29,7 +29,7 @@ import { pickAndCompressImage, uploadAvatar } from '../lib/imageUpload'
 export function HomePage() {
   const { identity, setActiveChildId, notifications, unreadCount, markNotificationsRead, setMemberAvatarUrl } = useApp()
   const navigate = useNavigate()
-  const { trackers: allTrackers, loading } = useTrackers(identity.familyId)
+  const { trackers: allTrackers, loading, reorderTrackers } = useTrackers(identity.familyId)
   const trackers = allTrackers.filter(t => t.is_active !== false)
   const { children, updateChild } = useChildren(identity.familyId)
   const [childPickerOpen, setChildPickerOpen] = useState(false)
@@ -39,7 +39,6 @@ export function HomePage() {
   const [bellOpen, setBellOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [localOrder, setLocalOrder] = useState([])
-  const [saving, setSaving] = useState(false)
   const [profileSheetOpen, setProfileSheetOpen] = useState(false)
   const [photoSourceOpen, setPhotoSourceOpen] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
@@ -78,31 +77,14 @@ export function HomePage() {
   }
 
   async function saveAndExit() {
-    setSaving(true)
+    // Exit edit mode immediately with the new order visible (optimistic).
+    // reorderTrackers updates allTrackers in-memory first, then persists to DB.
+    // On DB failure it reverts to DB truth and throws so we can show a toast.
+    setEditMode(false)
     try {
-      // Use Promise.allSettled so a single failure doesn't drop the rest, and
-      // surface a toast if any update fails — previously errors were silently
-      // swallowed by the .finally and the user thought everything saved.
-      const results = await Promise.allSettled(
-        localOrder.map((tracker, index) =>
-          supabase
-            .from('trackers')
-            .update({ display_order: index, is_active: tracker._visible })
-            .eq('id', tracker.id)
-            .then(({ error }) => { if (error) throw error })
-        )
-      )
-      const failures = results.filter(r => r.status === 'rejected').length
-      if (failures > 0) {
-        showToast({
-          message: `שמירת ${failures} מעקב${failures > 1 ? 'ים' : ''} נכשלה — נסה שוב`,
-          emoji: '⚠️',
-        })
-        return // keep edit mode open so the user can retry
-      }
-      setEditMode(false)
-    } finally {
-      setSaving(false)
+      await reorderTrackers(localOrder)
+    } catch (err) {
+      showToast({ message: err.message, emoji: '⚠️' })
     }
   }
 
@@ -284,12 +266,10 @@ export function HomePage() {
           {editMode && (
             <button
               onClick={saveAndExit}
-              disabled={saving}
-              className="px-4 h-10 rounded-2xl bg-brown-800 text-white font-rubik font-semibold text-sm active:scale-95 transition-all duration-150 disabled:opacity-60 flex items-center gap-1.5 cursor-pointer"
+              className="px-4 h-10 rounded-2xl bg-brown-800 text-white font-rubik font-semibold text-sm active:scale-95 transition-all duration-150 flex items-center gap-1.5 cursor-pointer"
               style={{ boxShadow: '0 4px 12px rgba(61,43,31,0.25)' }}
             >
-              {saving ? <Loader2 size={14} className="animate-spin" /> : null}
-              {saving ? 'שומר...' : 'סיום'}
+              סיום
             </button>
           )}
 
