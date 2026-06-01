@@ -86,7 +86,7 @@ export function AlbumPage() {
 
   // ZIP export
   const [exporting,    setExporting]    = useState(false)
-  const [exportStep,   setExportStep]   = useState(0)
+  const [zipProgress,  setZipProgress]  = useState({ step: 0, total: 0 })
   const [exportDone,   setExportDone]   = useState(false)
 
   // Single export sheet — null | 'hub' | 'gif' | 'video'
@@ -99,7 +99,7 @@ export function AlbumPage() {
 
   // GIF export
   const [gifGenerating, setGifGenerating] = useState(false)
-  const [gifStep,       setGifStep]       = useState(0)
+  const [gifProgress,   setGifProgress]   = useState({ step: 0, total: 0 })
   const [gifDone,       setGifDone]       = useState(false)
   const [gifOptions,    setGifOptions]    = useState({
     showDate:       true,
@@ -109,9 +109,9 @@ export function AlbumPage() {
     effectOverride: null,
   })
 
-  // Video export
+  // Video export — progress has 3 phases: loading → rendering → recording
   const [videoGenerating, setVideoGenerating] = useState(false)
-  const [videoStep,       setVideoStep]       = useState(0)
+  const [videoProgress,   setVideoProgress]   = useState({ phase: 'loading', step: 0, total: 0 })
   const [videoDone,       setVideoDone]       = useState(false)
   const [videoOptions,    setVideoOptions]    = useState({
     showDate:       true,
@@ -143,11 +143,11 @@ export function AlbumPage() {
   function handleZipExport() {
     closeExportSheet()
     setExporting(true)
-    setExportStep(0)
+    setZipProgress({ step: 0, total: filled })
     exportAlbum({
       byMonth,
       childName: activeChild?.name ?? 'album',
-      onProgress: setExportStep,
+      onProgress: (step) => setZipProgress({ step, total: filled }),
       onDone: () => {
         setExporting(false)
         setExportDone(true)
@@ -159,12 +159,12 @@ export function AlbumPage() {
   function handleGifGenerate() {
     closeExportSheet()
     setGifGenerating(true)
-    setGifStep(0)
+    setGifProgress({ step: 0, total: filled })
     generateAlbumGif({
       byMonth,
       childName: activeChild?.name ?? 'album',
       options: gifOptions,
-      onProgress: setGifStep,
+      onProgress: (step) => setGifProgress({ step, total: filled }),
       onDone: () => {
         setGifGenerating(false)
         setGifDone(true)
@@ -180,12 +180,12 @@ export function AlbumPage() {
     stopVideoPreview()
     closeExportSheet()
     setVideoGenerating(true)
-    setVideoStep(0)
+    setVideoProgress({ phase: 'loading', step: 0, total: filled })
     generateAlbumVideo({
       byMonth,
       childName: activeChild?.name ?? 'album',
       options: videoOptions,
-      onProgress: setVideoStep,
+      onProgress: setVideoProgress,
       onDone: () => {
         setVideoGenerating(false)
         setVideoDone(true)
@@ -301,31 +301,13 @@ export function AlbumPage() {
           {/* ── Export ── */}
           <div className="mt-6 space-y-2.5">
 
-            {/* Status banners — shown while busy or just finished */}
-            {exporting && (
-              <ExportStatusBanner icon={<Loader2 size={18} className="text-brown-400 animate-spin" />}
-                text={`מכין תמונה ${exportStep} מתוך ${filled}...`} />
-            )}
-            {exportDone && (
-              <ExportStatusBanner icon={<CheckCircle2 size={18} className="text-green-500" />}
-                text="הורד בהצלחה!" green />
-            )}
-            {gifGenerating && (
-              <ExportStatusBanner icon={<Loader2 size={18} className="text-amber-500 animate-spin" />}
-                text={`מקודד GIF... ${gifStep}/${filled}`} />
-            )}
-            {gifDone && (
-              <ExportStatusBanner icon={<CheckCircle2 size={18} className="text-green-500" />}
-                text="GIF הורד בהצלחה!" green />
-            )}
-            {videoGenerating && (
-              <ExportStatusBanner icon={<Loader2 size={18} className="text-indigo-400 animate-spin" />}
-                text={`מייצר וידאו... ${videoStep}/${filled}`} />
-            )}
-            {videoDone && (
-              <ExportStatusBanner icon={<CheckCircle2 size={18} className="text-green-500" />}
-                text="וידאו הורד בהצלחה!" green />
-            )}
+            {/* Progress cards — shown while busy or just finished */}
+            {exporting && <ExportProgressCard type="zip" progress={zipProgress} />}
+            {exportDone && <ExportDoneCard text="ZIP הורד בהצלחה! מוכן להדפסה" />}
+            {gifGenerating && <ExportProgressCard type="gif" progress={gifProgress} />}
+            {gifDone && <ExportDoneCard text="GIF הורד בהצלחה!" />}
+            {videoGenerating && <ExportProgressCard type="video" progress={videoProgress} />}
+            {videoDone && <ExportDoneCard text="וידאו הורד בהצלחה!" />}
 
             {/* Main export button — always visible when idle */}
             {!exporting && !exportDone && (
@@ -1003,19 +985,71 @@ function OptionsEffectPicker({ options, onOptionsChange }) {
   )
 }
 
-// ── ExportStatusBanner ─────────────────────────────────────────────────────────
+// ── ExportProgressCard ─────────────────────────────────────────────────────────
 
-function ExportStatusBanner({ icon, text, green }) {
+const EXPORT_STYLES = {
+  zip:   { bar: '#A07050', track: '#F5E6D3', bg: 'linear-gradient(135deg,#FDF6F0,#FFF8F2)', border: '#F0D9C4' },
+  gif:   { bar: '#E8B84B', track: '#FEF3C7', bg: 'linear-gradient(135deg,#FFFBEB,#FEF9E0)', border: '#FDE68A' },
+  video: { bar: '#6366F1', track: '#E0E7FF', bg: 'linear-gradient(135deg,#EEF2FF,#E8EDFF)', border: '#C7D2FE' },
+}
+
+const VIDEO_PHASE_LABELS = {
+  loading:   'טוען תמונות ומוזיקה...',
+  rendering: 'מעבד פריימים...',
+  recording: 'מקודד סרטון...',
+}
+
+function ExportProgressCard({ type, progress }) {
+  const s = EXPORT_STYLES[type]
+  const pct = progress.total > 0 ? Math.min(100, Math.round((progress.step / progress.total) * 100)) : 0
+
+  const label = type === 'zip'
+    ? `מכין תמונה ${progress.step} מתוך ${progress.total}...`
+    : type === 'gif'
+    ? `מקודד GIF — פריים ${progress.step}/${progress.total}`
+    : VIDEO_PHASE_LABELS[progress.phase] ?? 'מעבד...'
+
+  const subLabel = type === 'video' && progress.step > 0 && progress.total > 0
+    ? `תמונה ${progress.step} מתוך ${progress.total}`
+    : null
+
+  return (
+    <div
+      className="rounded-2xl border px-4 py-3.5"
+      style={{ background: s.bg, borderColor: s.border, boxShadow: '0 2px 12px rgba(61,43,31,0.06)' }}
+      dir="rtl"
+    >
+      <div className="flex items-center justify-between mb-2">
+        <span className="font-rubik font-semibold text-sm text-brown-700 flex items-center gap-1.5">
+          <Loader2 size={14} className="animate-spin flex-shrink-0" style={{ color: s.bar }} />
+          {label}
+        </span>
+        <span className="font-rubik font-bold text-xs" style={{ color: s.bar }}>{pct}%</span>
+      </div>
+
+      {/* Progress bar */}
+      <div className="h-2 rounded-full overflow-hidden" style={{ background: s.track }}>
+        <div
+          className="h-full rounded-full transition-all duration-300 ease-out"
+          style={{ width: `${pct}%`, background: s.bar }}
+        />
+      </div>
+
+      {subLabel && (
+        <p className="font-rubik text-brown-400 text-[10px] mt-1">{subLabel}</p>
+      )}
+    </div>
+  )
+}
+
+function ExportDoneCard({ text }) {
   return (
     <div
       className="flex items-center justify-center gap-2.5 py-3.5 rounded-2xl border"
-      style={green
-        ? { background: 'linear-gradient(135deg, #F0FDF4, #DCFCE7)', borderColor: '#BBF7D0' }
-        : { background: '#FFFFFF', borderColor: '#F5E6D3', boxShadow: '0 2px 10px rgba(61,43,31,0.06)' }
-      }
+      style={{ background: 'linear-gradient(135deg,#F0FDF4,#DCFCE7)', borderColor: '#BBF7D0' }}
     >
-      {icon}
-      <span className={`font-rubik font-semibold text-sm ${green ? 'text-green-700' : 'text-brown-500'}`}>{text}</span>
+      <CheckCircle2 size={18} className="text-green-500" />
+      <span className="font-rubik font-semibold text-sm text-green-700">{text}</span>
     </div>
   )
 }
@@ -1438,6 +1472,9 @@ async function generateAlbumVideo({ byMonth, childName, options, onProgress, onD
   const photos = Object.entries(byMonth).sort(([a], [b]) => Number(a) - Number(b))
   if (photos.length === 0) throw new Error('אין תמונות לייצוא.')
 
+  // Phase 1: loading
+  onProgress({ phase: 'loading', step: 0, total: photos.length })
+
   // Preload images and dates in parallel so the render loop stays synchronous
   const [imgs, dates] = await Promise.all([
     Promise.all(photos.map(([, p]) => loadImageCrossOrigin(p.photo_url))),
@@ -1506,20 +1543,24 @@ async function generateAlbumVideo({ byMonth, childName, options, onProgress, onD
     gainNode.gain.linearRampToValueAtTime(0, fadeEnd)
   }
 
-  // Render loop
+  // Phase 2: rendering — sequential so we can report per-frame progress
   // Pre-render all frames to offscreen canvases once. The cross-fade loop then
   // only calls drawImage×2 per step (~0ms), so waitMs() dominates and we get
   // true 30fps instead of the previous ~5fps (where drawAlbumFrame per-step
   // cost 20-80ms on mobile, overwhelming the 33ms step budget).
-  const offscreens = await Promise.all(photos.map(async ([monthStr, photo], i) => {
+  const offscreens = []
+  for (let i = 0; i < photos.length; i++) {
+    onProgress({ phase: 'rendering', step: i + 1, total: photos.length })
+    const [monthStr, photo] = photos[i]
     const off = document.createElement('canvas')
     off.width = off.height = VIDEO_SIZE
     await drawAlbumFrame(off.getContext('2d'), VIDEO_SIZE, imgs[i], photo, Number(monthStr), options, dates[i])
-    return off
-  }))
+    offscreens.push(off)
+  }
 
+  // Phase 3: recording
   for (let i = 0; i < photos.length; i++) {
-    onProgress(i + 1)
+    onProgress({ phase: 'recording', step: i + 1, total: photos.length })
 
     // Hold this photo for frameDurationMs
     ctx.drawImage(offscreens[i], 0, 0)
