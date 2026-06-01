@@ -184,14 +184,25 @@ async function logAlert(familyId: string, childId: string, alertType: string) {
 // ── Israel time helpers ────────────────────────────────────────────────────
 
 function israelHour(): number {
-  return parseInt(new Intl.DateTimeFormat('en-US', {
+  const h = parseInt(new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Jerusalem', hour: 'numeric', hour12: false,
   }).format(new Date()), 10)
+  // Some Intl implementations return 24 for midnight instead of 0
+  return h === 24 ? 0 : h
 }
 
 function israelTodayStart(): Date {
+  // Get today's date string in Israel local time (YYYY-MM-DD)
   const israelDateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' })
-  return new Date(`${israelDateStr}T00:00:00+02:00`)
+  // Construct UTC midnight of that date, then compute the actual Israel offset
+  // to find the UTC time that corresponds to midnight Israel (handles both IST +2 and IDT +3)
+  const utcMidnight = new Date(israelDateStr + 'T00:00:00+00:00')
+  const israelOffsetHours = parseInt(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Jerusalem', hour: 'numeric', hour12: false,
+  }).format(utcMidnight), 10)
+  // utcMidnight is at 02:00 or 03:00 Israel time; subtract those hours to reach midnight Israel
+  utcMidnight.setUTCHours(-israelOffsetHours, 0, 0, 0)
+  return utcMidnight
 }
 
 // ── Main handler ───────────────────────────────────────────────────────────
