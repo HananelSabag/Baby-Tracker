@@ -21,7 +21,7 @@ import { PhotoSourceSheet } from '../components/ui/PhotoSourceSheet'
 import { ToastContainer } from '../components/ui/Toast'
 import { format, addDays, subDays, isSameDay } from 'date-fns'
 import { he } from 'date-fns/locale'
-import { formatTime, formatAge, cn } from '../lib/utils'
+import { formatTime, formatAge, formatChildAge, cn } from '../lib/utils'
 import { Bell, Pencil, GripVertical, Eye, EyeOff, Camera, User, RefreshCw, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { pickAndCompressImage, uploadAvatar } from '../lib/imageUpload'
@@ -367,7 +367,7 @@ export function HomePage() {
                 </p>
                 {activeChild.birth_date && (
                   <p className="font-rubik text-brown-500 text-xs leading-tight mt-0.5">
-                    {formatAge(activeChild.birth_date)}
+                    {formatChildAge(activeChild.birth_date, activeChild.gender)}
                   </p>
                 )}
               </div>
@@ -641,7 +641,7 @@ export function HomePage() {
             <div className="absolute bottom-3 right-4 text-right">
               <p className="font-rubik font-bold text-brown-800 text-2xl leading-tight">{activeChild?.name}</p>
               {activeChild?.birth_date && (
-                <p className="font-rubik text-brown-500 text-sm">{formatAge(activeChild.birth_date)}</p>
+                <p className="font-rubik text-brown-500 text-sm">{formatChildAge(activeChild?.birth_date, activeChild?.gender)}</p>
               )}
             </div>
           </div>

@@ -116,3 +116,73 @@ export function formatAge(birthDate, asOf = new Date()) {
   const wPart = weeks === 1 ? 'שבוע' : `${weeks} שבועות`
   return `${mPart} ו-${wPart}`
 }
+
+/**
+ * Rich age label for the home-page child card.
+ * Includes a "בן/בת" gender prefix and shows day/week precision for
+ * young babies (≤ 3 calendar months), then switches to months.
+ *
+ * @param {string}  birthDate  ISO date string (YYYY-MM-DD)
+ * @param {string}  gender     'male' | 'female' | null
+ * @param {Date}    [asOf]     reference date (defaults to now)
+ */
+export function formatChildAge(birthDate, gender, asOf = new Date()) {
+  if (!birthDate) return null
+  const birth = new Date(birthDate)
+  if (isNaN(birth.getTime())) return null
+  const now = asOf instanceof Date ? asOf : new Date(asOf)
+  if (now < birth) return null
+
+  // Gender prefix — omitted when gender not set
+  const prefix = gender === 'female' ? 'בת' : gender === 'male' ? 'בן' : null
+
+  const p = (str) => prefix ? `${prefix} ${str}` : str
+
+  // ── Calendar decomposition ───────────────────────────────────────────────────
+  let years  = now.getFullYear() - birth.getFullYear()
+  let months = now.getMonth()    - birth.getMonth()
+  let remDays = now.getDate()    - birth.getDate()
+  if (remDays < 0) {
+    months  -= 1
+    remDays += new Date(now.getFullYear(), now.getMonth(), 0).getDate()
+  }
+  if (months < 0) { years -= 1; months += 12 }
+
+  const totalDays = Math.floor((now - birth) / 86_400_000)
+
+  // ── Under 1 calendar month: day / week precision ─────────────────────────────
+  if (years === 0 && months === 0) {
+    if (totalDays === 0) {
+      return gender === 'female' ? 'נולדה היום ✨' : 'נולד היום ✨'
+    }
+    if (totalDays === 1) return p('יום')
+    if (totalDays < 7)  return p(`${totalDays} ימים`)
+
+    const wks  = Math.floor(totalDays / 7)
+    const dRem = totalDays % 7
+    const wLabel = wks === 1 ? 'שבוע' : wks === 2 ? 'שבועיים' : `${wks} שבועות`
+    if (dRem === 0) return p(wLabel)
+    const dLabel = dRem === 1 ? 'יום' : `${dRem} ימים`
+    return p(`${wLabel} ו-${dLabel}`)
+  }
+
+  // ── 1–3 months: months + weeks (still show week detail) ──────────────────────
+  if (years === 0 && months <= 3) {
+    const weeks  = Math.floor(remDays / 7)
+    const mLabel = months === 1 ? 'חודש' : months === 2 ? 'חודשיים' : `${months} חודשים`
+    if (weeks === 0) return p(mLabel)
+    const wLabel = weeks === 1 ? 'שבוע' : weeks === 2 ? 'שבועיים' : `${weeks} שבועות`
+    return p(`${mLabel} ו-${wLabel}`)
+  }
+
+  // ── 4–11 months: months only ─────────────────────────────────────────────────
+  if (years === 0) {
+    return p(months === 2 ? 'חודשיים' : `${months} חודשים`)
+  }
+
+  // ── 1+ year: years + months ──────────────────────────────────────────────────
+  const yLabel = years === 1 ? 'שנה' : years === 2 ? 'שנתיים' : `${years} שנים`
+  if (months === 0) return p(yLabel)
+  const mLabel = months === 1 ? 'חודש' : months === 2 ? 'חודשיים' : `${months} חודשים`
+  return p(`${yLabel} ו-${mLabel}`)
+}
