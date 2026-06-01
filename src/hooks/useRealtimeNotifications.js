@@ -2,19 +2,36 @@ import { useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 
 const LAST_CHECK_KEY = 'bt_last_notif_check'
+const BATCH_MS = 5000 // collect rapid-fire live events before firing one grouped notification
 
 export function useRealtimeNotifications({ familyId, memberId, enabled, showToast, addNotification }) {
-  // Lookup maps shared between startup-fetch and realtime handler
   const trackersMap = useRef({})
-  const membersMap = useRef({})
+  const membersMap  = useRef({})
   const childrenMap = useRef({})
+  // Live batching: pending events keyed by "memberId:trackerId"
+  const pendingRef  = useRef({})
+
+  function flushBatch(key) {
+    const batch = pendingRef.current[key]
+    if (!batch) return
+    delete pendingRef.current[key]
+    const { tracker, member, count, childNames } = batch
+    const childPart = childNames.size > 0 ? ` עבור ${[...childNames].join(', ')}` : ''
+    const countPart = count > 1 ? ` (${count}×)` : ''
+    const notification = {
+      emoji: tracker.icon ?? '📌',
+      message: `${member.display_name} הוסיף/ה ${tracker.name}${childPart}${countPart}`,
+    }
+    showToast(notification)
+    addNotification?.(notification)
+  }
 
   useEffect(() => {
     if (!familyId || !memberId || !enabled) return
 
-    // ── 1. Startup catch-up: show events created since last visit ──────────
+    // ── 1. Startup catch-up: grouped by member+tracker (avoids notification flood) ──
     const lastCheck = localStorage.getItem(LAST_CHECK_KEY)
-      ?? new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() // default: 24 h ago
+      ?? new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
     // Stamp NOW before fetching so any realtime events arriving during the
     // fetch are covered by the subscription (no gap, no double-notify).
@@ -31,28 +48,37 @@ export function useRealtimeNotifications({ familyId, memberId, enabled, showToas
         .neq('member_id', memberId)
         .gt('created_at', lastCheck)
         .order('created_at', { ascending: true })
-        .limit(20),
+        .limit(50),
     ]).then(([tr, mb, ch, ev]) => {
-      // Populate maps (also used by the realtime handler below)
       trackersMap.current = Object.fromEntries((tr.data ?? []).map(t => [t.id, t]))
       membersMap.current  = Object.fromEntries((mb.data ?? []).map(m => [m.id, m]))
       childrenMap.current = Object.fromEntries((ch.data ?? []).map(c => [c.id, c]))
 
-      // Build catch-up notifications (oldest first → correct bell ordering)
+      // Group events by member+tracker — one notification per group
+      const groups = {}
       ;(ev.data ?? []).forEach(e => {
         const tracker = trackersMap.current[e.tracker_id]
         const member  = membersMap.current[e.member_id]
-        const child   = e.child_id ? childrenMap.current[e.child_id] : null
         if (!tracker || !member) return
-        const childPart = child ? ` עבור ${child.name}` : ''
+        const key = `${e.member_id}:${e.tracker_id}`
+        if (!groups[key]) groups[key] = { tracker, member, count: 0, childNames: new Set() }
+        groups[key].count++
+        if (e.child_id && childrenMap.current[e.child_id]) {
+          groups[key].childNames.add(childrenMap.current[e.child_id].name)
+        }
+      })
+
+      Object.values(groups).forEach(({ tracker, member, count, childNames }) => {
+        const childPart = childNames.size > 0 ? ` עבור ${[...childNames].join(', ')}` : ''
+        const countPart = count > 1 ? ` (${count}×)` : ''
         addNotification?.({
           emoji: tracker.icon ?? '📌',
-          message: `${member.display_name} הוסיף/ה ${tracker.name}${childPart}`,
+          message: `${member.display_name} הוסיף/ה ${tracker.name}${childPart}${countPart}`,
         })
       })
     })
 
-    // ── 2. Realtime subscription: live events while app is open ────────────
+    // ── 2. Realtime subscription: batched live events ───────────────────────
     const channel = supabase
       .channel(`notifications:${familyId}`)
       .on('postgres_changes', {
@@ -64,7 +90,6 @@ export function useRealtimeNotifications({ familyId, memberId, enabled, showToas
         const event = payload.new
         if (event.member_id === memberId) return
 
-        // Keep last-check current so the next startup doesn't re-show this
         localStorage.setItem(LAST_CHECK_KEY, new Date().toISOString())
 
         const tracker = trackersMap.current[event.tracker_id]
@@ -72,16 +97,24 @@ export function useRealtimeNotifications({ familyId, memberId, enabled, showToas
         const child   = event.child_id ? childrenMap.current[event.child_id] : null
         if (!tracker || !member) return
 
-        const childPart = child ? ` עבור ${child.name}` : ''
-        const notification = {
-          emoji: tracker.icon ?? '📌',
-          message: `${member.display_name} הוסיף/ה ${tracker.name}${childPart}`,
+        // Accumulate in batch; flush after BATCH_MS of silence
+        const key = `${event.member_id}:${event.tracker_id}`
+        if (!pendingRef.current[key]) {
+          pendingRef.current[key] = { tracker, member, count: 0, childNames: new Set(), timer: null }
         }
-        showToast(notification)
-        addNotification?.(notification)
+        const batch = pendingRef.current[key]
+        batch.count++
+        if (child) batch.childNames.add(child.name)
+        clearTimeout(batch.timer)
+        batch.timer = setTimeout(() => flushBatch(key), BATCH_MS)
       })
       .subscribe()
 
-    return () => supabase.removeChannel(channel)
+    return () => {
+      // Flush any pending batches on unmount
+      Object.values(pendingRef.current).forEach(b => clearTimeout(b.timer))
+      pendingRef.current = {}
+      supabase.removeChannel(channel)
+    }
   }, [familyId, memberId, enabled])
 }
