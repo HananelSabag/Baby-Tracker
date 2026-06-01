@@ -68,7 +68,13 @@ export function useEvents(familyId, { trackerId, days, date, childId, startDate,
     if (error) throw error
   }
 
-  return { events, loading, addEvent, updateEvent, deleteEvent, refetch: fetchEvents }
+  async function bulkDeleteEvents(ids) {
+    if (!ids.length) return
+    const { error } = await supabase.from('events').delete().in('id', ids)
+    if (error) throw error
+  }
+
+  return { events, loading, addEvent, updateEvent, deleteEvent, bulkDeleteEvents, refetch: fetchEvents }
 }
 
 // Today's events only (with child filter)

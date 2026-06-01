@@ -3,7 +3,7 @@ import { format, subDays, startOfDay, endOfDay, isSameDay, differenceInCalendarD
 import { he } from 'date-fns/locale'
 import {
   Search, ChevronDown, ChevronUp, X,
-  CalendarDays, Trash2, Filter, Pencil,
+  CalendarDays, Trash2, Filter, Pencil, CheckSquare, Square,
 } from 'lucide-react'
 import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
@@ -46,10 +46,15 @@ export function HistoryPage() {
   )
   const endDate = useMemo(() => endOfDay(now), [])
 
-  const { events, loading, deleteEvent, updateEvent, refetch } = useEvents(
+  const { events, loading, deleteEvent, bulkDeleteEvents, updateEvent, refetch } = useEvents(
     identity.familyId,
     { startDate, endDate, childId: identity.activeChildId }
   )
+
+  const [selectMode, setSelectMode]   = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [confirmBulk, setConfirmBulk]  = useState(false)
 
   // Clear loadingMore; detect when load-more produced no new events
   useEffect(() => {
@@ -130,6 +135,36 @@ export function HistoryPage() {
     await deleteEvent(deleteTarget)
     setDeleteTarget(null)
     refetch()
+  }
+
+  function toggleSelectMode() {
+    setSelectMode(v => !v)
+    setSelectedIds(new Set())
+  }
+
+  function toggleSelect(id) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function selectAll() {
+    setSelectedIds(new Set(filtered.map(e => e.id)))
+  }
+
+  async function handleBulkDelete() {
+    setBulkDeleting(true)
+    try {
+      await bulkDeleteEvents([...selectedIds])
+      setSelectedIds(new Set())
+      setSelectMode(false)
+      setConfirmBulk(false)
+      refetch()
+    } finally {
+      setBulkDeleting(false)
+    }
   }
 
   async function handleEditSave(data, occurredAt) {
@@ -225,12 +260,28 @@ export function HistoryPage() {
     <div className="px-4 pt-8 pb-8">
 
       {/* ── Page header ── */}
-      <div className="mb-5">
-        <h1 className="font-rubik font-black text-3xl text-brown-800 leading-tight">{t('history.title')}</h1>
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h1 className="font-rubik font-black text-3xl text-brown-800 leading-tight">{t('history.title')}</h1>
+          {filtered.length > 0 && (
+            <p className="font-rubik text-brown-400 text-sm mt-0.5">
+              {filtered.length} אירועים{daysBack > 1 ? ` · ${daysBack} ימים אחרונים` : ''}
+            </p>
+          )}
+        </div>
         {filtered.length > 0 && (
-          <p className="font-rubik text-brown-400 text-sm mt-0.5">
-            {filtered.length} אירועים{daysBack > 1 ? ` · ${daysBack} ימים אחרונים` : ''}
-          </p>
+          <button
+            onClick={toggleSelectMode}
+            className={`mt-1 px-3 py-2 rounded-2xl font-rubik font-semibold text-sm transition-all duration-150 cursor-pointer flex items-center gap-1.5 ${
+              selectMode
+                ? 'bg-brown-800 text-white'
+                : 'bg-white border border-cream-200 text-brown-600 active:bg-cream-100'
+            }`}
+            style={{ boxShadow: '0 2px 8px rgba(61,43,31,0.08)' }}
+          >
+            <CheckSquare size={14} />
+            {selectMode ? 'ביטול' : 'בחר'}
+          </button>
         )}
       </div>
 
@@ -358,17 +409,28 @@ export function HistoryPage() {
                   {dayEvents.map(event => {
                     const summary = formatEventSummary(event)
                     const color = event.tracker?.color ?? '#D6C4B0'
+                    const isSelected = selectedIds.has(event.id)
                     return (
                       <div
                         key={event.id}
-                        onClick={() => setEditTarget(event)}
-                        className="bg-white rounded-2xl flex flex-col cursor-pointer active:scale-[0.97] transition-all duration-150 select-none overflow-hidden"
+                        onClick={() => selectMode ? toggleSelect(event.id) : setEditTarget(event)}
+                        className="bg-white rounded-2xl flex flex-col cursor-pointer active:scale-[0.97] transition-all duration-150 select-none overflow-hidden relative"
                         style={{
-                          border: '1px solid #EDD9C0',
-                          borderLeft: `3px solid ${color}`,
-                          boxShadow: '0 2px 10px rgba(61,43,31,0.06), inset 0 1px 0 rgba(255,255,255,0.95)',
+                          border: isSelected ? '2px solid #8B5E3C' : '1px solid #EDD9C0',
+                          borderLeft: isSelected ? `3px solid #8B5E3C` : `3px solid ${color}`,
+                          boxShadow: isSelected
+                            ? '0 2px 12px rgba(139,94,60,0.18)'
+                            : '0 2px 10px rgba(61,43,31,0.06), inset 0 1px 0 rgba(255,255,255,0.95)',
                         }}
                       >
+                        {selectMode && (
+                          <div className="absolute top-2 left-2 z-10">
+                            {isSelected
+                              ? <CheckSquare size={16} className="text-brown-700" />
+                              : <Square size={16} className="text-brown-300" />
+                            }
+                          </div>
+                        )}
                         {/* Tracker header + pencil affordance */}
                         <div className="flex items-center gap-1.5 px-3 pt-3 pb-1">
                           <div
@@ -453,12 +515,50 @@ export function HistoryPage() {
         </div>
       )}
 
+      {/* ── Bulk action toolbar ── */}
+      {selectMode && (
+        <div
+          className="fixed bottom-20 left-4 right-4 z-40 rounded-2xl px-4 py-3 flex items-center gap-3"
+          style={{
+            background: 'linear-gradient(135deg,#3D2B1F,#5C3D28)',
+            boxShadow: '0 8px 32px rgba(61,43,31,0.35)',
+          }}
+          dir="rtl"
+        >
+          <button
+            onClick={selectAll}
+            className="font-rubik text-cream-100 text-sm font-semibold flex items-center gap-1.5 cursor-pointer active:opacity-70 transition-opacity flex-shrink-0"
+          >
+            <CheckSquare size={15} />
+            הכל
+          </button>
+          <span className="font-rubik text-cream-300 text-sm flex-1 text-center">
+            {selectedIds.size > 0 ? `${selectedIds.size} נבחרו` : 'בחר אירועים'}
+          </span>
+          <button
+            onClick={() => selectedIds.size > 0 && setConfirmBulk(true)}
+            disabled={selectedIds.size === 0 || bulkDeleting}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-500 text-white font-rubik font-bold text-sm cursor-pointer active:opacity-80 transition-opacity disabled:opacity-40 flex-shrink-0"
+          >
+            <Trash2 size={14} />
+            מחק
+          </button>
+        </div>
+      )}
+
       {/* ── Dialogs ── */}
       <ConfirmDialog
         isOpen={Boolean(deleteTarget)}
         message={t('history.deleteConfirm')}
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={confirmBulk}
+        message={`למחוק ${selectedIds.size} אירועים? לא ניתן לבטל פעולה זו.`}
+        onConfirm={handleBulkDelete}
+        onCancel={() => setConfirmBulk(false)}
       />
 
       <BottomSheet
