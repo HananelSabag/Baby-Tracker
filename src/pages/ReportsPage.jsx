@@ -9,7 +9,7 @@ import { supabase } from '../lib/supabase'
 import { formatAge } from '../lib/utils'
 import {
   format, startOfWeek, endOfWeek, addWeeks, eachDayOfInterval, isSameDay,
-  differenceInCalendarDays,
+  differenceInCalendarDays, isToday,
 } from 'date-fns'
 import { he } from 'date-fns/locale'
 import {
@@ -264,7 +264,85 @@ export function ReportsPage() {
   }, [events, prevEvents, activeTrackers, weekOffset, elapsedDaysInWeek, lastGrowthEvent, activeChild])
 
   const feedingTracker     = activeTrackers.find(t => t.tracker_type === TRACKER_TYPES.FEEDING)
+  const diaperTracker      = activeTrackers.find(t => t.tracker_type === TRACKER_TYPES.DIAPER)
   const nonFeedingTrackers = activeTrackers.filter(t => t.tracker_type !== TRACKER_TYPES.FEEDING)
+
+  // ── Smart insights ─────────────────────────────────────────────────────────
+  const insights = useMemo(() => {
+    const result = { feeding: null, diaper: null }
+
+    // Feeding insights — use this week + prev week for a richer sample
+    if (feedingTracker) {
+      const thisWeekF = events.filter(e => e.tracker_id === feedingTracker.id)
+      const prevWeekF = prevEvents.filter(e => e.tracker_id === feedingTracker.id)
+      const allF = [...prevWeekF, ...thisWeekF]
+        .sort((a, b) => new Date(a.occurred_at) - new Date(b.occurred_at))
+
+      // Intervals between consecutive feedings (ignore gaps > 8h = overnight)
+      const intervals = []
+      for (let i = 1; i < allF.length; i++) {
+        const gapH = (new Date(allF[i].occurred_at) - new Date(allF[i - 1].occurred_at)) / 3600000
+        if (gapH < 8) intervals.push(gapH)
+      }
+
+      const avgIntervalH = intervals.length >= 2
+        ? intervals.reduce((a, b) => a + b, 0) / intervals.length
+        : null
+
+      // Longest stretch this week (including overnight)
+      const thisWeekIntervals = []
+      for (let i = 1; i < thisWeekF.length; i++) {
+        thisWeekIntervals.push(
+          (new Date(thisWeekF[i].occurred_at) - new Date(thisWeekF[i - 1].occurred_at)) / 3600000
+        )
+      }
+      const longestStretchH = thisWeekIntervals.length > 0 ? Math.max(...thisWeekIntervals) : null
+
+      // Peak hour — which hour has the most feedings this week
+      const hourBuckets = {}
+      thisWeekF.forEach(e => {
+        const h = new Date(e.occurred_at).getHours()
+        hourBuckets[h] = (hourBuckets[h] || 0) + 1
+      })
+      const peakHour = Object.keys(hourBuckets).length > 0
+        ? parseInt(Object.entries(hourBuckets).sort((a, b) => b[1] - a[1])[0][0])
+        : null
+
+      // Predicted next feeding — last feeding + avg interval
+      const lastF = thisWeekF[thisWeekF.length - 1]
+      const lastFDate = lastF ? new Date(lastF.occurred_at) : null
+      const predictedNext = lastFDate && avgIntervalH
+        ? new Date(lastFDate.getTime() + avgIntervalH * 3600000)
+        : null
+      const minsUntilNext = predictedNext ? Math.round((predictedNext - new Date()) / 60000) : null
+
+      result.feeding = {
+        avgIntervalH,
+        longestStretchH,
+        peakHour,
+        predictedNext,
+        minsUntilNext,
+        count: thisWeekF.length,
+      }
+    }
+
+    // Diaper insights — wet / dirty split
+    if (diaperTracker) {
+      const thisWeekD = events.filter(e => e.tracker_id === diaperTracker.id)
+      let wet = 0, dirty = 0, both = 0
+      thisWeekD.forEach(e => {
+        const type = e.data?.type
+        if (type === 'wet')   wet++
+        else if (type === 'dirty') dirty++
+        else if (type === 'both')  both++
+        else wet++ // unknown → count as wet
+      })
+      const total = thisWeekD.length
+      result.diaper = total >= 3 ? { wet: wet + both, dirty: dirty + both, total } : null
+    }
+
+    return result
+  }, [events, prevEvents, feedingTracker, diaperTracker])
 
   const [shareSuccess, setShareSuccess] = useState(false)
 
@@ -392,6 +470,16 @@ export function ReportsPage() {
                 />
               ))}
             </div>
+          )}
+
+          {/* Smart insights */}
+          {(insights.feeding?.count >= 3 || insights.diaper) && (
+            <SmartInsightsCard
+              feeding={insights.feeding}
+              diaper={insights.diaper}
+              feedingTracker={feedingTracker}
+              weekOffset={weekOffset}
+            />
           )}
         </>
       )}
@@ -1521,3 +1609,141 @@ function DryEvents({ events, tracker }) {
     </div>
   )
 }
+
+// ── Smart Insights Card ───────────────────────────────────────────────────────
+
+function fmtH(h) {
+  if (h == null) return null
+  const totalMin = Math.round(h * 60)
+  const hh = Math.floor(totalMin / 60)
+  const mm = totalMin % 60
+  return hh > 0 ? `${hh}:${String(mm).padStart(2, '0')}` : `${mm} ד'`
+}
+
+function fmtHour(h) {
+  if (h == null) return null
+  return `${String(h).padStart(2, '0')}:00`
+}
+
+function SmartInsightsCard({ feeding, diaper, feedingTracker, weekOffset }) {
+  if (!feeding && !diaper) return null
+
+  const { avgIntervalH, longestStretchH, peakHour, predictedNext, minsUntilNext } = feeding ?? {}
+
+  const predictedLabel = useMemo(() => {
+    if (!predictedNext || minsUntilNext == null) return null
+    if (minsUntilNext < -120) return null
+    const absMin = Math.abs(minsUntilNext)
+    if (minsUntilNext < 0) return `כבר ${fmtH(-minsUntilNext / 60)} (איחור)`
+    if (minsUntilNext < 60) return `בעוד ${absMin} דקות (${format(predictedNext, 'HH:mm')})`
+    return `${format(predictedNext, 'HH:mm')} (בעוד ${fmtH(minsUntilNext / 60)})`
+  }, [predictedNext, minsUntilNext])
+
+  const showPrediction = weekOffset === 0 && predictedLabel
+
+  return (
+    <div
+      className="rounded-3xl border border-cream-200 overflow-hidden"
+      style={{ boxShadow: '0 4px 20px rgba(61,43,31,0.07), inset 0 1px 0 rgba(255,255,255,0.95)' }}
+    >
+      <div
+        className="px-4 py-2.5 flex items-center gap-2"
+        style={{ background: 'linear-gradient(135deg, #FFF8F0, #F5E6D3)' }}
+      >
+        <span className="text-base">💡</span>
+        <p className="font-rubik font-bold text-brown-700 text-sm">תובנות שבועיות</p>
+      </div>
+
+      <div className="bg-white px-4 py-3 space-y-3">
+        {feeding && feeding.count >= 3 && (
+          <div className="space-y-2">
+            <div className="grid grid-cols-3 gap-2">
+              <InsightStat
+                emoji="⏱"
+                label="ממוצע בין האכלות"
+                value={avgIntervalH ? fmtH(avgIntervalH) + ' ש׳' : '—'}
+              />
+              <InsightStat
+                emoji="📈"
+                label="מרווח ארוך"
+                value={longestStretchH ? fmtH(longestStretchH) + ' ש׳' : '—'}
+              />
+              <InsightStat
+                emoji="🕙"
+                label="שעת שיא"
+                value={peakHour != null ? fmtHour(peakHour) : '—'}
+              />
+            </div>
+
+            {showPrediction && (
+              <div
+                className="flex items-center gap-2.5 rounded-2xl px-3 py-2.5 border"
+                style={{
+                  background: minsUntilNext < 0 ? '#FEF3C7' : '#F0FDF4',
+                  borderColor: minsUntilNext < 0 ? '#FDE68A' : '#BBF7D0',
+                }}
+              >
+                <span className="text-base flex-shrink-0">{minsUntilNext < 0 ? '⚡' : '🔮'}</span>
+                <div className="min-w-0">
+                  <p className="font-rubik text-xs font-bold text-brown-600">האכלה הבאה הצפויה</p>
+                  <p
+                    className="font-rubik text-sm font-black"
+                    style={{ color: minsUntilNext < 0 ? '#B45309' : '#15803D' }}
+                  >
+                    {predictedLabel}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {diaper && (
+          <div>
+            {feeding?.count >= 3 && <div className="h-px bg-cream-100 mb-3" />}
+            <div className="flex items-center gap-3">
+              <span className="text-base flex-shrink-0">🧷</span>
+              <div className="flex-1 min-w-0">
+                <p className="font-rubik text-xs text-brown-400 mb-1">
+                  חיתולים השבוע — {diaper.total} סה"כ
+                </p>
+                <div className="flex rounded-full overflow-hidden h-2 bg-cream-200">
+                  <div
+                    className="h-full transition-all duration-500"
+                    style={{ width: `${Math.round((diaper.wet / diaper.total) * 100)}%`, backgroundColor: '#7BA7E8' }}
+                  />
+                  <div
+                    className="h-full transition-all duration-500"
+                    style={{ width: `${Math.round((diaper.dirty / diaper.total) * 100)}%`, backgroundColor: '#C4A882' }}
+                  />
+                </div>
+                <div className="flex gap-3 mt-1.5">
+                  <span className="font-rubik text-xs font-semibold" style={{ color: '#7BA7E8' }}>
+                    💧 רטוב {Math.round((diaper.wet / diaper.total) * 100)}%
+                  </span>
+                  <span className="font-rubik text-xs font-semibold" style={{ color: '#A07050' }}>
+                    🟫 מלוכלך {Math.round((diaper.dirty / diaper.total) * 100)}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function InsightStat({ emoji, label, value }) {
+  return (
+    <div
+      className="flex flex-col items-center text-center px-2 py-2.5 rounded-2xl bg-cream-50 border border-cream-200"
+      style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.9)' }}
+    >
+      <span className="text-sm mb-0.5">{emoji}</span>
+      <p className="font-rubik font-black text-base text-brown-800 leading-tight">{value}</p>
+      <p className="font-rubik text-[10px] text-brown-400 mt-0.5 leading-snug">{label}</p>
+    </div>
+  )
+}
+
