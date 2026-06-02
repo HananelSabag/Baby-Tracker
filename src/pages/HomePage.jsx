@@ -237,9 +237,7 @@ export function HomePage() {
       case TRACKER_TYPES.VITAMIN_D: return <VitaminDCard key={tracker.id} {...props} />
       case TRACKER_TYPES.DIAPER:    return <DiaperCard key={tracker.id} {...props} />
       case TRACKER_TYPES.SLEEP:     return <SleepCard key={tracker.id} {...props} />
-      case TRACKER_TYPES.DOSE:      return tracker.config?.display_mode === 'simple'
-                                      ? <CustomTrackerCard key={tracker.id} {...props} compact={inGrid} />
-                                      : <VitaminDCard key={tracker.id} {...props} />
+      case TRACKER_TYPES.DOSE:      return <VitaminDCard key={tracker.id} {...props} compact={inGrid} />
       case TRACKER_TYPES.GROWTH:    return <GrowthCard key={tracker.id} {...props} child={activeChild} />
       default:                      return <CustomTrackerCard key={tracker.id} {...props} compact={inGrid} />
     }

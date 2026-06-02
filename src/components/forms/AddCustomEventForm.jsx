@@ -85,7 +85,17 @@ export function AddCustomEventForm({ tracker, onSave, onCancel, loading, initial
       ))}
 
       {schema.length === 0 && (
-        <p className="text-brown-400 text-sm text-center py-2">{t('tracker.addEvent')}</p>
+        <div className="flex flex-col items-center gap-2 py-3">
+          <div
+            className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl"
+            style={{ backgroundColor: `${tracker.color}20` }}
+          >
+            {tracker.icon}
+          </div>
+          <p className="font-rubik text-brown-500 text-sm text-center">
+            לחץ שמור לרישום <span className="font-semibold text-brown-700">{tracker.name}</span>
+          </p>
+        </div>
       )}
 
       {/* Time */}
