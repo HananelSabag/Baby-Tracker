@@ -39,6 +39,7 @@ export function AlbumPage() {
   const [exporting,    setExporting]    = useState(false)
   const [zipProgress,  setZipProgress]  = useState({ step: 0, total: 0 })
   const [exportDone,   setExportDone]   = useState(false)
+  const [exportError,  setExportError]  = useState(null)
 
   // Single export sheet — null | 'hub' | 'gif' | 'video'
   // One BottomSheet handles all three panels to avoid history-back collisions
@@ -73,6 +74,15 @@ export function AlbumPage() {
     music:          null,
     musicStart:     0,
   })
+
+  // Block accidental navigation while any export is in progress
+  useEffect(() => {
+    const busy = exporting || gifGenerating || videoGenerating
+    if (!busy) return
+    const handler = e => { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [exporting, gifGenerating, videoGenerating])
 
   // Video preview audio — lifted here so closeExportSheet can stop it
   const videoAudioRef      = useRef(null)
@@ -123,7 +133,8 @@ export function AlbumPage() {
       },
     }).catch(err => {
       setGifGenerating(false)
-      alert(err.message ?? 'ייצוא GIF נכשל')
+      setExportError(err.message ?? 'ייצוא GIF נכשל')
+      setTimeout(() => setExportError(null), 4000)
     })
   }
 
@@ -144,7 +155,8 @@ export function AlbumPage() {
       },
     }).catch(err => {
       setVideoGenerating(false)
-      alert(err.message ?? 'ייצוא וידאו נכשל')
+      setExportError(err.message ?? 'ייצוא וידאו נכשל')
+      setTimeout(() => setExportError(null), 4000)
     })
   }
 
@@ -275,6 +287,12 @@ export function AlbumPage() {
             {gifDone && <ExportDoneCard text="GIF הורד בהצלחה!" />}
             {videoGenerating && <ExportProgressCard type="video" progress={videoProgress} />}
             {videoDone && <ExportDoneCard text="וידאו הורד בהצלחה!" />}
+            {exportError && (
+              <div className="flex items-center gap-2.5 bg-red-50 rounded-2xl px-4 py-3 border border-red-100">
+                <AlertCircle size={16} className="text-red-500 flex-shrink-0" />
+                <p className="font-rubik text-sm text-red-700">{exportError}</p>
+              </div>
+            )}
 
             {/* Main export button — always visible when idle */}
             {!exporting && !exportDone && (

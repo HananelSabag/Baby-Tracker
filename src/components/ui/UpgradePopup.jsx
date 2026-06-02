@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   BookImage, Wand2, TrendingUp, Users,
   Lightbulb, Smartphone, Sparkles, Share2, X,
@@ -56,8 +56,15 @@ const FEATURES = [
 ]
 
 export function UpgradePopup() {
-  const [visible,  setVisible]  = useState(false)
-  const [progress, setProgress] = useState(100)
+  const [visible,   setVisible]   = useState(false)
+  const [progress,  setProgress]  = useState(100)
+  const [copied,    setCopied]    = useState(false)
+
+  const handleCopyLink = useCallback(() => {
+    navigator.clipboard?.writeText('https://baby-tracker-two-liart.vercel.app')
+      .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2500) })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (localStorage.getItem(VERSION_KEY)) return
@@ -192,13 +199,10 @@ export function UpgradePopup() {
             <div className="flex-1 min-w-0">
               <p className="font-rubik text-brown-700 text-xs leading-tight">אהבת? שתף/י עם הורים נוספים</p>
               <button
-                onClick={() => {
-                  navigator.clipboard?.writeText('https://baby-tracker-two-liart.vercel.app')
-                  alert('הקישור הועתק! 🎉')
-                }}
-                className="font-rubik text-amber-700 font-semibold text-[11px] underline mt-0.5 cursor-pointer active:opacity-60"
+                onClick={handleCopyLink}
+                className="font-rubik text-amber-700 font-semibold text-[11px] underline mt-0.5 cursor-pointer active:opacity-60 transition-opacity"
               >
-                baby-tracker-two-liart.vercel.app
+                {copied ? 'הקישור הועתק! ✓' : 'baby-tracker-two-liart.vercel.app'}
               </button>
             </div>
           </div>
