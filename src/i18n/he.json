@@ -241,6 +241,7 @@
     "wizardIdentity": "שם ועיצוב",
     "wizardDoseConfig": "הגדרת מינונים",
     "wizardFields": "שדות מותאמים",
+    "wizardMeasure": "פרטי המדידה",
     "dosesSaved": "המינונים נשמרו",
     "trackerUpdated": "{{name}} עודכן",
     "fields": "שדות",

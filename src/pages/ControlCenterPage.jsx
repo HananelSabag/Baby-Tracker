@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Settings2, Pencil, Trash2, Plus, LayoutGrid, List } from 'lucide-react'
+import { Settings2, Pencil, Trash2, Plus, LayoutGrid, List, ChevronLeft } from 'lucide-react'
 import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
-import { TRACKER_COLORS, TRACKER_ICONS, FIELD_TYPES, TRACKER_ARCHETYPES } from '../lib/constants'
+import { TRACKER_COLORS, TRACKER_ICONS, TRACKER_ARCHETYPES } from '../lib/constants'
 import { Button } from '../components/ui/Button'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
@@ -13,8 +13,9 @@ import { useToast } from '../hooks/useToast'
 import { cn } from '../lib/utils'
 
 // Wizard steps
-const WIZARD_STEPS = { ARCHETYPE: 'archetype', IDENTITY: 'identity', DOSE_CONFIG: 'dose_config', DISPLAY_MODE: 'display_mode', FIELDS: 'fields' }
+const WIZARD_STEPS = { ARCHETYPE: 'archetype', IDENTITY: 'identity', DOSE_CONFIG: 'dose_config', DISPLAY_MODE: 'display_mode', MEASURE_CONFIG: 'measure_config' }
 const DOSE_EMOJIS = ['☀️', '🌙', '🌅', '🌤', '⭐', '💫']
+const MEASURE_UNITS = ['מ"ל', 'גרם', '°C', 'ס"מ', 'ק"ג', 'אחר']
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export function ControlCenterPage() {
@@ -334,25 +335,28 @@ function EditTrackerSheet({ tracker, isOpen, onClose, onSave }) {
 }
 
 function AddTrackerWizard({ isOpen, onClose, onAdd }) {
-  const [step, setStep]           = useState(WIZARD_STEPS.ARCHETYPE)
-  const [archetype, setArchetype] = useState(null)
-  const [name, setName]           = useState('')
-  const [icon, setIcon]           = useState(TRACKER_ICONS[0])
-  const [color, setColor]         = useState(TRACKER_COLORS[3])
-  const [doseCount, setDoseCount] = useState(2)
+  const [step, setStep]             = useState(WIZARD_STEPS.ARCHETYPE)
+  const [archetype, setArchetype]   = useState(null)
+  const [name, setName]             = useState('')
+  const [icon, setIcon]             = useState(TRACKER_ICONS[0])
+  const [color, setColor]           = useState(TRACKER_COLORS[3])
+  const [doseCount, setDoseCount]   = useState(2)
   const [doseLabels, setDoseLabels] = useState(['בוקר', 'ערב', 'צהריים', 'לילה', 'בוקר מאוחר', 'ערב מוקדם'])
-  const [displayMode, setDisplayMode] = useState('buttons')
-  const [fields, setFields]       = useState([])
-  const [saving, setSaving]       = useState(false)
+  const [displayMode, setDisplayMode]         = useState('buttons')
+  const [measureLabel, setMeasureLabel]       = useState('')
+  const [measureUnit, setMeasureUnit]         = useState('')
+  const [measureUnitCustom, setMeasureUnitCustom] = useState('')
+  const [saving, setSaving]   = useState(false)
   const [saveError, setSaveError] = useState(null)
 
-  // Step progress: how many steps total for this archetype
-  const totalSteps = archetype?.id === 'dose' ? 3 : archetype?.id === 'freetext' ? 2 : 1
+  const totalSteps = archetype?.id === 'dose' ? 3 : archetype?.id === 'measure' ? 2 : 1
   const currentStepIndex =
-    step === WIZARD_STEPS.IDENTITY     ? 0 :
-    step === WIZARD_STEPS.DOSE_CONFIG  ? 1 :
-    step === WIZARD_STEPS.FIELDS       ? 1 :
-    step === WIZARD_STEPS.DISPLAY_MODE ? 2 : null
+    step === WIZARD_STEPS.IDENTITY      ? 0 :
+    step === WIZARD_STEPS.DOSE_CONFIG   ? 1 :
+    step === WIZARD_STEPS.MEASURE_CONFIG? 1 :
+    step === WIZARD_STEPS.DISPLAY_MODE  ? 2 : null
+
+  const effectiveUnit = measureUnit === 'אחר' ? measureUnitCustom.trim() : measureUnit
 
   function reset() {
     setStep(WIZARD_STEPS.ARCHETYPE)
@@ -363,7 +367,9 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
     setDoseCount(2)
     setDoseLabels(['בוקר', 'ערב', 'צהריים', 'לילה', 'בוקר מאוחר', 'ערב מוקדם'])
     setDisplayMode('buttons')
-    setFields([])
+    setMeasureLabel('')
+    setMeasureUnit('')
+    setMeasureUnitCustom('')
     setSaveError(null)
   }
 
@@ -371,15 +377,14 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
 
   function handleArchetypeSelect(a) {
     setArchetype(a)
-    setFields(a.preset_fields ?? [])
     setStep(WIZARD_STEPS.IDENTITY)
   }
 
   function handleIdentityNext() {
     if (!name.trim()) return
     setSaveError(null)
-    if (archetype.id === 'dose')      setStep(WIZARD_STEPS.DOSE_CONFIG)
-    else if (archetype.id === 'freetext') setStep(WIZARD_STEPS.FIELDS)
+    if (archetype.id === 'dose')         setStep(WIZARD_STEPS.DOSE_CONFIG)
+    else if (archetype.id === 'measure') setStep(WIZARD_STEPS.MEASURE_CONFIG)
     else handleSave()
   }
 
@@ -389,23 +394,26 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
 
   async function handleSave(chosenDisplayMode) {
     if (!name.trim()) return
-    if (archetype.id === 'freetext' && fields.length === 0) return
     setSaving(true)
     setSaveError(null)
     try {
-      const isDose = archetype.id === 'dose'
+      const isDose    = archetype.id === 'dose'
+      const isMeasure = archetype.id === 'measure'
       const effectiveDisplayMode = chosenDisplayMode ?? displayMode
       const doseConfig = {
         daily_doses: doseCount,
         dose_labels: doseLabels.slice(0, doseCount),
         ...(effectiveDisplayMode === 'simple' ? { display_mode: 'simple' } : {}),
       }
+      const fieldLabel = (measureLabel.trim() || name.trim()) + (effectiveUnit ? ` (${effectiveUnit})` : '')
       const payload = {
         name: name.trim(),
         icon,
         color,
         tracker_type: archetype.tracker_type,
-        field_schema: isDose ? [] : (archetype.preset_fields?.length ? archetype.preset_fields : fields),
+        field_schema: isMeasure
+          ? [{ key: 'value', type: 'number', label: fieldLabel }]
+          : [],
         config: isDose ? doseConfig : {},
       }
       await onAdd(payload)
@@ -417,31 +425,19 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
     }
   }
 
-  function addField() {
-    setFields(prev => [...prev, { key: `f_${Date.now()}`, type: 'number', label: '' }])
-  }
-
-  function updateField(idx, updates) {
-    setFields(prev => prev.map((f, i) => i === idx ? { ...f, ...updates } : f))
-  }
-
-  function removeField(idx) {
-    setFields(prev => prev.filter((_, i) => i !== idx))
-  }
-
   const stepTitle = {
-    [WIZARD_STEPS.ARCHETYPE]:    t('settings.addTracker'),
-    [WIZARD_STEPS.IDENTITY]:     t('settings.wizardIdentity'),
-    [WIZARD_STEPS.DOSE_CONFIG]:  t('settings.wizardDoseConfig'),
-    [WIZARD_STEPS.DISPLAY_MODE]: t('settings.displayMode'),
-    [WIZARD_STEPS.FIELDS]:       t('settings.wizardFields'),
+    [WIZARD_STEPS.ARCHETYPE]:     t('settings.addTracker'),
+    [WIZARD_STEPS.IDENTITY]:      t('settings.wizardIdentity'),
+    [WIZARD_STEPS.DOSE_CONFIG]:   t('settings.wizardDoseConfig'),
+    [WIZARD_STEPS.DISPLAY_MODE]:  t('settings.displayMode'),
+    [WIZARD_STEPS.MEASURE_CONFIG]: t('settings.wizardMeasure'),
   }[step]
 
   return (
     <BottomSheet isOpen={isOpen} onClose={handleClose} title={stepTitle}>
       <div className="space-y-4">
 
-        {/* Step progress dots — shown for multi-step archetypes */}
+        {/* Step progress dots */}
         {currentStepIndex !== null && totalSteps > 1 && (
           <div className="flex justify-center gap-1.5 -mt-1">
             {Array.from({ length: totalSteps }, (_, i) => (
@@ -460,19 +456,25 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
 
         {/* ── ARCHETYPE selection ── */}
         {step === WIZARD_STEPS.ARCHETYPE && (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2.5">
             {TRACKER_ARCHETYPES.map(a => (
               <button
                 key={a.id}
                 onClick={() => handleArchetypeSelect(a)}
-                className="flex flex-col items-center gap-2 py-5 px-3 rounded-3xl bg-white border border-cream-200 active:scale-95 transition-all text-center cursor-pointer"
+                className="w-full flex items-center gap-4 py-4 px-4 rounded-3xl bg-white border border-cream-200 active:scale-[0.98] transition-all cursor-pointer"
                 style={{ boxShadow: '0 4px 16px rgba(61,43,31,0.07), inset 0 1px 0 rgba(255,255,255,0.95)' }}
               >
-                <div className="w-14 h-14 rounded-2xl bg-cream-100 flex items-center justify-center border border-cream-200">
+                <div
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: '#F5EDE0', boxShadow: 'inset 0 1px 4px rgba(61,43,31,0.06)' }}
+                >
                   <span className="text-3xl">{a.icon}</span>
                 </div>
-                <span className="font-rubik font-bold text-brown-800 text-base">{a.label}</span>
-                <span className="font-rubik text-brown-400 text-xs leading-tight">{a.description}</span>
+                <div className="flex-1 min-w-0 text-right">
+                  <p className="font-rubik font-bold text-brown-800 text-base">{a.label}</p>
+                  <p className="font-rubik text-brown-400 text-xs leading-tight mt-0.5">{a.description}</p>
+                </div>
+                <ChevronLeft size={16} className="text-brown-300 flex-shrink-0" />
               </button>
             ))}
           </div>
@@ -523,7 +525,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
               </div>
             </div>
 
-            {/* Live preview card */}
+            {/* Live preview */}
             <div
               className="rounded-2xl overflow-hidden border border-cream-200"
               style={{ boxShadow: '0 4px 16px rgba(61,43,31,0.07), inset 0 1px 0 rgba(255,255,255,0.95)' }}
@@ -544,7 +546,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
             <div className="flex gap-3 pt-1">
               <Button variant="secondary" className="flex-1" onClick={() => setStep(WIZARD_STEPS.ARCHETYPE)}>{t('common.back')}</Button>
               <Button className="flex-1" onClick={handleIdentityNext} disabled={!name.trim() || saving}>
-                {(archetype.id === 'dose' || archetype.id === 'freetext')
+                {(archetype.id === 'dose' || archetype.id === 'measure')
                   ? t('settings.nextButton')
                   : saving ? t('app.loading') : t('common.save')}
               </Button>
@@ -622,59 +624,75 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
           </>
         )}
 
-        {/* ── FIELDS (freetext) ── */}
-        {step === WIZARD_STEPS.FIELDS && (
+        {/* ── MEASURE_CONFIG ── */}
+        {step === WIZARD_STEPS.MEASURE_CONFIG && (
           <>
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-brown-600">{t('settings.fields')}</p>
-              <button
-                onClick={addField}
-                className="text-sm font-rubik font-semibold text-brown-600 bg-cream-200 px-3 py-1.5 rounded-full cursor-pointer active:scale-95 transition-transform border border-cream-300"
-              >
-                {t('settings.addField')}
-              </button>
+            <div>
+              <p className="text-sm font-medium text-brown-600 mb-2">מה תמדוד?</p>
+              <input
+                type="text"
+                value={measureLabel}
+                onChange={e => setMeasureLabel(e.target.value)}
+                placeholder="לדוגמה: חום גוף, כמות חלב, לחץ דם"
+                className="w-full bg-cream-200 rounded-2xl px-4 py-3 font-rubik text-brown-800 outline-none text-base"
+                autoFocus
+                maxLength={30}
+              />
             </div>
-            <div className="space-y-2 max-h-52 overflow-y-auto">
-              {fields.map((field, idx) => (
-                <div key={field.key} className="bg-cream-200 rounded-2xl p-3 space-y-2">
-                  <div className="flex gap-2 items-center">
-                    <input
-                      type="text"
-                      value={field.label}
-                      onChange={e => updateField(idx, { label: e.target.value })}
-                      placeholder={t('settings.fieldLabel')}
-                      className="flex-1 bg-white rounded-xl px-3 py-2 font-rubik text-sm text-brown-800 outline-none"
-                    />
-                    <button onClick={() => removeField(idx)} className="w-8 h-8 flex items-center justify-center text-brown-300 active:text-red-400 text-xl font-bold flex-shrink-0 cursor-pointer">×</button>
-                  </div>
-                  <select
-                    value={field.type}
-                    onChange={e => updateField(idx, { type: e.target.value, options: e.target.value === 'choice' ? (field.options ?? []) : undefined })}
-                    className="w-full bg-white rounded-xl px-3 py-2 font-rubik text-sm text-brown-700 outline-none cursor-pointer"
+            <div>
+              <p className="text-sm font-medium text-brown-600 mb-2">יחידת מידה</p>
+              <div className="flex flex-wrap gap-2">
+                {MEASURE_UNITS.map(u => (
+                  <button
+                    key={u}
+                    onClick={() => setMeasureUnit(prev => prev === u ? '' : u)}
+                    className={cn(
+                      'px-4 py-2 rounded-2xl font-rubik text-sm font-medium transition-all active:scale-95 cursor-pointer',
+                      measureUnit === u
+                        ? 'text-white shadow-soft'
+                        : 'bg-cream-200 text-brown-700'
+                    )}
+                    style={measureUnit === u ? { backgroundColor: color } : {}}
                   >
-                    {FIELD_TYPES.map(ft => <option key={ft.value} value={ft.value}>{ft.label}</option>)}
-                  </select>
-                  {field.type === 'choice' && (
-                    <div>
-                      <p className="text-xs text-brown-400 mb-1">{t('settings.choiceOptions')}</p>
-                      <textarea
-                        rows={3}
-                        value={(field.options ?? []).join('\n')}
-                        onChange={e => updateField(idx, { options: e.target.value.split('\n').map(o => o.trim()).filter(Boolean) })}
-                        placeholder={t('settings.optionsPlaceholder')}
-                        className="w-full bg-white rounded-xl px-3 py-2 font-rubik text-sm text-brown-800 outline-none resize-none"
-                      />
-                    </div>
-                  )}
-                </div>
-              ))}
-              {fields.length === 0 && (
-                <div className="flex flex-col items-center gap-2 py-6 text-center">
-                  <span className="text-3xl opacity-40">📋</span>
-                  <p className="text-sm text-brown-400 font-rubik">{t('settings.addOneField')}</p>
-                </div>
+                    {u}
+                  </button>
+                ))}
+              </div>
+              {measureUnit === 'אחר' && (
+                <input
+                  type="text"
+                  value={measureUnitCustom}
+                  onChange={e => setMeasureUnitCustom(e.target.value)}
+                  placeholder="הכנס יחידה..."
+                  className="w-full mt-2 bg-cream-200 rounded-2xl px-4 py-3 font-rubik text-brown-800 outline-none text-base"
+                  maxLength={15}
+                  autoFocus
+                />
               )}
             </div>
+
+            {/* Field preview */}
+            {measureLabel.trim() && (
+              <div className="rounded-2xl overflow-hidden border border-cream-200" style={{ background: '#FAFAF8' }}>
+                <div className="h-1" style={{ backgroundColor: color }} />
+                <div className="px-4 py-3">
+                  <p className="text-xs text-brown-400 font-rubik mb-2">כך ייראה השדה:</p>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl">{icon}</span>
+                    <span className="font-rubik text-brown-700 text-sm font-medium">
+                      {measureLabel.trim()}{effectiveUnit ? ` (${effectiveUnit})` : ''}
+                    </span>
+                    <div
+                      className="mr-auto h-9 w-20 rounded-xl flex items-center justify-center"
+                      style={{ backgroundColor: `${color}18` }}
+                    >
+                      <span className="font-rubik text-brown-300 text-sm">123</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {saveError && (
               <p className="text-xs font-rubik text-red-600 bg-red-50 rounded-2xl px-3 py-2 border border-red-100">{saveError}</p>
             )}
@@ -682,14 +700,15 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
               <Button variant="secondary" className="flex-1" onClick={() => setStep(WIZARD_STEPS.IDENTITY)}>{t('common.back')}</Button>
               <Button
                 className="flex-1"
-                onClick={handleSave}
-                disabled={saving || fields.length === 0}
+                onClick={() => handleSave()}
+                disabled={saving || !measureLabel.trim()}
               >
                 {saving ? t('app.loading') : t('common.save')}
               </Button>
             </div>
           </>
         )}
+
       </div>
     </BottomSheet>
   )
