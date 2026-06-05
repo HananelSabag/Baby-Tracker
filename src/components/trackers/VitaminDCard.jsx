@@ -55,7 +55,12 @@ export function VitaminDCard({ tracker, familyId, memberId, childId, viewDate, c
       <Card compact>
         <div className="flex items-center gap-3">
           <span className="text-xl flex-shrink-0">{tracker.icon}</span>
-          <span className="font-rubik font-semibold text-brown-800 text-sm flex-1 truncate">{tracker.name}</span>
+          <div className="flex-1 min-w-0">
+            <p className="font-rubik font-semibold text-brown-800 text-sm truncate leading-tight">{tracker.name}</p>
+            {config.note && (
+              <p className="font-rubik text-[10px] text-brown-400 truncate leading-tight">{config.note}</p>
+            )}
+          </div>
           {allDone && <span className="text-xs font-rubik font-medium text-amber-600">✓</span>}
           <div className="flex gap-1.5 flex-shrink-0">
             {doses.map(dose => {
@@ -86,8 +91,13 @@ export function VitaminDCard({ tracker, familyId, memberId, childId, viewDate, c
     <Card>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-2xl">{tracker.icon}</span>
-          <span className="font-rubik font-semibold text-brown-800">{tracker.name}</span>
+          <span className="text-2xl flex-shrink-0">{tracker.icon}</span>
+          <div>
+            <p className="font-rubik font-semibold text-brown-800 leading-tight">{tracker.name}</p>
+            {config.note && (
+              <p className="font-rubik text-xs text-brown-400 leading-tight mt-0.5">{config.note}</p>
+            )}
+          </div>
         </div>
         {allDone && (
           <span className="text-xs font-rubik font-medium bg-tracker-vitaminD/20 text-amber-700 px-3 py-1 rounded-full">

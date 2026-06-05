@@ -208,6 +208,7 @@ function DoseConfigSheet({ tracker, isOpen, onClose, onSave }) {
   const [labels, setLabels] = useState(
     existingConfig.dose_labels ?? ['בוקר', 'ערב', 'צהריים', 'לילה', 'בוקר מאוחר', 'ערב מוקדם']
   )
+  const [note, setNote] = useState(existingConfig.note ?? '')
   const [saving, setSaving] = useState(false)
   const MAX_DOSES = 6
 
@@ -217,11 +218,14 @@ function DoseConfigSheet({ tracker, isOpen, onClose, onSave }) {
 
   async function handleSave() {
     setSaving(true)
-    await onSave({
+    const newConfig = {
       ...existingConfig,
       daily_doses: doseCount,
       dose_labels: labels.slice(0, doseCount),
-    })
+    }
+    if (note.trim()) newConfig.note = note.trim()
+    else delete newConfig.note
+    await onSave(newConfig)
     setSaving(false)
   }
 
@@ -263,6 +267,18 @@ function DoseConfigSheet({ tracker, isOpen, onClose, onSave }) {
               </div>
             ))}
           </div>
+        </div>
+
+        <div>
+          <p className="text-sm font-medium text-brown-600 mb-3">הערה <span className="text-brown-300 font-normal">(אופציונלי)</span></p>
+          <input
+            type="text"
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            placeholder="לדוגמה: 3 טיפות, לפני ארוחה..."
+            className="w-full bg-cream-200 rounded-2xl px-4 py-3 font-rubik text-brown-800 outline-none text-base"
+            maxLength={60}
+          />
         </div>
 
         <div className="flex gap-3 pt-1">
@@ -346,6 +362,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
   const [measureLabel, setMeasureLabel]       = useState('')
   const [measureUnit, setMeasureUnit]         = useState('')
   const [measureUnitCustom, setMeasureUnitCustom] = useState('')
+  const [note, setNote]       = useState('')
   const [saving, setSaving]   = useState(false)
   const [saveError, setSaveError] = useState(null)
 
@@ -370,6 +387,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
     setMeasureLabel('')
     setMeasureUnit('')
     setMeasureUnitCustom('')
+    setNote('')
     setSaveError(null)
   }
 
@@ -404,6 +422,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
         daily_doses: doseCount,
         dose_labels: doseLabels.slice(0, doseCount),
         ...(effectiveDisplayMode === 'simple' ? { display_mode: 'simple' } : {}),
+        ...(note.trim() ? { note: note.trim() } : {}),
       }
       const fieldLabel = (measureLabel.trim() || name.trim()) + (effectiveUnit ? ` (${effectiveUnit})` : '')
       const payload = {
@@ -495,6 +514,19 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
                 maxLength={30}
               />
             </div>
+            {archetype?.id === 'dose' && (
+              <div>
+                <p className="text-sm font-medium text-brown-600 mb-2">הערה <span className="text-brown-300 font-normal">(אופציונלי)</span></p>
+                <input
+                  type="text"
+                  value={note}
+                  onChange={e => setNote(e.target.value)}
+                  placeholder="לדוגמה: 3 טיפות, לפני ארוחה..."
+                  className="w-full bg-cream-200 rounded-2xl px-4 py-3 font-rubik text-brown-800 outline-none text-base"
+                  maxLength={60}
+                />
+              </div>
+            )}
             <div>
               <p className="text-sm font-medium text-brown-600 mb-2">{t('settings.trackerIcon')}</p>
               <div className="flex flex-wrap gap-2">

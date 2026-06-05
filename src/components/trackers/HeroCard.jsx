@@ -95,8 +95,13 @@ function DoseChip({ tracker, events, familyId, memberId, childId, isToday }) {
       style={{ backgroundColor: `${tracker.color}12`, borderColor: `${tracker.color}25` }}
     >
       <div className="flex items-center gap-1.5 mb-1">
-        <span className="text-base">{tracker.icon}</span>
-        <p className="font-rubik text-xs text-brown-400 leading-tight truncate max-w-[72px]">{tracker.name}</p>
+        <span className="text-base flex-shrink-0">{tracker.icon}</span>
+        <div className="min-w-0">
+          <p className="font-rubik text-xs text-brown-500 font-medium leading-tight truncate max-w-[80px]">{tracker.name}</p>
+          {tracker.config?.note && (
+            <p className="font-rubik text-[9px] text-brown-300 leading-tight truncate max-w-[80px]">{tracker.config.note}</p>
+          )}
+        </div>
       </div>
       {/* Dose buttons */}
       <div className="flex gap-1">
