@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, cloneElement } from 'react'
+import { useState, useRef, useEffect, useMemo, cloneElement } from 'react'
 import {
   BookImage, Camera, Pencil, Trash2, Download, Film,
   Loader2, CheckCircle2, Sparkles, Video, FolderDown, ChevronLeft, AlertCircle,
@@ -21,6 +21,32 @@ import {
   getPhotoDate, formatAlbumTime,
 } from '../lib/albumExport'
 
+// ── Age / milestone helpers ────────────────────────────────────────────────────
+
+function getAlbumAgeInfo(birthDateStr) {
+  if (!birthDateStr) return null
+  const now = new Date()
+  const israelDateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' })
+  const [todayYear, todayMonthRaw, todayDayRaw] = israelDateStr.split('-').map(Number)
+  const todayMonth0 = todayMonthRaw - 1
+
+  const birth = new Date(birthDateStr)
+  const birthDay   = birth.getUTCDate()
+  const birthMonth = birth.getUTCMonth()  // 0-based
+  const birthYear  = birth.getUTCFullYear()
+
+  const monthsOld = (todayYear - birthYear) * 12 + (todayMonth0 - birthMonth)
+  if (monthsOld < 0 || monthsOld > 12) return null
+
+  const isMilestoneToday = birthDay === todayDayRaw && monthsOld >= 1 && monthsOld <= 12
+
+  // Days until next monthly birthday
+  const nextBirthday = new Date(Date.UTC(todayYear, todayMonth0 + (todayDayRaw >= birthDay ? 1 : 0), birthDay))
+  const daysUntil = Math.ceil((nextBirthday.getTime() - Date.now()) / 86400000)
+
+  return { monthsOld, isMilestoneToday, daysUntil }
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export function AlbumPage() {
@@ -34,6 +60,8 @@ export function AlbumPage() {
   )
 
   const [editMonth,    setEditMonth]    = useState(null)
+  const [showMilestonePopup, setShowMilestonePopup] = useState(false)
+  const milestoneShownRef = useRef(false)
 
   // ZIP export
   const [exporting,    setExporting]    = useState(false)
@@ -97,6 +125,16 @@ export function AlbumPage() {
     stopVideoPreview()
     setExportSheet(null)
   }
+
+  const ageInfo = useMemo(() => getAlbumAgeInfo(activeChild?.birth_date ?? null), [activeChild?.birth_date])
+
+  // Auto-show milestone popup once per page load on milestone days
+  useEffect(() => {
+    if (!ageInfo?.isMilestoneToday || milestoneShownRef.current || loading) return
+    milestoneShownRef.current = true
+    const t = setTimeout(() => setShowMilestonePopup(true), 900)
+    return () => clearTimeout(t)
+  }, [ageInfo?.isMilestoneToday, loading])
 
   const filled     = Object.keys(byMonth).length
   const nextToFill = Array.from({ length: 12 }, (_, i) => i + 1).find(m => !byMonth[m]) ?? null
@@ -192,6 +230,30 @@ export function AlbumPage() {
               ? `${activeChild.name} · ${filled}/12 חודשים`
               : `מסע השנה הראשונה של ${activeChild.name}`}
           </p>
+          {ageInfo && (
+            <div className="mt-1.5">
+              {ageInfo.isMilestoneToday ? (
+                <span
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-rubik font-bold"
+                  style={{
+                    background: ageInfo.monthsOld === 12
+                      ? 'linear-gradient(135deg,#FEF3C7,#FDE68A)'
+                      : 'linear-gradient(135deg,#D1FAE5,#A7F3D0)',
+                    color: ageInfo.monthsOld === 12 ? '#92400E' : '#065F46',
+                  }}
+                >
+                  {ageInfo.monthsOld === 12 ? '🎂 יום הולדת ראשון!' : `🎉 היום חודש ${ageInfo.monthsOld}!`}
+                </span>
+              ) : ageInfo.monthsOld <= 11 ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-rubik font-medium bg-cream-100 text-brown-400">
+                  📍 חודש {ageInfo.monthsOld} מתוך 12
+                  {ageInfo.daysUntil > 0 && ageInfo.daysUntil <= 7 && (
+                    <span className="text-amber-500 font-semibold"> · עוד {ageInfo.daysUntil} ימים</span>
+                  )}
+                </span>
+              ) : null}
+            </div>
+          )}
         </div>
 
         {/* Progress bar — variable-height dots, taller when filled */}
@@ -271,6 +333,7 @@ export function AlbumPage() {
                   month={month}
                   photo={byMonth[month] ?? null}
                   isNext={month === nextToFill}
+                  isCurrent={ageInfo != null && month === ageInfo.monthsOld}
                   onTap={() => setEditMonth(month)}
                 />
               )
@@ -316,6 +379,17 @@ export function AlbumPage() {
             )}
           </div>
         </>
+      )}
+
+      {/* ── Milestone celebration popup ── */}
+      {showMilestonePopup && ageInfo?.isMilestoneToday && (
+        <MilestoneCelebrationPopup
+          child={activeChild}
+          monthsOld={ageInfo.monthsOld}
+          currentMonthPhoto={byMonth[ageInfo.monthsOld] ?? null}
+          onClose={() => setShowMilestonePopup(false)}
+          onAddPhoto={() => { setShowMilestonePopup(false); setEditMonth(ageInfo.monthsOld) }}
+        />
       )}
 
       {/* ── Edit sheet ── */}
@@ -384,7 +458,7 @@ export function AlbumPage() {
 
 // ── Month cell ─────────────────────────────────────────────────────────────────
 
-function MonthCell({ month, photo, isNext, onTap }) {
+function MonthCell({ month, photo, isNext, isCurrent, onTap }) {
   const isBday = month === 12
   const ef = getEffect(photo?.effect_id)
   const fr = getFrame(photo?.frame_id)
@@ -394,7 +468,9 @@ function MonthCell({ month, photo, isNext, onTap }) {
       onClick={onTap}
       className="relative aspect-square rounded-2xl overflow-hidden active:scale-[0.94] transition-transform cursor-pointer"
       style={{
-        boxShadow: isNext
+        boxShadow: isCurrent
+          ? '0 0 0 2.5px #34D399, 0 4px 20px rgba(52,211,153,0.3)'
+          : isNext
           ? '0 0 0 2.5px #E8B84B, 0 4px 20px rgba(232,184,75,0.3)'
           : isBday
           ? '0 0 0 2px rgba(245,200,66,0.45), 0 4px 16px rgba(61,43,31,0.07)'
@@ -441,13 +517,22 @@ function MonthCell({ month, photo, isNext, onTap }) {
               <Sparkles size={11} className="text-white" />
             </div>
           )}
+
+          {/* Current month badge */}
+          {isCurrent && !isBday && (
+            <div className="absolute top-1.5 right-1.5 px-1.5 h-[18px] rounded-lg bg-emerald-400/90 flex items-center justify-center pointer-events-none">
+              <span className="font-rubik font-bold text-white text-[9px]">עכשיו</span>
+            </div>
+          )}
         </>
       ) : (
         /* ── Empty cell ── */
         <div
           className="w-full h-full flex flex-col items-center justify-center gap-1"
           style={{
-            background: isBday
+            background: isCurrent
+              ? 'linear-gradient(145deg, #ECFDF5, #D1FAE5)'
+              : isBday
               ? 'linear-gradient(145deg, #FFF8E6, #FEF3C7)'
               : 'linear-gradient(145deg, #FFFDF9, #FFF0E0)',
           }}
@@ -471,17 +556,19 @@ function MonthCell({ month, photo, isNext, onTap }) {
           <div
             className="w-7 h-7 rounded-full flex items-center justify-center relative z-10"
             style={{
-              background: isNext
+              background: isCurrent
+                ? 'linear-gradient(135deg, #34D399, #10B981)'
+                : isNext
                 ? 'linear-gradient(135deg, #E8B84B, #D4A030)'
                 : isBday
                 ? 'rgba(232,184,75,0.25)'
                 : 'rgba(201,149,108,0.18)',
-              boxShadow: isNext ? '0 2px 10px rgba(232,184,75,0.45)' : 'none',
+              boxShadow: isCurrent ? '0 2px 10px rgba(52,211,153,0.45)' : isNext ? '0 2px 10px rgba(232,184,75,0.45)' : 'none',
             }}
           >
             <Camera
               size={13}
-              className={isNext ? 'text-white' : isBday ? 'text-amber-500' : 'text-brown-400'}
+              className={isCurrent ? 'text-white' : isNext ? 'text-white' : isBday ? 'text-amber-500' : 'text-brown-400'}
             />
           </div>
 
@@ -490,14 +577,102 @@ function MonthCell({ month, photo, isNext, onTap }) {
             className="font-rubik font-semibold text-center leading-tight relative z-10 mt-0.5 px-1"
             style={{
               fontSize: 9,
-              color: isBday ? '#B8883B' : isNext ? '#A07050' : '#C9956C',
+              color: isCurrent ? '#059669' : isBday ? '#B8883B' : isNext ? '#A07050' : '#C9956C',
             }}
           >
-            {isNext ? 'הבא!' : MONTH_LABELS[month - 1]}
+            {isCurrent ? 'עכשיו!' : isNext ? 'הבא!' : MONTH_LABELS[month - 1]}
           </p>
         </div>
       )}
     </button>
+  )
+}
+
+// ── Milestone celebration popup ────────────────────────────────────────────────
+
+function MilestoneCelebrationPopup({ child, monthsOld, currentMonthPhoto, onClose, onAddPhoto }) {
+  const isBirthday = monthsOld === 12
+  const genStr = child.gender === 'female' ? 'בת' : 'בן'
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center pb-6 px-4"
+      style={{ background: 'rgba(30,15,5,0.6)', backdropFilter: 'blur(6px)' }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-3xl overflow-hidden"
+        style={{
+          background: isBirthday
+            ? 'linear-gradient(160deg, #FFFBEB 0%, #FEF3C7 50%, #FDE68A 100%)'
+            : 'linear-gradient(160deg, #ECFDF5 0%, #D1FAE5 50%, #A7F3D0 100%)',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.9)',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Confetti header strip */}
+        <div
+          className="h-2 w-full"
+          style={{
+            background: isBirthday
+              ? 'linear-gradient(90deg, #F59E0B, #EF4444, #8B5CF6, #3B82F6, #10B981)'
+              : 'linear-gradient(90deg, #34D399, #10B981, #059669)',
+          }}
+        />
+
+        <div className="px-6 pt-6 pb-5 text-center" dir="rtl">
+          {/* Big emoji */}
+          <div className="text-6xl mb-3 motion-safe:animate-bounce" style={{ lineHeight: 1, animationDuration: '1.2s' }}>
+            {isBirthday ? '🎂' : '🎉'}
+          </div>
+
+          {/* Title */}
+          <h2 className="font-rubik font-black text-2xl leading-tight mb-1"
+            style={{ color: isBirthday ? '#78350F' : '#064E3B' }}>
+            {isBirthday
+              ? `יום הולדת ראשון!`
+              : `${child.name} ${genStr} ${monthsOld} חודשים!`}
+          </h2>
+
+          <p className="font-rubik text-sm leading-relaxed mb-5"
+            style={{ color: isBirthday ? '#92400E' : '#065F46' }}>
+            {isBirthday
+              ? `שנה שלמה של אהבה, חיוכים וגדילה.\nכבר בן/בת שנה — מה מהיר!`
+              : currentMonthPhoto
+              ? `תמונת חודש ${monthsOld} כבר שמורה באלבום 📸`
+              : `אל תשכח לצלם את הרגע הזה לאלבום`}
+          </p>
+
+          {/* CTA buttons */}
+          <div className="flex flex-col gap-2.5">
+            {!currentMonthPhoto && (
+              <button
+                onClick={onAddPhoto}
+                className="w-full py-3.5 rounded-2xl font-rubik font-black text-white text-base flex items-center justify-center gap-2 active:scale-95 transition-transform cursor-pointer"
+                style={{
+                  background: isBirthday
+                    ? 'linear-gradient(135deg, #F59E0B, #D97706)'
+                    : 'linear-gradient(135deg, #34D399, #059669)',
+                  boxShadow: isBirthday
+                    ? '0 6px 20px rgba(245,158,11,0.4), inset 0 1px 0 rgba(255,255,255,0.2)'
+                    : '0 6px 20px rgba(52,211,153,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
+                }}
+              >
+                <Camera size={18} />
+                הוסף תמונת חודש {monthsOld}
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="w-full py-3 rounded-2xl font-rubik font-semibold text-sm active:scale-95 transition-transform cursor-pointer"
+              style={{ color: isBirthday ? '#92400E' : '#065F46', background: 'rgba(0,0,0,0.06)' }}
+            >
+              {currentMonthPhoto ? 'יאללה 🎊' : 'אחר כך'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 
