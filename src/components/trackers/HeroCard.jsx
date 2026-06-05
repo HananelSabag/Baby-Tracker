@@ -6,7 +6,7 @@ import { ageInMonths, getWeightPercentileLabel, getHeightPercentileLabel } from 
 import { supabase } from '../../lib/supabase'
 import { BarChart2 } from 'lucide-react'
 
-const DOSE_EMOJIS = ['☀️', '🌅', '🌙', '⭐']
+const FALLBACK_DOSE_EMOJIS = ['☀️', '🌤', '🌙', '⭐', '💫', '🌅']
 
 function urgencyColor(isoDate, now) {
   const hours = (now - new Date(isoDate).getTime()) / 3600000
@@ -49,9 +49,10 @@ function getSleepStats(events, now) {
 
 // ── Interactive dose chip (VitaminD / Dose tracker) ───────────────────────────
 function DoseChip({ tracker, events, familyId, memberId, childId, isToday }) {
-  const doseCount = tracker.config?.daily_doses ?? 2
+  const doseCount  = tracker.config?.daily_doses ?? 2
   const doseLabels = tracker.config?.dose_labels ?? ['בוקר', 'ערב', 'צהריים', 'לילה']
-  const [pending, setPending] = useState(new Set()) // optimistic "saving" set
+  const doseEmojis = tracker.config?.dose_emojis ?? FALLBACK_DOSE_EMOJIS
+  const [pending, setPending] = useState(new Set())
 
   const given = new Set(events.map(e => String(e.data?.dose_index ?? e.data?.dose)))
   const allDone = given.size >= doseCount
@@ -123,7 +124,7 @@ function DoseChip({ tracker, events, familyId, memberId, childId, isToday }) {
               }}
               title={doseLabels[i] ?? `מינון ${i + 1}`}
             >
-              {isPending ? '⌛' : isDone ? '✓' : (DOSE_EMOJIS[i] ?? '💊')}
+              {isPending ? '⌛' : isDone ? '✓' : (doseEmojis[i] ?? '💊')}
             </button>
           )
         })}
