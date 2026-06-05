@@ -4,7 +4,7 @@ import { Settings2, Pencil, Trash2, Plus, LayoutGrid, List, ChevronLeft } from '
 import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
-import { TRACKER_COLORS, TRACKER_ICONS, TRACKER_ARCHETYPES } from '../lib/constants'
+import { TRACKER_COLORS, TRACKER_ICONS, TRACKER_ARCHETYPES, DOSE_ICONS, STAMP_ICONS, MEASURE_ICONS } from '../lib/constants'
 import { Button } from '../components/ui/Button'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
@@ -14,8 +14,26 @@ import { cn } from '../lib/utils'
 
 // Wizard steps
 const WIZARD_STEPS = { ARCHETYPE: 'archetype', IDENTITY: 'identity', DOSE_CONFIG: 'dose_config', DISPLAY_MODE: 'display_mode', MEASURE_CONFIG: 'measure_config' }
-const DOSE_EMOJIS = ['☀️', '🌙', '🌅', '🌤', '⭐', '💫']
+const DOSE_DEFAULT_EMOJIS = ['☀️', '🌙', '🌅', '🌤', '⭐', '💫']
+const DOSE_TIME_EMOJIS    = ['☀️', '🌤', '🌅', '🌙', '⭐', '💫', '🌛', '🌞', '💊', '🕐', '🌿', '🍃']
 const MEASURE_UNITS = ['מ"ל', 'גרם', '°C', 'ס"מ', 'ק"ג', 'אחר']
+
+function autoEmojiForLabel(label) {
+  if (!label) return null
+  if (label.includes('בוקר')) return '☀️'
+  if (label.includes('ערב'))  return '🌙'
+  if (label.includes('צהר')) return '🌤'
+  if (label.includes('לילה')) return '⭐'
+  if (label.includes('שחר')) return '🌅'
+  return null
+}
+
+function archetypeIcons(archetypeId) {
+  if (archetypeId === 'dose')    return DOSE_ICONS
+  if (archetypeId === 'stamp')   return STAMP_ICONS
+  if (archetypeId === 'measure') return MEASURE_ICONS
+  return TRACKER_ICONS
+}
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export function ControlCenterPage() {
@@ -204,17 +222,17 @@ function TrackersTab({ familyId, openAdd }) {
 
 function DoseConfigSheet({ tracker, isOpen, onClose, onSave }) {
   const existingConfig = tracker.config ?? {}
-  const [doseCount, setDoseCount] = useState(existingConfig.daily_doses ?? 2)
-  const [labels, setLabels] = useState(
+  const [doseCount, setDoseCount]   = useState(existingConfig.daily_doses ?? 2)
+  const [labels, setLabels]         = useState(
     existingConfig.dose_labels ?? ['בוקר', 'ערב', 'צהריים', 'לילה', 'בוקר מאוחר', 'ערב מוקדם']
   )
-  const [note, setNote] = useState(existingConfig.note ?? '')
+  const [doseEmojis, setDoseEmojis] = useState(
+    existingConfig.dose_emojis ?? [...DOSE_DEFAULT_EMOJIS]
+  )
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(null)
+  const [note, setNote]     = useState(existingConfig.note ?? '')
   const [saving, setSaving] = useState(false)
   const MAX_DOSES = 6
-
-  function updateLabel(i, val) {
-    setLabels(prev => prev.map((l, idx) => idx === i ? val : l))
-  }
 
   async function handleSave() {
     setSaving(true)
@@ -222,6 +240,7 @@ function DoseConfigSheet({ tracker, isOpen, onClose, onSave }) {
       ...existingConfig,
       daily_doses: doseCount,
       dose_labels: labels.slice(0, doseCount),
+      dose_emojis: doseEmojis.slice(0, doseCount),
     }
     if (note.trim()) newConfig.note = note.trim()
     else delete newConfig.note
@@ -254,19 +273,53 @@ function DoseConfigSheet({ tracker, isOpen, onClose, onSave }) {
         <div>
           <p className="text-sm font-medium text-brown-600 mb-3">{t('settings.doseName')}</p>
           <div className="space-y-2">
-            {Array.from({ length: doseCount }, (_, i) => (
-              <div key={i} className="flex items-center gap-3 bg-cream-200 rounded-2xl px-4 py-3">
-                <span className="text-xl">{DOSE_EMOJIS[i]}</span>
-                <input
-                  type="text"
-                  value={labels[i] ?? ''}
-                  onChange={e => updateLabel(i, e.target.value)}
-                  placeholder={t('settings.dosePlaceholder', { number: i + 1 })}
-                  className="flex-1 bg-transparent font-rubik text-brown-800 outline-none text-base"
-                />
-              </div>
-            ))}
+            {Array.from({ length: doseCount }, (_, i) => {
+              const pickerOpen = emojiPickerOpen === i
+              return (
+                <div key={i} className="space-y-1.5">
+                  <div className="flex items-center gap-2 bg-cream-200 rounded-2xl px-3 py-2.5">
+                    <button
+                      onClick={() => setEmojiPickerOpen(pickerOpen ? null : i)}
+                      className={cn(
+                        'text-xl w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 active:scale-95 transition-all cursor-pointer',
+                        pickerOpen ? 'ring-2 ring-amber-400' : ''
+                      )}
+                      style={{ backgroundColor: pickerOpen ? `${tracker.color}30` : 'transparent' }}
+                    >
+                      {doseEmojis[i] ?? '💊'}
+                    </button>
+                    <input
+                      type="text"
+                      value={labels[i] ?? ''}
+                      onChange={e => {
+                        const val = e.target.value
+                        setLabels(prev => prev.map((l, idx) => idx === i ? val : l))
+                        const auto = autoEmojiForLabel(val)
+                        if (auto) setDoseEmojis(prev => prev.map((em, idx) => idx === i ? auto : em))
+                      }}
+                      placeholder={t('settings.dosePlaceholder', { number: i + 1 })}
+                      className="flex-1 bg-transparent font-rubik text-brown-800 outline-none text-base"
+                    />
+                  </div>
+                  {pickerOpen && (
+                    <div className="flex flex-wrap gap-1.5 px-1">
+                      {DOSE_TIME_EMOJIS.map(em => (
+                        <button
+                          key={em}
+                          onClick={() => { setDoseEmojis(prev => prev.map((e, idx) => idx === i ? em : e)); setEmojiPickerOpen(null) }}
+                          className={cn('w-9 h-9 rounded-xl text-xl flex items-center justify-center active:scale-95 transition-all cursor-pointer',
+                            doseEmojis[i] === em ? 'ring-2 ring-amber-400 bg-amber-50' : 'bg-cream-200')}
+                        >
+                          {em}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
+          <p className="font-rubik text-brown-300 text-xs text-center mt-1.5">לחץ על האמוג'י לשינוי</p>
         </div>
 
         <div>
@@ -293,15 +346,24 @@ function DoseConfigSheet({ tracker, isOpen, onClose, onSave }) {
 }
 
 function EditTrackerSheet({ tracker, isOpen, onClose, onSave }) {
-  const [name, setName] = useState(tracker.name)
-  const [icon, setIcon] = useState(tracker.icon)
+  const isDose = tracker.tracker_type === 'vitamin_d' || tracker.tracker_type === 'dose'
+  const [name, setName]   = useState(tracker.name)
+  const [icon, setIcon]   = useState(tracker.icon)
   const [color, setColor] = useState(tracker.color)
+  const [note, setNote]   = useState(tracker.config?.note ?? '')
   const [saving, setSaving] = useState(false)
 
   async function handleSave() {
     if (!name.trim()) return
     setSaving(true)
-    await onSave({ name: name.trim(), icon, color })
+    const updates = { name: name.trim(), icon, color }
+    if (isDose) {
+      const newConfig = { ...(tracker.config ?? {}) }
+      if (note.trim()) newConfig.note = note.trim()
+      else delete newConfig.note
+      updates.config = newConfig
+    }
+    await onSave(updates)
     setSaving(false)
   }
 
@@ -318,6 +380,19 @@ function EditTrackerSheet({ tracker, isOpen, onClose, onSave }) {
             autoFocus
           />
         </div>
+        {isDose && (
+          <div>
+            <p className="text-sm font-medium text-brown-600 mb-2">הערה <span className="text-brown-300 font-normal">(אופציונלי)</span></p>
+            <input
+              type="text"
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              placeholder="לדוגמה: 3 טיפות, לפני ארוחה..."
+              className="w-full bg-cream-200 rounded-2xl px-4 py-3 font-rubik text-brown-800 outline-none text-base"
+              maxLength={60}
+            />
+          </div>
+        )}
         <div>
           <p className="text-sm font-medium text-brown-600 mb-2">{t('settings.trackerIcon')}</p>
           <div className="flex flex-wrap gap-2">
@@ -362,7 +437,9 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
   const [measureLabel, setMeasureLabel]       = useState('')
   const [measureUnit, setMeasureUnit]         = useState('')
   const [measureUnitCustom, setMeasureUnitCustom] = useState('')
-  const [note, setNote]       = useState('')
+  const [note, setNote]           = useState('')
+  const [doseEmojis, setDoseEmojis]           = useState([...DOSE_DEFAULT_EMOJIS])
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(null)
   const [saving, setSaving]   = useState(false)
   const [saveError, setSaveError] = useState(null)
 
@@ -388,6 +465,8 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
     setMeasureUnit('')
     setMeasureUnitCustom('')
     setNote('')
+    setDoseEmojis([...DOSE_DEFAULT_EMOJIS])
+    setEmojiPickerOpen(null)
     setSaveError(null)
   }
 
@@ -421,6 +500,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
       const doseConfig = {
         daily_doses: doseCount,
         dose_labels: doseLabels.slice(0, doseCount),
+        dose_emojis: doseEmojis.slice(0, doseCount),
         ...(effectiveDisplayMode === 'simple' ? { display_mode: 'simple' } : {}),
         ...(note.trim() ? { note: note.trim() } : {}),
       }
@@ -530,7 +610,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
             <div>
               <p className="text-sm font-medium text-brown-600 mb-2">{t('settings.trackerIcon')}</p>
               <div className="flex flex-wrap gap-2">
-                {TRACKER_ICONS.map(ic => (
+                {archetypeIcons(archetype?.id).map(ic => (
                   <button
                     key={ic}
                     onClick={() => setIcon(ic)}
@@ -605,19 +685,53 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
             </div>
             <p className="text-sm font-medium text-brown-600">{t('settings.doseName')}</p>
             <div className="space-y-2">
-              {Array.from({ length: doseCount }, (_, i) => (
-                <div key={i} className="flex items-center gap-3 bg-cream-200 rounded-2xl px-4 py-3">
-                  <span className="text-xl">{DOSE_EMOJIS[i]}</span>
-                  <input
-                    type="text"
-                    value={doseLabels[i] ?? ''}
-                    onChange={e => setDoseLabels(prev => prev.map((l, idx) => idx === i ? e.target.value : l))}
-                    placeholder={t('settings.dosePlaceholder', { number: i + 1 })}
-                    className="flex-1 bg-transparent font-rubik text-brown-800 outline-none"
-                  />
-                </div>
-              ))}
+              {Array.from({ length: doseCount }, (_, i) => {
+                const pickerOpen = emojiPickerOpen === i
+                return (
+                  <div key={i} className="space-y-1.5">
+                    <div className="flex items-center gap-2 bg-cream-200 rounded-2xl px-3 py-2.5">
+                      <button
+                        onClick={() => setEmojiPickerOpen(pickerOpen ? null : i)}
+                        className={cn(
+                          'text-xl w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 active:scale-95 transition-all cursor-pointer',
+                          pickerOpen ? 'ring-2 ring-amber-400' : ''
+                        )}
+                        style={{ backgroundColor: pickerOpen ? `${color}30` : 'transparent' }}
+                      >
+                        {doseEmojis[i] ?? '💊'}
+                      </button>
+                      <input
+                        type="text"
+                        value={doseLabels[i] ?? ''}
+                        onChange={e => {
+                          const val = e.target.value
+                          setDoseLabels(prev => prev.map((l, idx) => idx === i ? val : l))
+                          const auto = autoEmojiForLabel(val)
+                          if (auto) setDoseEmojis(prev => prev.map((em, idx) => idx === i ? auto : em))
+                        }}
+                        placeholder={t('settings.dosePlaceholder', { number: i + 1 })}
+                        className="flex-1 bg-transparent font-rubik text-brown-800 outline-none"
+                      />
+                    </div>
+                    {pickerOpen && (
+                      <div className="flex flex-wrap gap-1.5 px-1">
+                        {DOSE_TIME_EMOJIS.map(em => (
+                          <button
+                            key={em}
+                            onClick={() => { setDoseEmojis(prev => prev.map((e, idx) => idx === i ? em : e)); setEmojiPickerOpen(null) }}
+                            className={cn('w-9 h-9 rounded-xl text-xl flex items-center justify-center active:scale-95 transition-all cursor-pointer',
+                              doseEmojis[i] === em ? 'ring-2 ring-amber-400 bg-amber-50' : 'bg-cream-200')}
+                          >
+                            {em}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
+            <p className="font-rubik text-brown-300 text-xs text-center -mt-1">לחץ על האמוג'י לשינוי</p>
             <div className="flex gap-3 pt-1">
               <Button variant="secondary" className="flex-1" onClick={() => setStep(WIZARD_STEPS.IDENTITY)}>{t('common.back')}</Button>
               <Button className="flex-1" onClick={handleDoseNext}>{t('settings.nextButton')}</Button>
