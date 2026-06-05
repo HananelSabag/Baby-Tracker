@@ -4,8 +4,7 @@ import { useEvents } from '../../hooks/useEvents'
 import { Card } from '../ui/Card'
 import { cn } from '../../lib/utils'
 
-// Dose slot emojis: morning, noon, evening, night
-const DOSE_EMOJIS = ['☀️', '🌅', '🌙', '⭐']
+const FALLBACK_DOSE_EMOJIS = ['☀️', '🌅', '🌙', '⭐', '💫', '🌤']
 
 export function VitaminDCard({ tracker, familyId, memberId, childId, viewDate, compact = false }) {
   const { events, addEvent } = useEvents(familyId, { trackerId: tracker.id, date: viewDate, childId })
@@ -15,14 +14,15 @@ export function VitaminDCard({ tracker, familyId, memberId, childId, viewDate, c
 
   // Read dose config from tracker, fallback to defaults
   const config = tracker.config ?? {}
-  const doseCount = config.daily_doses ?? 2
+  const doseCount  = config.daily_doses ?? 2
   const doseLabels = config.dose_labels ?? ['בוקר', 'ערב']
+  const doseEmojis = config.dose_emojis ?? FALLBACK_DOSE_EMOJIS
 
   // Build dose slots array from config
   const doses = Array.from({ length: doseCount }, (_, i) => ({
     key: String(i),
     label: doseLabels[i] ?? `מינון ${i + 1}`,
-    emoji: DOSE_EMOJIS[i] ?? '💊',
+    emoji: doseEmojis[i] ?? FALLBACK_DOSE_EMOJIS[i] ?? '💊',
   }))
 
   // Which doses are confirmed from DB
