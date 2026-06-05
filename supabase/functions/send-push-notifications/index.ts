@@ -261,7 +261,7 @@ Deno.serve(async (req) => {
       // Get active children for this family
       const { data: children } = await supabase
         .from('children')
-        .select('id, name')
+        .select('id, name, birth_date, gender')
         .eq('family_id', familyId)
 
       if (!children?.length) continue
@@ -321,6 +321,40 @@ Deno.serve(async (req) => {
               if (ok) totalSent++
             }
             await logAlert(familyId, childId, alertType)
+          }
+        }
+
+        // ── Monthly milestone alert (sent once at 9 AM on monthly birthdays) ──
+        if (hour === 9 && child.birth_date) {
+          const israelDateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' })
+          const [todayYear, todayMonthRaw, todayDayRaw] = israelDateStr.split('-').map(Number)
+          const todayMonth0 = todayMonthRaw - 1
+          const birth = new Date(child.birth_date)
+          if (birth.getUTCDate() === todayDayRaw) {
+            const monthsOld = (todayYear - birth.getUTCFullYear()) * 12 + (todayMonth0 - birth.getUTCMonth())
+            if (monthsOld >= 1 && monthsOld <= 12) {
+              const alertType = `milestone_month_${monthsOld}`
+              const alreadySent = await wasAlertSentRecently(familyId, childId, alertType, 1200)
+              if (!alreadySent) {
+                const isBirthday = monthsOld === 12
+                const genStr = child.gender === 'female' ? 'בת' : 'בן'
+                const title = isBirthday
+                  ? `🎂 ${child.name} ${genStr} שנה! יום הולדת ראשון שמח!`
+                  : `🎉 ${child.name} ${genStr} ${monthsOld} חודשים היום!`
+                const body = isBirthday
+                  ? `שנה שלמה של אהבה 💛 פתח את האלבום לסיכום המסע`
+                  : `חודש ${monthsOld} מתוך 12 — פתח את האלבום לרגע הזה`
+                for (const sub of familySubs) {
+                  const ok = await sendPush(sub, {
+                    title, body,
+                    tag: `milestone_${childId}_${monthsOld}`,
+                    url: '/album',
+                  })
+                  if (ok) totalSent++
+                }
+                await logAlert(familyId, childId, alertType)
+              }
+            }
           }
         }
 
