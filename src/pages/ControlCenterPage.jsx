@@ -4,7 +4,7 @@ import { Settings2, Pencil, Trash2, Plus, LayoutGrid, List, ChevronLeft } from '
 import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
-import { TRACKER_COLORS, TRACKER_ICONS, TRACKER_ARCHETYPES, TRACKER_ICON_CATEGORIES, ARCHETYPE_ICON_CATEGORY_IDS } from '../lib/constants'
+import { TRACKER_COLORS, TRACKER_ARCHETYPES, TRACKER_ICON_CATEGORIES, ARCHETYPE_ICON_CATEGORY_IDS } from '../lib/constants'
 import { Button } from '../components/ui/Button'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
@@ -33,28 +33,60 @@ function archetypeCategories(archetypeId) {
   return TRACKER_ICON_CATEGORIES.filter(c => ids.includes(c.id))
 }
 
+// Short Hebrew label for every icon — shown below the active selection
+const ICON_LABELS = {
+  '☀️':'ויטמין D', '🩸':'ברזל', '💊':'תרופה', '💉':'חיסון', '🌡️':'חום',
+  '🦠':'אנטיביוטיקה', '💧':'טיפות', '🧴':'סירופ', '🍯':'סירופ שיעול',
+  '🩹':'פלסטר', '🩺':'רופא', '🫙':'משחה / קרם',
+  '🛁':'אמבטיה', '🚿':'מקלחת', '👶':'תינוק', '🍼':'בקבוק',
+  '🤱':'הנקה', '🧷':'חיתול', '🚼':'החלפה', '🛏️':'שינה',
+  '🧸':'צעצוע', '🎵':'שיר ערש', '💆':'עיסוי', '🫶':'חיבה',
+  '⚖️':'משקל', '📏':'גובה', '📊':'גרף', '📈':'גדילה', '⏱️':'זמן',
+  '🥛':'כמות חלב', '🔢':'מספרים', '❤️':'דופק',
+  '🤸':'התעמלות', '🏊':'שחייה', '🎨':'יצירה', '🧩':'פאזל',
+  '🪀':'צעצוע יד', '🌟':'הישג', '🌈':'שמחה', '🦋':'התפתחות',
+  '🐣':'גדילה', '🎯':'מטרה',
+  '🌿':'צמחי מרפא', '🫐':'נוגדי חמצון', '🍋':'ויטמין C',
+  '🌻':'ויטמין E', '🌱':'פרוביוטיקה', '🍃':'תה צמחים',
+  '🌊':'אומגה 3', '⭐':'כללי', '🌸':'קמומיל', '🌅':'מינון בוקר',
+}
+
 // ── Shared icon picker with category headers ──────────────────────────────────
 function IconPicker({ categories, value, onChange, color }) {
   return (
-    <div className="space-y-3 max-h-52 overflow-y-auto pr-0.5" style={{ scrollbarWidth: 'none' }}>
-      {categories.map(cat => (
-        <div key={cat.id}>
-          <p className="font-rubik text-[11px] text-brown-400 font-semibold mb-1.5 sticky top-0 bg-white/80 backdrop-blur-sm py-0.5">{cat.label}</p>
-          <div className="flex flex-wrap gap-2">
-            {cat.icons.map(ic => (
-              <button
-                key={ic}
-                onClick={() => onChange(ic)}
-                className={cn('w-10 h-10 rounded-2xl text-xl flex items-center justify-center transition-all active:scale-95 cursor-pointer border',
-                  value === ic ? 'border-brown-400 scale-110' : 'bg-cream-200 border-transparent')}
-                style={value === ic ? { backgroundColor: `${color}25` } : {}}
-              >
-                {ic}
-              </button>
-            ))}
+    <div className="space-y-3">
+      {/* Selected icon label */}
+      <div className="h-6 flex items-center justify-center">
+        {value && ICON_LABELS[value] && (
+          <span className="font-rubik text-xs text-brown-500 bg-cream-100 px-2.5 py-0.5 rounded-full">
+            {value} — {ICON_LABELS[value]}
+          </span>
+        )}
+      </div>
+      <div className="space-y-3 max-h-48 overflow-y-auto pr-0.5" style={{ scrollbarWidth: 'none' }}>
+        {categories.map(cat => (
+          <div key={cat.id}>
+            <p className="font-rubik text-[11px] text-brown-400 font-semibold mb-1.5 sticky top-0 bg-white/80 backdrop-blur-sm py-0.5 z-10">
+              {cat.label}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {cat.icons.map(ic => (
+                <button
+                  key={ic}
+                  onClick={() => onChange(ic)}
+                  title={ICON_LABELS[ic]}
+                  aria-label={ICON_LABELS[ic] ?? ic}
+                  className={cn('w-10 h-10 rounded-2xl text-xl flex items-center justify-center transition-all active:scale-95 cursor-pointer border',
+                    value === ic ? 'border-brown-400 scale-110' : 'bg-cream-200 border-transparent')}
+                  style={value === ic ? { backgroundColor: `${color}25` } : {}}
+                >
+                  {ic}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   )
 }
