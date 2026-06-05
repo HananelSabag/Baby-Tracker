@@ -121,31 +121,49 @@ export const TRACKER_COLORS = [
   '#7BE8D4', '#E8C97B',
 ]
 
-// Per-archetype icon sets for the creation wizard
-export const DOSE_ICONS = [
-  '💊', '💉', '🩸', '🧪', '🩺', '🌡️', '🩹', '🏥',
-  '🧴', '🌿', '☀️', '💧', '🌊', '🐟', '🍃', '🧬',
-  '🫁', '🩻', '🔬', '🫐', '🍋', '🌻', '🏋️', '⚕️',
-]
-export const STAMP_ICONS = [
-  '🛁', '🚿', '👶', '🍼', '🌙', '😴', '🧸', '🎵',
-  '🤱', '🧷', '🪆', '🎠', '🛏️', '🚼', '🎨', '🧩',
-  '🏊', '🌈', '🪀', '🤸', '🎒', '🐻', '🦋', '🌟',
-]
-export const MEASURE_ICONS = [
-  '⚖️', '📏', '🌡️', '🥛', '🍼', '📊', '💧', '📈',
-  '🔢', '🏋️', '⏱️', '🧮', '❄️', '🔥', '🎚️', '💉',
-  '🩺', '📉', '🔬', '🫧',
+// Grouped icon categories — used by IconPicker in wizard + edit sheet
+export const TRACKER_ICON_CATEGORIES = [
+  {
+    id: 'medicine',
+    label: 'רפואה וויטמינים',
+    icons: ['💊', '💉', '🩸', '🧪', '🩺', '🌡️', '🩹', '🏥', '🧴', '🔬', '🩻', '🧬', '🫁'],
+  },
+  {
+    id: 'care',
+    label: 'טיפול ושגרה',
+    icons: ['🛁', '🚿', '👶', '🍼', '🤱', '🧷', '🚼', '🪆', '🛏️', '🧸', '🎵', '🎒'],
+  },
+  {
+    id: 'measure',
+    label: 'מדידה ומעקב',
+    icons: ['⚖️', '📏', '📊', '📈', '🔢', '⏱️', '🧮', '💧', '🥛', '❄️', '🔥', '🎚️'],
+  },
+  {
+    id: 'activity',
+    label: 'פעילות ומשחק',
+    icons: ['🎨', '🧩', '🎠', '🪀', '🤸', '🏊', '🌟', '🌈', '🦋', '🐻', '🎭', '🎯'],
+  },
+  {
+    id: 'nature',
+    label: 'טבע ותוספים',
+    icons: ['🌿', '🌊', '☀️', '🌙', '⭐', '🌸', '🐣', '🍃', '🫐', '🍋', '🌻', '🌅'],
+  },
 ]
 
-// Combined icon set for the edit sheet (all unique icons across archetypes)
-export const TRACKER_ICONS = [
-  '💊', '💉', '🩸', '🧪', '🩺', '🌡️', '🩹', '🏥', '🧴', '🌿',
-  '🛁', '🚿', '👶', '🍼', '🌙', '😴', '🧸', '🎵', '🤱', '🧷',
-  '⚖️', '📏', '🥛', '📊', '💧', '📈', '🔢', '⏱️', '🧮', '🔥',
-  '☀️', '⭐', '🌟', '🌈', '🦋', '🐣', '🎨', '🧩', '🎒', '🌸',
-  '🐻', '🪆', '🤸', '🐟', '🍃', '🌻', '🫁', '🔬', '❄️', '🌊',
-]
+// Which categories to show per archetype in the wizard
+export const ARCHETYPE_ICON_CATEGORY_IDS = {
+  dose:    ['medicine', 'nature'],
+  stamp:   ['care', 'activity'],
+  measure: ['measure', 'care'],
+}
+
+// Flat combined list for backward compat
+export const TRACKER_ICONS = TRACKER_ICON_CATEGORIES.flatMap(c => c.icons)
+
+// Keep old named exports for anything still importing them
+export const DOSE_ICONS    = TRACKER_ICON_CATEGORIES.find(c => c.id === 'medicine').icons
+export const STAMP_ICONS   = TRACKER_ICON_CATEGORIES.find(c => c.id === 'care').icons
+export const MEASURE_ICONS = TRACKER_ICON_CATEGORIES.find(c => c.id === 'measure').icons
 
 // LocalStorage keys for caching identity after auth
 export const STORAGE_KEYS = {

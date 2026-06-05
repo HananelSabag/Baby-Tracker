@@ -4,7 +4,7 @@ import { Settings2, Pencil, Trash2, Plus, LayoutGrid, List, ChevronLeft } from '
 import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
-import { TRACKER_COLORS, TRACKER_ICONS, TRACKER_ARCHETYPES, DOSE_ICONS, STAMP_ICONS, MEASURE_ICONS } from '../lib/constants'
+import { TRACKER_COLORS, TRACKER_ICONS, TRACKER_ARCHETYPES, TRACKER_ICON_CATEGORIES, ARCHETYPE_ICON_CATEGORY_IDS } from '../lib/constants'
 import { Button } from '../components/ui/Button'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
@@ -28,11 +28,35 @@ function autoEmojiForLabel(label) {
   return null
 }
 
-function archetypeIcons(archetypeId) {
-  if (archetypeId === 'dose')    return DOSE_ICONS
-  if (archetypeId === 'stamp')   return STAMP_ICONS
-  if (archetypeId === 'measure') return MEASURE_ICONS
-  return TRACKER_ICONS
+function archetypeCategories(archetypeId) {
+  const ids = ARCHETYPE_ICON_CATEGORY_IDS[archetypeId] ?? TRACKER_ICON_CATEGORIES.map(c => c.id)
+  return TRACKER_ICON_CATEGORIES.filter(c => ids.includes(c.id))
+}
+
+// ── Shared icon picker with category headers ──────────────────────────────────
+function IconPicker({ categories, value, onChange, color }) {
+  return (
+    <div className="space-y-3 max-h-52 overflow-y-auto pr-0.5" style={{ scrollbarWidth: 'none' }}>
+      {categories.map(cat => (
+        <div key={cat.id}>
+          <p className="font-rubik text-[11px] text-brown-400 font-semibold mb-1.5 sticky top-0 bg-white/80 backdrop-blur-sm py-0.5">{cat.label}</p>
+          <div className="flex flex-wrap gap-2">
+            {cat.icons.map(ic => (
+              <button
+                key={ic}
+                onClick={() => onChange(ic)}
+                className={cn('w-10 h-10 rounded-2xl text-xl flex items-center justify-center transition-all active:scale-95 cursor-pointer border',
+                  value === ic ? 'border-brown-400 scale-110' : 'bg-cream-200 border-transparent')}
+                style={value === ic ? { backgroundColor: `${color}25` } : {}}
+              >
+                {ic}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
@@ -395,14 +419,12 @@ function EditTrackerSheet({ tracker, isOpen, onClose, onSave }) {
         )}
         <div>
           <p className="text-sm font-medium text-brown-600 mb-2">{t('settings.trackerIcon')}</p>
-          <div className="flex flex-wrap gap-2">
-            {TRACKER_ICONS.map(ic => (
-              <button key={ic} onClick={() => setIcon(ic)}
-                className={cn('w-11 h-11 rounded-2xl text-2xl flex items-center justify-center transition-all active:scale-95', icon === ic ? 'bg-brown-600 shadow-soft scale-110' : 'bg-cream-200')}>
-                {ic}
-              </button>
-            ))}
-          </div>
+          <IconPicker
+            categories={TRACKER_ICON_CATEGORIES}
+            value={icon}
+            onChange={setIcon}
+            color={color}
+          />
         </div>
         <div>
           <p className="text-sm font-medium text-brown-600 mb-2">{t('settings.trackerColor')}</p>
@@ -474,6 +496,9 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
 
   function handleArchetypeSelect(a) {
     setArchetype(a)
+    // Pre-select the first icon from this archetype's primary category
+    const cats = archetypeCategories(a.id)
+    if (cats[0]?.icons[0]) setIcon(cats[0].icons[0])
     setStep(WIZARD_STEPS.IDENTITY)
   }
 
@@ -609,19 +634,12 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
             )}
             <div>
               <p className="text-sm font-medium text-brown-600 mb-2">{t('settings.trackerIcon')}</p>
-              <div className="flex flex-wrap gap-2">
-                {archetypeIcons(archetype?.id).map(ic => (
-                  <button
-                    key={ic}
-                    onClick={() => setIcon(ic)}
-                    className={cn('w-11 h-11 rounded-2xl text-2xl flex items-center justify-center transition-all active:scale-95 cursor-pointer border',
-                      icon === ic ? 'border-brown-400 scale-110' : 'bg-cream-200 border-transparent')}
-                    style={icon === ic ? { backgroundColor: `${color}25` } : {}}
-                  >
-                    {ic}
-                  </button>
-                ))}
-              </div>
+              <IconPicker
+                categories={archetypeCategories(archetype?.id)}
+                value={icon}
+                onChange={setIcon}
+                color={color}
+              />
             </div>
             <div>
               <p className="text-sm font-medium text-brown-600 mb-2">{t('settings.trackerColor')}</p>
