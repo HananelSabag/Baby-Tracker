@@ -40,15 +40,24 @@ export function HistoryPage() {
   const prevEventsLengthRef = useRef(null)
   const todayStr = format(now, 'yyyy-MM-dd')
 
+  // When a tracker filter is active: fetch the full MAX_DAYS range on the server
+  // so the user never needs to "load more" just to see filtered results.
+  const effectiveDaysBack = filterTrackerId ? MAX_DAYS : daysBack
+
   const startDate = useMemo(
-    () => startOfDay(subDays(now, daysBack - 1)),
-    [daysBack]
+    () => startOfDay(subDays(now, effectiveDaysBack - 1)),
+    [effectiveDaysBack]
   )
   const endDate = useMemo(() => endOfDay(now), [])
 
   const { events, loading, deleteEvent, bulkDeleteEvents, updateEvent, refetch } = useEvents(
     identity.familyId,
-    { startDate, endDate, childId: identity.activeChildId }
+    {
+      startDate,
+      endDate,
+      childId: identity.activeChildId,
+      ...(filterTrackerId ? { trackerId: filterTrackerId } : {}),
+    }
   )
 
   const [selectMode, setSelectMode]   = useState(false)
@@ -65,11 +74,11 @@ export function HistoryPage() {
     setLoadingMore(false)
   }, [events])
 
-  // Filter by tracker type client-side; always exclude events from hidden trackers
-  const filtered = useMemo(() => {
-    const visible = events.filter(e => e.tracker?.is_active !== false)
-    return filterTrackerId ? visible.filter(e => e.tracker_id === filterTrackerId) : visible
-  }, [events, filterTrackerId])
+  // Exclude events from hidden trackers (tracker filter is already applied server-side)
+  const filtered = useMemo(
+    () => events.filter(e => e.tracker?.is_active !== false),
+    [events]
+  )
 
   // Group by local date key (yyyy-MM-dd), sorted newest first
   const grouped = useMemo(() => {
@@ -487,7 +496,12 @@ export function HistoryPage() {
           {/* ── Load more / end indicator ── */}
           {!jumpDate && (
             <div className="pt-4 pb-2">
-              {loadingMore ? (
+              {filterTrackerId ? (
+                /* When tracker filter is active we already fetched MAX_DAYS server-side */
+                <p className="font-rubik text-brown-300 text-xs text-center py-3">
+                  מציג {filtered.length} תוצאות מ-{MAX_DAYS} הימים האחרונים
+                </p>
+              ) : loadingMore ? (
                 <div className="flex justify-center py-4"><Spinner size="md" /></div>
               ) : canLoadMore && !hasReachedStart ? (
                 <button
