@@ -16,6 +16,11 @@ const JPEG_QUALITY = 0.85
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
 const MAX_BYTES_BEFORE_COMPRESS = 200 * 1024 // skip compression for already-tiny files
 
+// Milestone photos feed the print/ZIP export (2100px) so they keep more detail
+// than avatars, but are still bounded + re-encoded to normalize format & rotation.
+const MILESTONE_MAX_DIM = 3000       // longest edge (px) — covers the 2100px cover-crop
+const MILESTONE_JPEG_QUALITY = 0.9
+
 // Map MIME → safe extension (don't trust file.name; phones rename things)
 const EXT_BY_MIME = {
   'image/jpeg': 'jpg',
@@ -120,15 +125,18 @@ export async function uploadAvatar({ folder, subjectId, blob, mime, ext }) {
 
 /**
  * Upload a milestone photo to the `milestones` bucket at
- * `milestones/<childId>/<month>.jpg`. Full resolution — no downscaling.
+ * `milestones/<childId>/<month>.jpg`. Always JPEG (see processMilestoneImage).
  * Returns the public URL on success.
  */
-export async function uploadMilestonePhoto({ childId, month, blob, mime }) {
+export async function uploadMilestonePhoto({ childId, month, blob }) {
   if (!childId || !month || !blob) throw new Error('uploadMilestonePhoto: missing arguments')
   const path = `${childId}/${month}.jpg`
+  // Force image/jpeg: the `milestones` bucket only allows jpeg/png/webp, and the
+  // path is always `.jpg`. Sending the raw phone MIME (HEIC/HEIF, or a mismatched
+  // type) is what made the upload 400. processMilestoneImage guarantees a JPEG blob.
   const { error } = await supabase.storage.from('milestones').upload(path, blob, {
     upsert: true,
-    contentType: mime ?? 'image/jpeg',
+    contentType: 'image/jpeg',
     cacheControl: '3600',
   })
   if (error) throw error
@@ -137,22 +145,66 @@ export async function uploadMilestonePhoto({ childId, month, blob, mime }) {
 }
 
 /**
- * Pick and prepare a milestone photo — same picker, but NO downscaling.
- * Returns { blob, mime } ready for uploadMilestonePhoto.
+ * Re-encode a picked photo to a JPEG blob ready for the milestones bucket.
+ *
+ * Why re-encode instead of uploading the raw file:
+ *   • Normalizes format → image/jpeg (HEIC/HEIF from phones is rejected by the
+ *     bucket's mime allowlist — this was the root cause of the upload 400).
+ *   • Bakes in EXIF orientation, so portrait photos stop rendering sideways /
+ *     overflowing the frame in the album and exports.
+ *   • Bounds huge modern-phone images (up to 108MP) to a print-friendly size,
+ *     making the upload fast and reliable over mobile networks.
+ *
+ * Keeps enough resolution (MILESTONE_MAX_DIM) for the 2100px print/ZIP export.
+ * Returns { blob, mime, width, height }.
+ */
+export async function processMilestoneImage(file) {
+  if (!file) throw new Error('processMilestoneImage: missing file')
+
+  let bitmap
+  try {
+    bitmap = await loadBitmap(file)
+  } catch {
+    throw new Error('לא הצלחתי לקרוא את התמונה. נסה תמונה אחרת (JPG / PNG).')
+  }
+
+  const srcW = bitmap.width  || bitmap.naturalWidth
+  const srcH = bitmap.height || bitmap.naturalHeight
+  const { width, height } = scaleToFit(srcW, srcH, MILESTONE_MAX_DIM)
+
+  const canvas = document.createElement('canvas')
+  canvas.width  = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('הדפדפן לא תומך בעיבוד תמונה')
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(bitmap, 0, 0, width, height)
+  if (typeof bitmap.close === 'function') bitmap.close()
+
+  const blob = await new Promise(resolve =>
+    canvas.toBlob(resolve, 'image/jpeg', MILESTONE_JPEG_QUALITY))
+  if (!blob) throw new Error('עיבוד התמונה נכשל')
+
+  return { blob, mime: 'image/jpeg', width, height }
+}
+
+/**
+ * Pick and prepare a milestone photo (pick → re-encode to JPEG).
+ * Returns { blob, mime } ready for uploadMilestonePhoto, or null if cancelled.
  */
 export async function pickMilestonePhoto(opts) {
   const file = await pickImage(opts)
   if (!file) return null
-  if (!ALLOWED_MIME.has(file.type)) {
-    throw new Error('סוג קובץ לא נתמך. בחר תמונת JPG / PNG / WEBP.')
-  }
-  // Return the original file as-is (full resolution for print quality)
-  return { blob: file, mime: file.type }
+  return processMilestoneImage(file)
 }
 
 async function loadBitmap(file) {
   // createImageBitmap is faster + works without a DOM <img>, but Safari < 14 lacks it.
+  // `imageOrientation: 'from-image'` applies EXIF rotation so portrait phone photos
+  // don't come out sideways (which distorted aspect ratio and overflowed the frame).
   if (typeof createImageBitmap === 'function') {
+    try { return await createImageBitmap(file, { imageOrientation: 'from-image' }) }
+    catch { /* fall through — option or API unsupported */ }
     try { return await createImageBitmap(file) } catch { /* fall through */ }
   }
   return loadViaImageElement(file)

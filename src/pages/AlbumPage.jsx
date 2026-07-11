@@ -6,18 +6,17 @@ import {
 import { useApp } from '../hooks/useAppContext'
 import { useChildren } from '../hooks/useChildren'
 import { useMilestones } from '../hooks/useMilestones'
-import { pickMilestonePhoto, uploadMilestonePhoto } from '../lib/imageUpload'
+import { pickImage, processMilestoneImage, uploadMilestonePhoto } from '../lib/imageUpload'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { PhotoSourceSheet } from '../components/ui/PhotoSourceSheet'
 import { Spinner } from '../components/ui/Spinner'
 import {
   MONTH_LABELS, EFFECTS, FRAMES, MUSIC_TRACKS, SUPABASE_MUSIC_URL,
-  VIDEO_SIZE, TRANSITION_MS, TRANSITION_STEPS, GIF_SIZE, PREVIEW_SIZE,
-  GIF_SPEED_MS, getEffect, getFrame,
+  TRANSITION_MS, PREVIEW_SIZE, GIF_SPEED_MS, getEffect, getFrame,
 } from '../lib/albumConstants'
 import {
   exportAlbum, generateAlbumGif, generateAlbumVideo,
-  drawAlbumFrame, loadImageCrossOrigin, triggerDownload, waitMs,
+  drawAlbumFrame, loadImageCrossOrigin, waitMs, crossfadeCanvases,
   getPhotoDate, formatAlbumTime,
 } from '../lib/albumExport'
 
@@ -683,7 +682,9 @@ function EditMonthSheet({ month, photo, childId, familyId, onSave, onDelete, onC
   const [effectId,   setEffectId]   = useState(photo?.effect_id ?? 'none')
   const [frameId,    setFrameId]    = useState(photo?.frame_id  ?? 'none')
   const [photoUrl,   setPhotoUrl]   = useState(photo?.photo_url ?? null)
-  const [uploading,    setUploading]    = useState(false)
+  // uploadPhase: null | 'processing' | 'uploading' — drives the overlay label
+  const [uploadPhase,  setUploadPhase]  = useState(null)
+  const [uploadOk,     setUploadOk]     = useState(false)
   const [uploadError,  setUploadError]  = useState(null)
   const [sourceOpen,   setSourceOpen]   = useState(false)
   const [saving,       setSaving]       = useState(false)
@@ -692,26 +693,37 @@ function EditMonthSheet({ month, photo, childId, familyId, onSave, onDelete, onC
   const isBday = month === 12
   const ef = getEffect(effectId)
   const fr = getFrame(frameId)
+  const uploading = uploadPhase !== null
 
   async function handlePickPhoto(mode) {
     setUploadError(null)
+    setUploadOk(false)
+    // pickImage() must run inside the tap gesture (iOS blocks pickers from async
+    // callbacks); it fires synchronously before the first await here.
+    let file
     try {
-      setUploading(true)
-      const result = await pickMilestonePhoto({ mode })
-      if (!result) return
-      const url = await uploadMilestonePhoto({ childId, month, blob: result.blob, mime: result.mime })
+      file = await pickImage({ mode })
+    } catch {
+      return
+    }
+    if (!file) return
+    try {
+      setUploadPhase('processing')
+      const { blob } = await processMilestoneImage(file)
+      setUploadPhase('uploading')
+      const url = await uploadMilestonePhoto({ childId, month, blob })
       setPhotoUrl(url)
+      setUploadOk(true)
+      setTimeout(() => setUploadOk(false), 2200)
     } catch (err) {
       const msg = err?.message ?? 'העלאת התמונה נכשלה'
       setUploadError(
-        msg.includes('not supported') || msg.includes('לא נתמך')
-          ? 'סוג קובץ לא נתמך — בחר תמונת JPG, PNG או WEBP.'
-          : msg.includes('network') || msg.includes('fetch')
-            ? 'שגיאת רשת — בדוק חיבור לאינטרנט ונסה שוב.'
-            : msg
+        /network|fetch|failed to fetch/i.test(msg)
+          ? 'שגיאת רשת — בדוק חיבור לאינטרנט ונסה שוב.'
+          : msg
       )
     } finally {
-      setUploading(false)
+      setUploadPhase(null)
     }
   }
 
@@ -740,7 +752,9 @@ function EditMonthSheet({ month, photo, childId, familyId, onSave, onDelete, onC
             {uploading ? (
               <div className="w-full h-full bg-cream-100 flex flex-col items-center justify-center gap-2.5">
                 <Loader2 size={28} className="text-brown-400 animate-spin" />
-                <p className="font-rubik text-brown-400 text-sm">מעלה תמונה...</p>
+                <p className="font-rubik text-brown-400 text-sm">
+                  {uploadPhase === 'processing' ? 'מכין תמונה...' : 'מעלה תמונה...'}
+                </p>
               </div>
             ) : photoUrl ? (
               <>
@@ -764,6 +778,13 @@ function EditMonthSheet({ month, photo, childId, familyId, onSave, onDelete, onC
                   <Camera size={13} className="text-white" />
                   <span className="font-rubik text-white text-xs font-semibold">החלף</span>
                 </button>
+                {/* Brief success confirmation after a fresh upload */}
+                {uploadOk && (
+                  <div className="absolute bottom-2 right-2 flex items-center gap-1.5 bg-green-500/90 backdrop-blur-sm rounded-xl px-2.5 py-1.5 pointer-events-none animate-fade-in">
+                    <CheckCircle2 size={13} className="text-white" />
+                    <span className="font-rubik text-white text-xs font-semibold">התמונה הועלתה</span>
+                  </div>
+                )}
               </>
             ) : (
               <button
@@ -973,6 +994,7 @@ function PreviewSlideshow({ byMonth, options }) {
     const canvas = canvasRef.current
     const ctx    = canvas.getContext('2d')
     const S      = PREVIEW_SIZE * 2  // 2× for retina
+    const shouldAbort = () => abortRef.current
 
     async function runLoop() {
       const [imgCache, dateCache] = await Promise.all([
@@ -981,12 +1003,28 @@ function PreviewSlideshow({ byMonth, options }) {
       ])
       if (abortRef.current) return
 
+      // Pre-render each composed frame once, then loop with the SAME cross-fade
+      // used by the video/GIF export so the preview mirrors the final result.
+      const offs = []
+      for (let i = 0; i < photos.length; i++) {
+        const off = document.createElement('canvas')
+        off.width = off.height = S
+        await drawAlbumFrame(off.getContext('2d'), S, imgCache[i], photos[i][1], Number(photos[i][0]), options, dateCache[i])
+        if (abortRef.current) return
+        offs.push(off)
+      }
+
       let i = 0
       while (!abortRef.current) {
-        const [monthStr, photo] = photos[i]
-        await drawAlbumFrame(ctx, S, imgCache[i], photo, Number(monthStr), options, dateCache[i])
+        ctx.globalAlpha = 1
+        ctx.drawImage(offs[i], 0, 0)
         await waitMs(GIF_SPEED_MS[options.speed ?? 'normal'])
-        if (!abortRef.current) i = (i + 1) % photos.length
+        if (abortRef.current) return
+        if (photos.length > 1) {
+          const next = (i + 1) % photos.length
+          await crossfadeCanvases(ctx, offs[i], offs[next], TRANSITION_MS, shouldAbort)
+          i = next
+        }
       }
     }
 
