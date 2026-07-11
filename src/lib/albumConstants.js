@@ -51,14 +51,18 @@ export const MUSIC_TRACKS = [
 
 export const VIDEO_SIZE       = 1080
 export const TRANSITION_MS    = 600
-export const TRANSITION_STEPS = 20
 export const GIF_SIZE         = 600
 export const PREVIEW_SIZE     = 160
+
+// Number of intermediate cross-fade frames inserted between two photos in the
+// GIF so the dissolve looks smooth instead of a hard cut. Balanced for the
+// WhatsApp use case — smooth, but small enough that a full 12-month album stays
+// shareable (the video export is the path for maximum smoothness/quality).
+export const GIF_TRANSITION_FRAMES = 3
 
 // gifenc delay is in centiseconds (gifenc divides ms by 10 internally);
 // same values are used as actual ms for the video frameDuration.
 export const GIF_SPEED_MS = { slow: 4500, normal: 2800, fast: 1500 }
 
 // ── Canvas export constants ────────────────────────────────────────────────────
-export const CANVAS_SIZE        = 2100 // 7 inches × 300 DPI
-export const CANVAS_FRAME_WIDTH = 60
+export const CANVAS_SIZE = 2100 // 7 inches × 300 DPI
