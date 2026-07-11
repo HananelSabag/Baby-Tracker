@@ -108,6 +108,27 @@ real browser via a temporary harness (since deleted) + pixel analysis.
   loading→rendering→recording, ~5.3 s ✓
 - **Console:** no errors during any run.
 
+## Follow-up: the REAL blocker was a storage RLS bug (fixed)
+
+After the client re-encode fix deployed, the upload still 400'd — now with
+`new row violates row-level security policy`. Investigated against the live DB:
+
+- User `hananel12345@gmail.com` (member "אבא") and child "הראל אבי"
+  (`835a5ee1…`) are both in family `סבג` (`e3293082…`); `get_my_family_id()`
+  resolves correctly. Table policy on `milestone_photos` is fine.
+- **Bug:** the four `milestones` **storage.objects** policies referenced an
+  **unqualified `name`** in `EXISTS (SELECT 1 FROM public.children c WHERE
+  c.id::text = split_part(name,'/',1) …)`. Since `public.children` also has a
+  `name` column, `name` bound to **children.name** ("הראל אבי") instead of the
+  object path → child id never matched → EXISTS false → every write denied.
+  Reads worked only because the bucket is public (public URL bypasses RLS),
+  which is why the album displayed but uploads failed.
+- Proven in SQL: `policy_as_written = false`, `intended (objects.name) = true`.
+- **Fix:** `supabase/migrations/20260711_001_fix_milestones_storage_rls_name_qualification.sql`
+  qualifies `storage.objects.name` in all four milestone policies. Applied live
+  (RLS policies take effect immediately — no deploy needed). Re-ran the exact
+  failing INSERT as the user → now permitted (verified via rollback).
+
 ## Remaining tasks / notes for the next agent
 
 - **Live end-to-end on a real device** (couldn't sign in with Google here): confirm a
