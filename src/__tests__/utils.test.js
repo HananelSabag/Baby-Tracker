@@ -8,7 +8,68 @@ import {
   groupEventsByDay,
   formatAge,
   cn,
+  composeOccurredAt,
 } from '../lib/utils'
+
+// ---------------------------------------------------------------------------
+// composeOccurredAt — the day comes from the viewed date, the time from the
+// picker. Regression guard for events silently landing on "today".
+// ---------------------------------------------------------------------------
+describe('composeOccurredAt', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    // Wed 2026-07-15, 14:30 local
+    vi.setSystemTime(new Date(2026, 6, 15, 14, 30, 0))
+  })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('keeps the base day and applies the picked time', () => {
+    const result = composeOccurredAt(new Date(2026, 6, 12, 9, 0, 0), '08:15')
+    expect(result.getFullYear()).toBe(2026)
+    expect(result.getMonth()).toBe(6)
+    expect(result.getDate()).toBe(12)
+    expect(result.getHours()).toBe(8)
+    expect(result.getMinutes()).toBe(15)
+  })
+
+  it('does NOT shift a past day even when the time is later than now', () => {
+    // 23:00 on a past day is legitimate — the midnight guard must not fire.
+    const result = composeOccurredAt(new Date(2026, 6, 12), '23:00')
+    expect(result.getDate()).toBe(12)
+    expect(result.getHours()).toBe(23)
+  })
+
+  it('treats a future time on today as yesterday (midnight guard)', () => {
+    const result = composeOccurredAt(new Date(2026, 6, 15), '23:50')
+    expect(result.getDate()).toBe(14)
+    expect(result.getHours()).toBe(23)
+  })
+
+  it('keeps a past time on today as today', () => {
+    const result = composeOccurredAt(new Date(2026, 6, 15), '09:00')
+    expect(result.getDate()).toBe(15)
+    expect(result.getHours()).toBe(9)
+  })
+
+  it('falls back to today when no base date is given', () => {
+    const result = composeOccurredAt(undefined, '10:00')
+    expect(result.getDate()).toBe(15)
+    expect(result.getHours()).toBe(10)
+  })
+
+  it('zeroes seconds and milliseconds', () => {
+    const result = composeOccurredAt(new Date(2026, 6, 12), '08:15')
+    expect(result.getSeconds()).toBe(0)
+    expect(result.getMilliseconds()).toBe(0)
+  })
+
+  it('treats a malformed time string as midnight instead of NaN', () => {
+    const result = composeOccurredAt(new Date(2026, 6, 12), '')
+    expect(Number.isNaN(result.getTime())).toBe(false)
+    expect(result.getHours()).toBe(0)
+    expect(result.getMinutes()).toBe(0)
+  })
+})
 
 // ---------------------------------------------------------------------------
 // generateFamilyCode

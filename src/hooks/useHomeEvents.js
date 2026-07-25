@@ -7,7 +7,7 @@ export function useHomeEvents(familyId, viewDate, childId) {
   const [loading, setLoading] = useState(true)
 
   const fetchAll = useCallback(async () => {
-    if (!familyId) return
+    if (!familyId) { setEventsByTracker({}); setLoading(false); return }
     let query = supabase
       .from('events')
       .select('*')
@@ -30,6 +30,7 @@ export function useHomeEvents(familyId, viewDate, childId) {
 
   useEffect(() => {
     fetchAll()
+    if (!familyId) return // nothing to subscribe to yet
 
     // Use date in channel name so resubscribe on date-change always creates
     // a fresh channel (avoids Supabase silent-dedup on same channel name)

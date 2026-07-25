@@ -4,6 +4,7 @@ import { formatTime } from '../../lib/utils'
 import { useEvents } from '../../hooks/useEvents'
 import { BottomSheet } from '../ui/BottomSheet'
 import { AddCustomEventForm } from '../forms/AddCustomEventForm'
+import { TrackerAddButton } from './TrackerAddButton'
 
 export function CustomTrackerCard({ tracker, familyId, memberId, childId, viewDate, compact = false }) {
   const { events, loading, addEvent } = useEvents(familyId, { trackerId: tracker.id, date: viewDate, childId })
@@ -42,18 +43,14 @@ export function CustomTrackerCard({ tracker, familyId, memberId, childId, viewDa
                 </p>
               </div>
             </div>
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-soft flex-shrink-0"
-              style={{ backgroundColor: tracker.color }}
-            >
-              +
-            </div>
+            {/* The whole card is the click target */}
+            <TrackerAddButton color={tracker.color} decorative />
           </div>
         </div>
       </div>
 
       <BottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} title={tracker.name}>
-        <AddCustomEventForm tracker={tracker} onSave={handleSave} onCancel={() => setSheetOpen(false)} loading={saving} />
+        <AddCustomEventForm tracker={tracker} baseDate={viewDate} onSave={handleSave} onCancel={() => setSheetOpen(false)} loading={saving} />
       </BottomSheet>
     </>
   )

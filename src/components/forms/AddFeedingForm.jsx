@@ -3,9 +3,9 @@ import { format } from 'date-fns'
 import { t } from '../../lib/strings'
 import { FEEDING_PRESETS } from '../../lib/constants'
 import { Button } from '../ui/Button'
-import { cn } from '../../lib/utils'
+import { cn, composeOccurredAt } from '../../lib/utils'
 
-export function AddFeedingForm({ onSave, onCancel, loading, initialData, initialTime }) {
+export function AddFeedingForm({ onSave, onCancel, loading, initialData, initialTime, baseDate }) {
   const initAmount = initialData?.amount_ml ?? null
   const isPreset = initAmount !== null && FEEDING_PRESETS.includes(initAmount)
   const [amount, setAmount] = useState(isPreset ? initAmount : null)
@@ -20,12 +20,7 @@ export function AddFeedingForm({ onSave, onCancel, loading, initialData, initial
       setError(t('feeding.amountRequired'))
       return
     }
-    const [h, m] = time.split(':').map(Number)
-    const occurredAt = new Date()
-    occurredAt.setHours(h, m, 0, 0)
-    // Midnight guard: if the chosen time is in the future, the user meant yesterday
-    if (occurredAt > new Date()) occurredAt.setDate(occurredAt.getDate() - 1)
-    onSave({ amount_ml: finalAmount }, occurredAt)
+    onSave({ amount_ml: finalAmount }, composeOccurredAt(baseDate, time))
   }
 
   return (

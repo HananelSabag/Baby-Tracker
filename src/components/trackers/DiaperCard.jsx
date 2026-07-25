@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
+import { isSameDay } from 'date-fns'
 import { t } from '../../lib/strings'
 import { formatTime, formatTimeAgo } from '../../lib/utils'
 import { useEvents } from '../../hooks/useEvents'
 import { BottomSheet } from '../ui/BottomSheet'
 import { AddDiaperForm } from '../forms/AddDiaperForm'
 import { Card } from '../ui/Card'
+import { TrackerAddButton } from './TrackerAddButton'
 
 // green < 2h, amber 2–4h, red > 4h
 function diaperUrgencyColor(isoDate, now) {
@@ -25,6 +27,11 @@ export function DiaperCard({ tracker, familyId, memberId, childId, viewDate, com
   const [sheetOpen, setSheetOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [now, setNow] = useState(Date.now())
+
+  // One-tap quick buttons stamp the current clock time, so they only make
+  // sense while looking at today. On a past day the "+" sheet (with its time
+  // picker) is the way to back-fill.
+  const isViewingToday = !viewDate || isSameDay(viewDate, new Date())
 
   // refresh urgency color every minute
   useEffect(() => {
@@ -49,7 +56,7 @@ export function DiaperCard({ tracker, familyId, memberId, childId, viewDate, com
 
   // One-tap save with current time
   async function handleQuickSave(type) {
-    if (saving) return
+    if (saving || !isViewingToday) return
     setSaving(true)
     try {
       await addEvent({ trackerId: tracker.id, memberId, childId, data: { type }, occurredAt: new Date().toISOString() })
@@ -70,14 +77,12 @@ export function DiaperCard({ tracker, familyId, memberId, childId, viewDate, com
                 {lastEvent ? `${formatTime(lastEvent.occurred_at)} · ${events.length}×` : 'אין עדיין'}
               </p>
             </div>
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-soft flex-shrink-0"
-              style={{ backgroundColor: tracker.color }}
-            >+</div>
+            {/* The whole compact card is the click target */}
+            <TrackerAddButton color={tracker.color} decorative />
           </div>
         </Card>
         <BottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} title={t('diaper.addChange')}>
-          <AddDiaperForm onSave={handleSave} onCancel={() => setSheetOpen(false)} loading={saving} />
+          <AddDiaperForm baseDate={viewDate} onSave={handleSave} onCancel={() => setSheetOpen(false)} loading={saving} />
         </BottomSheet>
       </>
     )
@@ -92,11 +97,11 @@ export function DiaperCard({ tracker, familyId, memberId, childId, viewDate, com
             <span className="text-2xl">{tracker.icon}</span>
             <span className="font-rubik font-semibold text-brown-800">{tracker.name}</span>
           </div>
-          <button
+          <TrackerAddButton
+            color={tracker.color}
             onClick={() => setSheetOpen(true)}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-soft active:scale-95 transition-transform"
-            style={{ backgroundColor: tracker.color }}
-          >+</button>
+            label={t('diaper.addChange')}
+          />
         </div>
 
         {/* Status — count + last time with urgency color + breakdown */}
@@ -114,7 +119,7 @@ export function DiaperCard({ tracker, familyId, memberId, childId, viewDate, com
                   <p className="text-xs text-brown-500 font-rubik">{t('diaper.lastChange')}</p>
                   <p className="font-rubik font-bold text-brown-800 text-lg leading-tight">{formatTime(lastEvent.occurred_at)}</p>
                   <p className="font-rubik text-xs leading-tight" style={{ color: diaperUrgencyColor(lastEvent.occurred_at, now) }}>
-                    {formatTimeAgo(lastEvent.occurred_at)} לפני
+                    לפני {formatTimeAgo(lastEvent.occurred_at)}
                   </p>
                 </div>
               )}
@@ -127,28 +132,38 @@ export function DiaperCard({ tracker, familyId, memberId, childId, viewDate, com
           </div>
         )}
 
-        {/* Quick type buttons — 1-tap save with current time */}
-        <div className="flex gap-2">
-          {QUICK_TYPES.map(({ key, emoji, label }) => (
-            <button
-              key={key}
-              onClick={() => handleQuickSave(key)}
-              disabled={saving}
-              className="flex-1 flex flex-col items-center justify-center py-3 rounded-2xl active:scale-95 transition-all disabled:opacity-40"
-              style={{
-                backgroundColor: `${tracker.color}18`,
-                border: `1.5px solid ${tracker.color}35`,
-              }}
-            >
-              <span className="text-2xl mb-1 leading-none">{emoji}</span>
-              <span className="font-rubik text-xs font-semibold text-brown-700">{label}</span>
-            </button>
-          ))}
-        </div>
+        {/* Quick type buttons — 1-tap save with current time (today only) */}
+        {isViewingToday ? (
+          <div className="flex gap-2">
+            {QUICK_TYPES.map(({ key, emoji, label }) => (
+              <button
+                key={key}
+                onClick={() => handleQuickSave(key)}
+                disabled={saving}
+                className="flex-1 flex flex-col items-center justify-center py-3 rounded-2xl active:scale-95 transition-all disabled:opacity-40"
+                style={{
+                  backgroundColor: `${tracker.color}18`,
+                  border: `1.5px solid ${tracker.color}35`,
+                }}
+              >
+                <span className="text-2xl mb-1 leading-none">{emoji}</span>
+                <span className="font-rubik text-xs font-semibold text-brown-700">{label}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <button
+            onClick={() => setSheetOpen(true)}
+            className="w-full py-3 rounded-2xl border-2 border-dashed font-rubik text-sm text-brown-400 active:scale-[0.98] transition-transform"
+            style={{ borderColor: `${tracker.color}55` }}
+          >
+            + הוסף החלפה ליום זה
+          </button>
+        )}
       </Card>
 
       <BottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} title={t('diaper.addChange')}>
-        <AddDiaperForm onSave={handleSave} onCancel={() => setSheetOpen(false)} loading={saving} />
+        <AddDiaperForm baseDate={viewDate} onSave={handleSave} onCancel={() => setSheetOpen(false)} loading={saving} />
       </BottomSheet>
     </>
   )

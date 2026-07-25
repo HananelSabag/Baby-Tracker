@@ -8,6 +8,7 @@ import { goBack } from '../lib/utils'
 import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
 import { usePushNotifications, DEFAULT_PREFS } from '../hooks/usePushNotifications'
+import { STORAGE_KEYS, PREFS_CHANGED_EVENT } from '../lib/constants'
 import { cn } from '../lib/utils'
 
 const DOSE_EMOJIS = ['☀️', '🌙', '🌅', '🌤', '⭐', '💫']
@@ -66,6 +67,20 @@ export function NotificationsPage() {
   const [dirty, setDirty] = useState({})
   const [saving, setSaving] = useState({})
   const [subscribeStatus, setSubscribeStatus] = useState(null)
+
+  // In-app toasts (realtime "X added a feeding"). AppLayout already honoured
+  // this localStorage flag but no screen ever wrote it, so it could not be
+  // turned off. Default is on when unset.
+  const [inAppToasts, setInAppToasts] = useState(
+    () => localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS) !== 'false'
+  )
+  function toggleInAppToasts(on) {
+    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, String(on))
+    setInAppToasts(on)
+    // `storage` only fires in *other* tabs — tell this one explicitly so
+    // AppLayout re-reads the flag without waiting for a refocus.
+    window.dispatchEvent(new Event(PREFS_CHANGED_EVENT))
+  }
 
   function getDisplayTimes(tracker) {
     if (localTimes[tracker.id]) return localTimes[tracker.id]
@@ -210,6 +225,26 @@ export function NotificationsPage() {
         </div>
       )}
 
+      {/* In-app toasts */}
+      <div
+        className="bg-white rounded-3xl px-4 py-4 flex items-center gap-3 border border-cream-200"
+        style={{ boxShadow: '0 4px 20px rgba(61,43,31,0.08), inset 0 1px 0 rgba(255,255,255,0.95)' }}
+      >
+        <div
+          className="w-10 h-10 rounded-2xl bg-amber-50 flex items-center justify-center flex-shrink-0 border border-amber-100"
+          style={{ boxShadow: '0 2px 6px rgba(232,184,75,0.15)' }}
+        >
+          <Bell size={20} className="text-amber-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-rubik font-bold text-brown-800 text-sm">התראות בתוך האפליקציה</p>
+          <p className="font-rubik text-brown-400 text-xs mt-0.5">
+            הודעה קופצת כשבן משפחה אחר מדווח
+          </p>
+        </div>
+        <Toggle on={inAppToasts} onChange={toggleInAppToasts} />
+      </div>
+
       {/* Dose trackers */}
       {doseTrackers.length > 0 && (
         <div className="space-y-3">
@@ -276,7 +311,11 @@ export function NotificationsPage() {
                             key={i}
                             className="flex items-center gap-3 bg-cream-50 rounded-2xl px-3 py-3 border border-cream-200"
                           >
-                            <span className="text-lg flex-shrink-0">{DOSE_EMOJIS[i]}</span>
+                            {/* Prefer the tracker's own configured emoji so this
+                                screen matches the home card, not a fixed list. */}
+                            <span className="text-lg flex-shrink-0">
+                              {config.dose_emojis?.[i] ?? DOSE_EMOJIS[i % DOSE_EMOJIS.length]}
+                            </span>
                             <p className="font-rubik text-sm font-medium text-brown-700 flex-1">{label}</p>
                             <div className="flex items-center gap-1.5 bg-white rounded-xl px-2 py-1.5 border border-cream-200 flex-shrink-0">
                               <Clock size={13} className="text-brown-400" />

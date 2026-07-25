@@ -6,6 +6,7 @@ import { useEvents } from '../../hooks/useEvents'
 import { BottomSheet } from '../ui/BottomSheet'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
+import { TrackerAddButton } from './TrackerAddButton'
 import { ageInMonths, getWeightPercentileLabel, getHeightPercentileLabel } from '../../lib/whoGrowthData'
 
 export function GrowthCard({ tracker, familyId, memberId, childId, child }) {
@@ -102,11 +103,11 @@ export function GrowthCard({ tracker, familyId, memberId, childId, child }) {
             >
               גרף ›
             </button>
-            <button
+            <TrackerAddButton
+              color={tracker.color}
               onClick={() => setSheetOpen(true)}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-soft active:scale-95 transition-transform"
-              style={{ backgroundColor: tracker.color }}
-            >+</button>
+              label="הוסף מדידה"
+            />
           </div>
         </div>
 

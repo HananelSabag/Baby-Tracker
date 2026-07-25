@@ -35,6 +35,28 @@ export function formatMl(amount) {
   return `${amount} מ"ל`
 }
 
+// Compose an event timestamp from a base day + an "HH:mm" time string.
+//
+// The base day comes from whatever day the user is currently looking at
+// (the home-page day navigator), NOT from "now" — otherwise back-filling an
+// event for yesterday silently saved it on today and vanished from the view.
+//
+// Midnight guard: only when the base day IS today, a time in the future is
+// treated as yesterday (parents log a 23:50 feeding just after midnight).
+export function composeOccurredAt(baseDate, timeStr) {
+  const [h, m] = String(timeStr ?? '').split(':').map(Number)
+  const base = baseDate instanceof Date && !Number.isNaN(baseDate.getTime())
+    ? new Date(baseDate)
+    : new Date()
+  const occurred = new Date(base)
+  occurred.setHours(Number.isFinite(h) ? h : 0, Number.isFinite(m) ? m : 0, 0, 0)
+  const now = new Date()
+  if (isToday(occurred) && occurred > now) {
+    occurred.setDate(occurred.getDate() - 1)
+  }
+  return occurred
+}
+
 // Group events array by day (returns Map of dateLabel -> events[])
 export function groupEventsByDay(events) {
   const groups = new Map()

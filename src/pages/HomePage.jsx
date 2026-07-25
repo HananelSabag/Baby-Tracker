@@ -16,15 +16,53 @@ import { GrowthCard } from '../components/trackers/GrowthCard'
 import { HeroCard } from '../components/trackers/HeroCard'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ChildFormSheet } from '../components/ui/ChildFormSheet'
-import { Spinner } from '../components/ui/Spinner'
+import { HomeSkeleton } from '../components/ui/Skeleton'
 import { PhotoSourceSheet } from '../components/ui/PhotoSourceSheet'
 import { ToastContainer } from '../components/ui/Toast'
 import { format, addDays, subDays, isSameDay } from 'date-fns'
 import { he } from 'date-fns/locale'
-import { formatTime, formatTimeAgo, formatAge, formatChildAge, cn } from '../lib/utils'
-import { Bell, Pencil, GripVertical, Eye, EyeOff, Camera, User, RefreshCw, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { formatTimeAgo, formatChildAge, cn } from '../lib/utils'
+import { Bell, Pencil, GripVertical, Eye, EyeOff, Camera, User, RefreshCw, Loader2, ChevronLeft, ChevronRight, Plus, Sparkles } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { pickAndCompressImage, uploadAvatar } from '../lib/imageUpload'
+
+// Empty-state block for the tracker area of the home page.
+function EmptyHome({ emoji, title, body, actionLabel, actionIcon, onAction }) {
+  return (
+    <div
+      className="bg-white rounded-3xl border border-cream-200 px-6 py-9 flex flex-col items-center text-center"
+      style={{ boxShadow: '0 4px 20px rgba(61,43,31,0.08), inset 0 1px 0 rgba(255,255,255,0.95)' }}
+    >
+      <div
+        className="w-16 h-16 rounded-3xl bg-cream-100 border border-cream-200 flex items-center justify-center text-3xl mb-4"
+        style={{ boxShadow: '0 2px 12px rgba(61,43,31,0.07)' }}
+      >
+        {emoji}
+      </div>
+      <p className="font-rubik font-bold text-brown-800 text-base mb-1.5">{title}</p>
+      <p className="font-rubik text-brown-400 text-sm leading-relaxed max-w-[17rem] mb-5">{body}</p>
+      <button
+        onClick={onAction}
+        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-[#8B5E3C] font-rubik font-bold text-white text-sm cursor-pointer active:scale-95 transition-transform min-h-[44px]"
+        style={{ boxShadow: '0 4px 14px rgba(139,94,60,0.30)' }}
+      >
+        {actionIcon}
+        {actionLabel}
+      </button>
+    </div>
+  )
+}
+
+// A greeting that tracks the clock. "שלום" at 3am to a parent doing a night
+// feed reads as canned; "לילה טוב" reads like the app knows what's going on.
+function greetingFor(date) {
+  const h = date.getHours()
+  if (h < 5)  return { text: 'לילה טוב',      emoji: '🌙' }
+  if (h < 12) return { text: 'בוקר טוב',      emoji: '☀️' }
+  if (h < 17) return { text: 'צהריים טובים',  emoji: '🌤️' }
+  if (h < 21) return { text: 'ערב טוב',       emoji: '🌆' }
+  return { text: 'לילה טוב', emoji: '🌙' }
+}
 
 export function HomePage() {
   const { identity, setActiveChildId, notifications, unreadCount, markNotificationsRead, clearNotifications, setMemberAvatarUrl } = useApp()
@@ -60,10 +98,12 @@ export function HomePage() {
   }, [])
 
   const isToday = isSameDay(viewDate, new Date())
+  const hiddenCount = localOrder.filter(t => !t._visible).length
   const activeChild = children.find(c => c.id === identity.activeChildId) ?? children[0] ?? null
   const { eventsByTracker } = useHomeEvents(identity.familyId, viewDate, activeChild?.id ?? null)
   const todayLabel = format(new Date(), 'EEEE, d בMMMM', { locale: he })
   const dateLabel = isToday ? 'היום' : format(viewDate, 'd/M', { locale: he })
+  const greeting = greetingFor(new Date())
 
   function enterEditMode() {
     // Include ALL trackers (visible + hidden) sorted by display_order
@@ -88,6 +128,12 @@ export function HomePage() {
     }
   }
 
+  // Leave edit mode without writing anything — localOrder is thrown away.
+  function cancelEdit() {
+    setLocalOrder([])
+    setEditMode(false)
+  }
+
   function handleBellClick() {
     markNotificationsRead()
     setBellOpen(prev => !prev)
@@ -98,7 +144,9 @@ export function HomePage() {
     setUploadingAvatar(true)
     try {
       const picked = await pickAndCompressImage({ mode })
-      if (!picked) return // user cancelled
+      // Cancelling the OS picker must leave the profile sheet open — the
+      // `finally` below closes it, so bail out before reaching it.
+      if (!picked) { setUploadingAvatar(false); return }
       const url = await uploadAvatar({
         folder: 'members',
         subjectId: identity.memberId,
@@ -246,33 +294,38 @@ export function HomePage() {
   return (
     <div className="px-4 pt-6 pb-4">
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-      {/* Backdrop to close bell dropdown */}
-      {bellOpen && (
-        <div className="fixed inset-0 z-40" onClick={() => setBellOpen(false)} />
-      )}
 
       {/* ── Header row: greeting (right) + icon buttons + avatar (left) ─── */}
       <div className="flex items-center justify-between gap-3 mb-4">
         <div className="min-w-0 flex-1">
           <p className="font-rubik text-brown-400 text-xs capitalize">{todayLabel}</p>
           <h1 className="font-rubik font-bold text-2xl text-brown-800 truncate">
-            שלום, {identity.memberName} 👋
+            {greeting.text}, {identity.memberName} {greeting.emoji}
           </h1>
         </div>
 
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {editMode && (
-            <button
-              onClick={saveAndExit}
-              className="px-4 h-10 rounded-2xl bg-brown-800 text-white font-rubik font-semibold text-sm active:scale-95 transition-all duration-150 flex items-center gap-1.5 cursor-pointer"
-              style={{ boxShadow: '0 4px 12px rgba(61,43,31,0.25)' }}
-            >
-              סיום
-            </button>
+            <>
+              <button
+                onClick={cancelEdit}
+                className="px-3 h-10 rounded-2xl bg-white border border-cream-200 text-brown-500 font-rubik font-semibold text-sm active:scale-95 transition-all duration-150 cursor-pointer"
+                style={{ boxShadow: '0 2px 8px rgba(61,43,31,0.07)' }}
+              >
+                ביטול
+              </button>
+              <button
+                onClick={saveAndExit}
+                className="px-4 h-10 rounded-2xl bg-brown-800 text-white font-rubik font-semibold text-sm active:scale-95 transition-all duration-150 flex items-center gap-1.5 cursor-pointer"
+                style={{ boxShadow: '0 4px 12px rgba(61,43,31,0.25)' }}
+              >
+                שמור
+              </button>
+            </>
           )}
 
-          {/* Notification bell */}
-          <div className="relative">
+          {/* Notification bell — hidden in edit mode so the header can't overflow */}
+          <div className={cn('relative', editMode && 'hidden')}>
             <button
               onClick={handleBellClick}
               aria-label={t('notifications.title')}
@@ -354,20 +407,28 @@ export function HomePage() {
             <div className="flex-1" />
           )}
 
-          <div className="flex items-center gap-1 flex-shrink-0">
+          {/* Day navigator. Sized to a 36px+ touch target — at 32px the arrows
+              were easy to miss one-handed, which is the only way this app is
+              ever used. */}
+          <div
+            className="flex items-center gap-0.5 flex-shrink-0 rounded-2xl bg-cream-100 border border-cream-200 p-0.5"
+            style={{ boxShadow: 'inset 0 1px 3px rgba(61,43,31,0.05)' }}
+          >
             <button
               onClick={() => setViewDate(d => subDays(d, 1))}
               aria-label="יום קודם"
-              className="w-8 h-8 rounded-xl bg-cream-100 flex items-center justify-center active:scale-95 transition-all duration-150 cursor-pointer border border-cream-200"
+              className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-90 active:bg-cream-200 transition-all duration-150 cursor-pointer"
             >
-              <ChevronRight size={16} className="text-brown-600" />
+              <ChevronRight size={17} className="text-brown-600" />
             </button>
             <button
               onClick={() => !isToday && setViewDate(new Date())}
+              aria-label={isToday ? 'היום' : 'חזור להיום'}
               className={cn(
-                'font-rubik font-medium text-sm px-3 h-8 rounded-xl transition-colors min-w-[52px] text-center',
-                isToday ? 'text-brown-600' : 'text-amber-700 bg-amber-50 border border-amber-200'
+                'font-rubik font-bold text-sm px-2 h-9 rounded-xl transition-colors min-w-[46px] text-center',
+                isToday ? 'text-brown-500' : 'text-white cursor-pointer'
               )}
+              style={isToday ? undefined : { backgroundColor: '#D9A441' }}
             >
               {dateLabel}
             </button>
@@ -375,9 +436,9 @@ export function HomePage() {
               onClick={() => setViewDate(d => addDays(d, 1))}
               disabled={isToday}
               aria-label="יום הבא"
-              className="w-8 h-8 rounded-xl bg-cream-100 flex items-center justify-center active:scale-95 transition-all duration-150 cursor-pointer border border-cream-200 disabled:opacity-25"
+              className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-90 active:bg-cream-200 transition-all duration-150 cursor-pointer disabled:opacity-25 disabled:active:scale-100"
             >
-              <ChevronLeft size={16} className="text-brown-600" />
+              <ChevronLeft size={17} className="text-brown-600" />
             </button>
           </div>
         </div>
@@ -417,13 +478,35 @@ export function HomePage() {
 
       {/* Content */}
       {loading ? (
-        <div className="flex justify-center py-12">
-          <Spinner size="lg" />
-        </div>
+        <HomeSkeleton />
       ) : (
         <div className="space-y-3">
-          {/* Hero card — hidden in edit mode */}
-          {!editMode && (
+          {/* Past-day banner — one-tap actions stamp the current time, so they
+              are disabled off-today; the "+" sheets can still back-fill. */}
+          {!editMode && !isToday && (
+            <button
+              onClick={() => setViewDate(new Date())}
+              className="w-full rounded-2xl px-4 py-3 border border-amber-200 bg-amber-50 flex items-center gap-3 text-right active:scale-[0.99] transition-transform cursor-pointer"
+              style={{ boxShadow: '0 2px 10px rgba(180,93,20,0.08)' }}
+            >
+              <span className="text-lg flex-shrink-0">🗓️</span>
+              <div className="min-w-0 flex-1">
+                <p className="font-rubik text-sm font-bold text-amber-800 leading-tight">
+                  צופה ב־{format(viewDate, 'EEEE, d בMMMM', { locale: he })}
+                </p>
+                <p className="font-rubik text-xs text-amber-700/80 leading-tight mt-0.5">
+                  כפתורים מהירים כבויים · הוסף דרך ה־+ עם שעה
+                </p>
+              </div>
+              <span className="font-rubik text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-200 px-2 py-1 rounded-lg flex-shrink-0">
+                חזור להיום
+              </span>
+            </button>
+          )}
+
+          {/* Hero card — hidden in edit mode, and when there is nothing to
+              summarise (otherwise it renders as an empty titled box) */}
+          {!editMode && trackers.length > 0 && (
             <HeroCard
               trackers={trackers}
               eventsByTracker={eventsByTracker}
@@ -437,8 +520,22 @@ export function HomePage() {
 
           {/* Edit mode hint */}
           {editMode && (
-            <div className="flex items-center justify-center gap-4 pb-1">
-              <p className="font-rubik text-xs text-brown-400">גרור לשינוי סדר · לחץ עין להסתרה</p>
+            <div
+              className="rounded-2xl px-4 py-3 border border-amber-200 bg-amber-50 flex items-center gap-3"
+              style={{ boxShadow: '0 2px 10px rgba(180,93,20,0.08)' }}
+            >
+              <Pencil size={16} className="text-amber-600 flex-shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="font-rubik text-sm font-bold text-amber-800 leading-tight">עריכת תצוגה</p>
+                <p className="font-rubik text-xs text-amber-700/80 leading-tight mt-0.5">
+                  גרור בידית לשינוי סדר · לחץ על העין להסתרה
+                </p>
+              </div>
+              {hiddenCount > 0 && (
+                <span className="font-rubik text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-200 px-2 py-1 rounded-lg flex-shrink-0">
+                  {hiddenCount} מוסתרים
+                </span>
+              )}
             </div>
           )}
 
@@ -482,6 +579,28 @@ export function HomePage() {
                 </button>
               </div>
             ))
+          ) : trackers.length === 0 ? (
+            // Nothing to show. Two very different causes, two different fixes —
+            // previously both rendered an empty page that looked broken.
+            allTrackers.length === 0 ? (
+              <EmptyHome
+                emoji="🍼"
+                title="עוד אין מעקבים"
+                body="מעקב הוא מה שאתם מתעדים — האכלה, חיתול, שינה או תרופה. הוסיפו את הראשון כדי להתחיל."
+                actionLabel="הוסף מעקב"
+                actionIcon={<Plus size={16} className="text-white" />}
+                onAction={() => navigate('/trackers?action=add')}
+              />
+            ) : (
+              <EmptyHome
+                emoji="🙈"
+                title="כל המעקבים מוסתרים"
+                body={`${allTrackers.length} מעקבים קיימים אבל אף אחד לא מוצג במסך הבית.`}
+                actionLabel="בחר מה להציג"
+                actionIcon={<Eye size={16} className="text-white" />}
+                onAction={enterEditMode}
+              />
+            )
           ) : (
             // Normal mode: grouped with long-press to enter edit mode
             groupTrackers(trackers).map((group) =>
@@ -645,6 +764,18 @@ export function HomePage() {
             >
               <Pencil size={17} className="text-white" />
               <span className="font-rubik font-medium text-white text-sm">ערוך פרופיל</span>
+            </button>
+          </div>
+          {/* Summary page — the richest view of this child, so it gets its own
+              full-width row rather than competing for space above. */}
+          <div className="px-4 -mt-3 pb-6">
+            <button
+              onClick={() => { setChildDetailOpen(false); navigate('/child') }}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-cream-100 active:bg-cream-200 transition-colors cursor-pointer border border-cream-200"
+              style={{ boxShadow: '0 2px 8px rgba(61,43,31,0.06)' }}
+            >
+              <Sparkles size={17} className="text-green-600" />
+              <span className="font-rubik font-medium text-brown-700 text-sm">הסיפור והגרפים</span>
             </button>
           </div>
         </div>

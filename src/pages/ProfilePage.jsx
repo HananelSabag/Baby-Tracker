@@ -37,7 +37,10 @@ export function ProfilePage() {
   const [photoSourceOpen, setPhotoSourceOpen] = useState(false)
   const [roleSheetOpen, setRoleSheetOpen] = useState(false)
 
-  const isParent = PARENT_ROLES.includes(identity.memberName)
+  // Same as FamilyPage: the DB `role` is the source of truth, not the cached
+  // display name.
+  const myMember = members.find(m => m.id === identity.memberId)
+  const isParent = PARENT_ROLES.includes(myMember?.role ?? identity.memberName)
   const selectedRole = ROLES.find(r => r.value === role) ?? ROLES.find(r => r.value === 'אחר')
   const displayedRole = ROLES.find(r => r.value === identity.memberName) ?? ROLES.find(r => r.value === 'אחר')
 
@@ -59,11 +62,17 @@ export function ProfilePage() {
     setSaving(true)
     try {
       const displayName = role === 'אחר' ? (customRole.trim() || 'אחר') : role
-      await updateMember(identity.memberId, { display_name: displayName, role: displayName, avatar_url: avatarUrl })
+      // Only persist the avatar when it's our own uploaded one. Writing the
+      // Google URL into the DB made it look like a custom photo on every other
+      // read path (and it 403s once the Google token rotates).
+      const updates = { display_name: displayName, role: displayName }
+      if (identity.memberAvatarUrl) updates.avatar_url = identity.memberAvatarUrl
+      await updateMember(identity.memberId, updates)
       saveIdentity({ familyId: identity.familyId, memberId: identity.memberId, memberName: displayName })
-      setMemberAvatarUrl(avatarUrl)
       setRoleSheetOpen(false)
       showToast({ message: t('profile.profileSaved'), emoji: '✅' })
+    } catch (err) {
+      showToast({ message: err?.message ?? t('errors.saveFailed'), emoji: '⚠️' })
     } finally {
       setSaving(false)
     }
