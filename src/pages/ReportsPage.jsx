@@ -5,7 +5,8 @@ import { useEvents } from '../hooks/useEvents'
 import { useChildren } from '../hooks/useChildren'
 import { pairSleepEvents as sharedPairSleepEvents } from '../lib/sleepSessions'
 import { TRACKER_TYPES } from '../lib/constants'
-import { supabase } from '../lib/supabase'
+import api from '../lib/api'
+import { computeFeedingInsights, computeDiaperSplit } from '../lib/feedingInsights'
 import { formatAge } from '../lib/utils'
 import {
   format, startOfWeek, endOfWeek, addWeeks, eachDayOfInterval, isSameDay,
@@ -124,14 +125,12 @@ export function ReportsPage() {
   useEffect(() => {
     if (!identity.familyId) return
     let cancelled = false
-    let q = supabase
-      .from('events')
-      .select('*')
-      .eq('family_id', identity.familyId)
-      .gte('occurred_at', prevWeekStart.toISOString())
-      .lte('occurred_at', prevWeekEnd.toISOString())
-    if (identity.activeChildId) q = q.eq('child_id', identity.activeChildId)
-    q.then(({ data }) => { if (!cancelled) setPrevEvents(data ?? []) })
+    api.events
+      .listRange(identity.familyId, identity.activeChildId, {
+        start: prevWeekStart, end: prevWeekEnd, withRelations: false,
+      })
+      .then(data => { if (!cancelled) setPrevEvents(data ?? []) })
+      .catch(() => { if (!cancelled) setPrevEvents([]) })
     return () => { cancelled = true }
   }, [identity.familyId, identity.activeChildId, prevWeekStart.toISOString()])
 
@@ -141,15 +140,10 @@ export function ReportsPage() {
     const growthTracker = trackers.find(t => t.tracker_type === TRACKER_TYPES.GROWTH)
     if (!growthTracker || !identity.familyId) return
     let cancelled = false
-    let q = supabase
-      .from('events')
-      .select('occurred_at, data')
-      .eq('family_id', identity.familyId)
-      .eq('tracker_id', growthTracker.id)
-      .order('occurred_at', { ascending: false })
-      .limit(1)
-    if (identity.activeChildId) q = q.eq('child_id', identity.activeChildId)
-    q.then(({ data }) => { if (!cancelled && data?.[0]) setLastGrowthEvent(data[0]) })
+    api.events
+      .latestForTracker(identity.familyId, growthTracker.id, identity.activeChildId)
+      .then(row => { if (!cancelled && row) setLastGrowthEvent(row) })
+      .catch(() => {})
     return () => { cancelled = true }
   }, [identity.familyId, identity.activeChildId, trackers])
 
@@ -256,81 +250,19 @@ export function ReportsPage() {
   const nonFeedingTrackers = activeTrackers.filter(t => t.tracker_type !== TRACKER_TYPES.FEEDING)
 
   // ── Smart insights ─────────────────────────────────────────────────────────
-  const insights = useMemo(() => {
-    const result = { feeding: null, diaper: null }
-
-    // Feeding insights — use this week + prev week for a richer sample
-    if (feedingTracker) {
-      const thisWeekF = events.filter(e => e.tracker_id === feedingTracker.id)
-      const prevWeekF = prevEvents.filter(e => e.tracker_id === feedingTracker.id)
-      const allF = [...prevWeekF, ...thisWeekF]
-        .sort((a, b) => new Date(a.occurred_at) - new Date(b.occurred_at))
-
-      // Intervals between consecutive feedings (ignore gaps > 8h = overnight)
-      const intervals = []
-      for (let i = 1; i < allF.length; i++) {
-        const gapH = (new Date(allF[i].occurred_at) - new Date(allF[i - 1].occurred_at)) / 3600000
-        if (gapH < 8) intervals.push(gapH)
-      }
-
-      const avgIntervalH = intervals.length >= 2
-        ? intervals.reduce((a, b) => a + b, 0) / intervals.length
-        : null
-
-      // Longest stretch this week (including overnight)
-      const thisWeekIntervals = []
-      for (let i = 1; i < thisWeekF.length; i++) {
-        thisWeekIntervals.push(
-          (new Date(thisWeekF[i].occurred_at) - new Date(thisWeekF[i - 1].occurred_at)) / 3600000
+  // Computed in lib/feedingInsights: `events` arrives newest-first, and the
+  // previous inline version indexed it as if it were oldest-first.
+  const insights = useMemo(() => ({
+    feeding: feedingTracker
+      ? computeFeedingInsights(
+          events.filter(e => e.tracker_id === feedingTracker.id),
+          prevEvents.filter(e => e.tracker_id === feedingTracker.id),
         )
-      }
-      const longestStretchH = thisWeekIntervals.length > 0 ? Math.max(...thisWeekIntervals) : null
-
-      // Peak hour — which hour has the most feedings this week
-      const hourBuckets = {}
-      thisWeekF.forEach(e => {
-        const h = new Date(e.occurred_at).getHours()
-        hourBuckets[h] = (hourBuckets[h] || 0) + 1
-      })
-      const peakHour = Object.keys(hourBuckets).length > 0
-        ? parseInt(Object.entries(hourBuckets).sort((a, b) => b[1] - a[1])[0][0])
-        : null
-
-      // Predicted next feeding — last feeding + avg interval
-      const lastF = thisWeekF[thisWeekF.length - 1]
-      const lastFDate = lastF ? new Date(lastF.occurred_at) : null
-      const predictedNext = lastFDate && avgIntervalH
-        ? new Date(lastFDate.getTime() + avgIntervalH * 3600000)
-        : null
-      const minsUntilNext = predictedNext ? Math.round((predictedNext - new Date()) / 60000) : null
-
-      result.feeding = {
-        avgIntervalH,
-        longestStretchH,
-        peakHour,
-        predictedNext,
-        minsUntilNext,
-        count: thisWeekF.length,
-      }
-    }
-
-    // Diaper insights — wet / dirty split
-    if (diaperTracker) {
-      const thisWeekD = events.filter(e => e.tracker_id === diaperTracker.id)
-      let wet = 0, dirty = 0, both = 0
-      thisWeekD.forEach(e => {
-        const type = e.data?.type
-        if (type === 'wet')   wet++
-        else if (type === 'dirty') dirty++
-        else if (type === 'both')  both++
-        else wet++ // unknown → count as wet
-      })
-      const total = thisWeekD.length
-      result.diaper = total >= 3 ? { wet: wet + both, dirty: dirty + both, total } : null
-    }
-
-    return result
-  }, [events, prevEvents, feedingTracker, diaperTracker])
+      : null,
+    diaper: diaperTracker
+      ? computeDiaperSplit(events.filter(e => e.tracker_id === diaperTracker.id))
+      : null,
+  }), [events, prevEvents, feedingTracker, diaperTracker])
 
   const [shareSuccess, setShareSuccess] = useState(false)
 

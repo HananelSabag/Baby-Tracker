@@ -22,7 +22,7 @@ import { format, addDays, subDays, isSameDay } from 'date-fns'
 import { he } from 'date-fns/locale'
 import { formatTimeAgo, formatChildAge, cn } from '../lib/utils'
 import { Bell, Pencil, GripVertical, Eye, EyeOff, Camera, User, RefreshCw, Loader2, ChevronLeft, ChevronRight, Plus, Sparkles } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import api from '../lib/api'
 import { pickAndCompressImage, uploadAvatar } from '../lib/imageUpload'
 
 // Empty-state block for the tracker area of the home page.
@@ -152,14 +152,12 @@ export function HomePage() {
         ...picked,
       })
       setMemberAvatarUrl(url)
-      // NOTE: previous version wrote to a non-existent `members` table; the
+      // NOTE: an older version wrote to a non-existent `members` table; the
       // real table is `family_members`. That silent bug meant the URL was
       // only persisted via setMemberAvatarUrl (localStorage), not the DB.
-      const { error } = await supabase
-        .from('family_members')
-        .update({ avatar_url: url })
-        .eq('id', identity.memberId)
-      if (error) throw error
+      // Going through the api also invalidates the cached member list, so the
+      // new photo shows up on the family screen without a reload.
+      await api.members.update(identity.familyId, identity.memberId, { avatar_url: url })
       showToast({ message: 'התמונה עודכנה', emoji: '✅' })
     } catch (err) {
       showToast({ message: err?.message ?? 'העלאת התמונה נכשלה', emoji: '⚠️' })

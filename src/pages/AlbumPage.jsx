@@ -125,6 +125,17 @@ export function AlbumPage() {
     setExportSheet(null)
   }
 
+  // Closing the sheet stops the music preview, but navigating away from the
+  // album while it plays did not — the track kept going over the next screen.
+  useEffect(() => {
+    return () => {
+      if (videoAudioRef.current) {
+        videoAudioRef.current.pause()
+        videoAudioRef.current = null
+      }
+    }
+  }, [])
+
   const ageInfo = useMemo(() => getAlbumAgeInfo(activeChild?.birth_date ?? null), [activeChild?.birth_date])
 
   // Auto-show milestone popup once per page load on milestone days
