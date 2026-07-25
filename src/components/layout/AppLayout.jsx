@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useApp } from '../../hooks/useAppContext'
 import { useToast } from '../../hooks/useToast'
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications'
@@ -8,7 +8,7 @@ import { SisterPopup } from '../ui/SisterPopup'
 import { UpgradePopup } from '../ui/UpgradePopup'
 import { BottomNav } from './BottomNav'
 import { InstallBanner } from '../ui/InstallBanner'
-import { STORAGE_KEYS } from '../../lib/constants'
+import { STORAGE_KEYS, PREFS_CHANGED_EVENT } from '../../lib/constants'
 import { t } from '../../lib/strings'
 
 const WIFE_EMAIL = 'nofarromi1998@gmail.com'
@@ -22,7 +22,24 @@ function getNotificationsEnabled() {
 export function AppLayout({ children }) {
   const { identity, addNotification } = useApp()
   const { toasts, showToast, dismissToast } = useToast()
-  const notificationsEnabled = getNotificationsEnabled()
+
+  // Read once into state, then re-read on focus/visibility. Reading localStorage
+  // straight during render meant toggling notifications elsewhere in the app
+  // had no effect until a full reload.
+  const [notificationsEnabled, setNotificationsEnabled] = useState(getNotificationsEnabled)
+  useEffect(() => {
+    const sync = () => setNotificationsEnabled(getNotificationsEnabled())
+    window.addEventListener('focus', sync)
+    document.addEventListener('visibilitychange', sync)
+    window.addEventListener('storage', sync)
+    window.addEventListener(PREFS_CHANGED_EVENT, sync)
+    return () => {
+      window.removeEventListener('focus', sync)
+      document.removeEventListener('visibilitychange', sync)
+      window.removeEventListener('storage', sync)
+      window.removeEventListener(PREFS_CHANGED_EVENT, sync)
+    }
+  }, [])
 
   // Welcome toast — shown once per session on first app load
   useEffect(() => {

@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { ShieldCheck, Trash2, Users, User, ChevronLeft, AlertTriangle, Activity, Zap } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { ShieldCheck, Trash2, Users, User, ChevronLeft, ChevronRight, AlertTriangle, Activity, Zap } from 'lucide-react'
 import { t } from '../lib/strings'
 import { supabase } from '../lib/supabase'
-import { formatDateLabel } from '../lib/utils'
+import { formatDateLabel, goBack } from '../lib/utils'
 import { Spinner } from '../components/ui/Spinner'
 import { Card } from '../components/ui/Card'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
@@ -65,6 +66,7 @@ function activityTextClass(dateStr) {
 const ROLE_EMOJI = { 'אמא': '👩', 'אבא': '👨', 'סבא': '👴', 'סבתא': '👵' }
 
 export function AdminPage() {
+  const navigate = useNavigate()
   const [tab, setTab] = useState('families')
 
   // ── Families ────────────────────────────────────────────────────────────────
@@ -191,6 +193,14 @@ export function AdminPage() {
     <div className="px-4 pt-8 pb-10">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
+        <button
+          onClick={() => goBack(navigate, '/profile')}
+          className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-brown-600 cursor-pointer active:scale-95 transition-transform flex-shrink-0 border border-cream-200"
+          style={{ boxShadow: '0 2px 8px rgba(61,43,31,0.08), inset 0 1px 0 rgba(255,255,255,0.9)' }}
+          aria-label="חזור"
+        >
+          <ChevronRight size={20} />
+        </button>
         <div
           className="w-11 h-11 rounded-2xl bg-red-50 flex items-center justify-center border border-red-100 flex-shrink-0"
           style={{ boxShadow: '0 2px 8px rgba(239,68,68,0.12)' }}

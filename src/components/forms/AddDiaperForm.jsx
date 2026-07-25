@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { format } from 'date-fns'
 import { t } from '../../lib/strings'
 import { Button } from '../ui/Button'
-import { cn } from '../../lib/utils'
+import { cn, composeOccurredAt } from '../../lib/utils'
 
 const DIAPER_TYPES = [
   { key: 'wet', label: t('diaper.wet'), emoji: '💧' },
@@ -10,18 +10,13 @@ const DIAPER_TYPES = [
   { key: 'both', label: t('diaper.both'), emoji: '💧💩' },
 ]
 
-export function AddDiaperForm({ onSave, onCancel, loading, initialData, initialTime }) {
+export function AddDiaperForm({ onSave, onCancel, loading, initialData, initialTime, baseDate }) {
   const [type, setType] = useState(initialData?.type ?? null)
   const [time, setTime] = useState(initialTime ?? format(new Date(), 'HH:mm'))
 
   function handleSave() {
     if (!type) return
-    const [h, m] = time.split(':').map(Number)
-    const occurredAt = new Date()
-    occurredAt.setHours(h, m, 0, 0)
-    // Midnight guard: if the chosen time is in the future, the user meant yesterday
-    if (occurredAt > new Date()) occurredAt.setDate(occurredAt.getDate() - 1)
-    onSave({ type }, occurredAt)
+    onSave({ type }, composeOccurredAt(baseDate, time))
   }
 
   return (

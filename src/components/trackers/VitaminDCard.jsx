@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { isSameDay } from 'date-fns'
 import { t } from '../../lib/strings'
 import { useEvents } from '../../hooks/useEvents'
 import { Card } from '../ui/Card'
@@ -11,6 +12,15 @@ export function VitaminDCard({ tracker, familyId, memberId, childId, viewDate, c
   // pendingKeys: optimistic update — marks a dose as "done" instantly on tap,
   // before the DB round-trip + realtime update arrives. Prevents double-tapping.
   const [pendingKeys, setPendingKeys] = useState(new Set())
+
+  // A dose is always stamped with the current clock time, so tapping only makes
+  // sense while looking at today.
+  const isViewingToday = !viewDate || isSameDay(viewDate, new Date())
+
+  // Optimistic marks belong to one day + one child. Without this reset they
+  // leaked across the day navigator and showed yesterday's doses as "given".
+  const dayKey = viewDate ? viewDate.toDateString() : 'today'
+  useEffect(() => { setPendingKeys(new Set()) }, [dayKey, childId, tracker.id])
 
   // Read dose config from tracker, fallback to defaults
   const config = tracker.config ?? {}
@@ -31,6 +41,7 @@ export function VitaminDCard({ tracker, familyId, memberId, childId, viewDate, c
   const givenKeys = new Set([...confirmedKeys, ...pendingKeys])
 
   async function handleDose(doseKey, doseLabel) {
+    if (!isViewingToday) return // read-only on past days — see isViewingToday
     if (givenKeys.has(doseKey)) return // already done (confirmed or pending)
     // Mark as done immediately (optimistic) to block any rapid re-taps
     setPendingKeys(prev => new Set([...prev, doseKey]))
@@ -70,7 +81,7 @@ export function VitaminDCard({ tracker, familyId, memberId, childId, viewDate, c
                 <button
                   key={dose.key}
                   onClick={() => handleDose(dose.key, dose.label)}
-                  disabled={done}
+                  disabled={done || !isViewingToday}
                   className={cn(
                     'w-9 h-9 rounded-xl flex items-center justify-center text-base transition-all active:scale-95',
                     done ? 'opacity-100' : 'opacity-40 hover:opacity-70',
@@ -114,10 +125,10 @@ export function VitaminDCard({ tracker, familyId, memberId, childId, viewDate, c
             <button
               key={dose.key}
               onClick={() => handleDose(dose.key, dose.label)}
-              disabled={done}
+              disabled={done || !isViewingToday}
               className={cn(
                 'flex flex-col items-center gap-0.5 py-2.5 rounded-2xl transition-all active:scale-95',
-                done ? 'opacity-100' : 'opacity-60 hover:opacity-80',
+                done ? 'opacity-100' : isViewingToday ? 'opacity-60 hover:opacity-80' : 'opacity-35',
               )}
               style={{ backgroundColor: done ? tracker.color : `${tracker.color}22` }}
             >

@@ -17,6 +17,18 @@ const WIZARD_STEPS = { ARCHETYPE: 'archetype', IDENTITY: 'identity', DOSE_CONFIG
 const DOSE_DEFAULT_EMOJIS = ['☀️', '🌙', '🌅', '🌤', '⭐', '💫']
 const DOSE_TIME_EMOJIS    = ['☀️', '🌤', '🌅', '🌙', '⭐', '💫', '🌛', '🌞', '💊', '🕐', '🌿', '🍃']
 const MEASURE_UNITS = ['מ"ל', 'גרם', '°C', 'ס"מ', 'ק"ג', 'אחר']
+const DEFAULT_DOSE_LABELS = ['בוקר', 'ערב', 'צהריים', 'לילה', 'בוקר מאוחר', 'ערב מוקדם']
+const MAX_DOSES = 6
+
+// A tracker saved with 2 doses has only 2 labels/emojis stored. Raising the
+// dose count later must not leave the extra slots undefined — that rendered
+// nameless buttons on the home card. Pad from the defaults, keep what exists.
+function padToCount(values, count, defaults) {
+  return Array.from({ length: count }, (_, i) => {
+    const v = values?.[i]
+    return (typeof v === 'string' && v.trim()) ? v : defaults[i % defaults.length]
+  })
+}
 
 function autoEmojiForLabel(label) {
   if (!label) return null
@@ -280,23 +292,23 @@ function DoseConfigSheet({ tracker, isOpen, onClose, onSave }) {
   const existingConfig = tracker.config ?? {}
   const [doseCount, setDoseCount]   = useState(existingConfig.daily_doses ?? 2)
   const [labels, setLabels]         = useState(
-    existingConfig.dose_labels ?? ['בוקר', 'ערב', 'צהריים', 'לילה', 'בוקר מאוחר', 'ערב מוקדם']
+    () => padToCount(existingConfig.dose_labels, MAX_DOSES, DEFAULT_DOSE_LABELS)
   )
   const [doseEmojis, setDoseEmojis] = useState(
-    existingConfig.dose_emojis ?? [...DOSE_DEFAULT_EMOJIS]
+    () => padToCount(existingConfig.dose_emojis, MAX_DOSES, DOSE_DEFAULT_EMOJIS)
   )
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(null)
   const [note, setNote]     = useState(existingConfig.note ?? '')
   const [saving, setSaving] = useState(false)
-  const MAX_DOSES = 6
 
   async function handleSave() {
     setSaving(true)
     const newConfig = {
       ...existingConfig,
       daily_doses: doseCount,
-      dose_labels: labels.slice(0, doseCount),
-      dose_emojis: doseEmojis.slice(0, doseCount),
+      // Re-pad on save: the user may have cleared a label field.
+      dose_labels: padToCount(labels, doseCount, DEFAULT_DOSE_LABELS),
+      dose_emojis: padToCount(doseEmojis, doseCount, DOSE_DEFAULT_EMOJIS),
     }
     if (note.trim()) newConfig.note = note.trim()
     else delete newConfig.note
@@ -486,8 +498,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
   const [icon, setIcon]             = useState(TRACKER_ICON_CATEGORIES[0].icons[0])
   const [color, setColor]           = useState(TRACKER_COLORS[3])
   const [doseCount, setDoseCount]   = useState(2)
-  const [doseLabels, setDoseLabels] = useState(['בוקר', 'ערב', 'צהריים', 'לילה', 'בוקר מאוחר', 'ערב מוקדם'])
-  const [displayMode, setDisplayMode]         = useState('buttons')
+  const [doseLabels, setDoseLabels] = useState([...DEFAULT_DOSE_LABELS])
   const [measureLabel, setMeasureLabel]       = useState('')
   const [measureUnit, setMeasureUnit]         = useState('')
   const [measureUnitCustom, setMeasureUnitCustom] = useState('')
@@ -513,8 +524,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
     setIcon(TRACKER_ICON_CATEGORIES[0].icons[0])
     setColor(TRACKER_COLORS[3])
     setDoseCount(2)
-    setDoseLabels(['בוקר', 'ערב', 'צהריים', 'לילה', 'בוקר מאוחר', 'ערב מוקדם'])
-    setDisplayMode('buttons')
+    setDoseLabels([...DEFAULT_DOSE_LABELS])
     setMeasureLabel('')
     setMeasureUnit('')
     setMeasureUnitCustom('')
@@ -553,11 +563,14 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
     try {
       const isDose    = archetype.id === 'dose'
       const isMeasure = archetype.id === 'measure'
-      const effectiveDisplayMode = chosenDisplayMode ?? displayMode
+      // The DISPLAY_MODE step saves directly from its two buttons, so the mode
+      // is always passed in; 'buttons' is the fallback for archetypes that skip
+      // that step entirely.
+      const effectiveDisplayMode = chosenDisplayMode ?? 'buttons'
       const doseConfig = {
         daily_doses: doseCount,
-        dose_labels: doseLabels.slice(0, doseCount),
-        dose_emojis: doseEmojis.slice(0, doseCount),
+        dose_labels: padToCount(doseLabels, doseCount, DEFAULT_DOSE_LABELS),
+        dose_emojis: padToCount(doseEmojis, doseCount, DOSE_DEFAULT_EMOJIS),
         ...(effectiveDisplayMode === 'simple' ? { display_mode: 'simple' } : {}),
         ...(note.trim() ? { note: note.trim() } : {}),
       }

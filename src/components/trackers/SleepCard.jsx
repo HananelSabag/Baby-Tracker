@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { isSameDay } from 'date-fns'
 import { t } from '../../lib/strings'
 import { useEvents } from '../../hooks/useEvents'
 import { Card } from '../ui/Card'
@@ -35,30 +36,46 @@ export function SleepCard({ tracker, familyId, memberId, childId, viewDate, comp
     [events]
   )
 
-  // Pair start/end events into sessions
+  // Pair start/end events into sessions.
+  //
+  // Same semantics as HeroCard.getSleepStats / ReportsPage.pairSleepEvents so
+  // the three views can never disagree:
+  //   • a second 'start' with no 'end' between overwrites the open one (re-tap)
+  //   • an 'end' with no open 'start' is an orphan and is ignored
+  //   • a trailing unmatched 'start' means "sleeping right now"
   const sessions = useMemo(() => {
     const result = []
-    for (let i = 0; i < sortedEvents.length; i++) {
-      if (sortedEvents[i].data?.type === 'start') {
-        const next = sortedEvents[i + 1]
-        const end = next?.data?.type === 'end' ? next : null
-        result.push({ start: sortedEvents[i], end })
-        if (end) i++
+    let openStart = null
+    for (const ev of sortedEvents) {
+      const type = ev.data?.type
+      if (type === 'start') {
+        openStart = ev
+      } else if (type === 'end' && openStart) {
+        result.push({ start: openStart, end: ev })
+        openStart = null
       }
     }
+    if (openStart) result.push({ start: openStart, end: null })
     return result
   }, [sortedEvents])
 
   const isSleeping = sessions.length > 0 && sessions[sessions.length - 1].end === null
 
+  // start/end are stamped with the current clock time — only meaningful today.
+  const isViewingToday = !viewDate || isSameDay(viewDate, new Date())
+
+  // A nap left open on a past day would otherwise "run" until now and report
+  // an absurd total — only the live day counts unfinished time.
+  const isLive = isSleeping && isViewingToday
+
   // Live timer tick while sleeping
   useEffect(() => {
-    if (!isSleeping) return
+    if (!isLive) return
     const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
-  }, [isSleeping])
+  }, [isLive])
 
-  const currentMs = isSleeping
+  const currentMs = isLive
     ? now - new Date(sessions[sessions.length - 1].start.occurred_at).getTime()
     : 0
 
@@ -70,7 +87,7 @@ export function SleepCard({ tracker, familyId, memberId, childId, viewDate, comp
   const completedSessions = sessions.filter(s => s.end)
 
   async function handleToggle() {
-    if (saving) return
+    if (saving || !isViewingToday) return
     setSaving(true)
     try {
       await addEvent({
@@ -98,8 +115,8 @@ export function SleepCard({ tracker, familyId, memberId, childId, viewDate, comp
           </div>
           <button
             onClick={handleToggle}
-            disabled={saving}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-rubik font-semibold text-sm transition-all active:scale-95 flex-shrink-0"
+            disabled={saving || !isViewingToday}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-rubik font-semibold text-sm transition-all active:scale-95 flex-shrink-0 disabled:opacity-40"
             style={{ backgroundColor: isSleeping ? tracker.color : `${tracker.color}22` }}
           >
             <span>{isSleeping ? '☀️' : '🌙'}</span>
@@ -130,36 +147,50 @@ export function SleepCard({ tracker, familyId, memberId, childId, viewDate, comp
         )}
       </div>
 
-      {/* Main toggle button — compact row when idle, expanded when sleeping */}
-      <button
-        onClick={handleToggle}
-        disabled={saving}
-        className={isSleeping
-          ? 'w-full rounded-2xl py-4 flex flex-col items-center gap-1 transition-all active:scale-[0.98]'
-          : 'w-full rounded-2xl py-3 flex items-center justify-center gap-3 transition-all active:scale-[0.98]'
-        }
-        style={{ backgroundColor: isSleeping ? tracker.color : `${tracker.color}22` }}
-      >
-        {isSleeping ? (
-          <>
-            <span className="text-3xl">☀️</span>
-            <span className="font-rubik font-bold text-white text-lg">{t('sleep.wakeUp')}</span>
-            <span className="font-rubik text-white/80 text-2xl font-mono tracking-wider">
-              {saving ? '...' : formatDuration(currentMs)}
-            </span>
-          </>
-        ) : (
-          <>
-            <span className="text-xl">🌙</span>
-            <span
-              className="font-rubik font-bold text-base"
-              style={{ color: tracker.color }}
-            >
-              {saving ? '...' : t('sleep.asleep')}
-            </span>
-          </>
-        )}
-      </button>
+      {/* Main toggle button — compact row when idle, expanded when sleeping.
+          On a past day there is nothing to start/stop, so show a summary. */}
+      {isViewingToday ? (
+        <button
+          onClick={handleToggle}
+          disabled={saving}
+          className={isSleeping
+            ? 'w-full rounded-2xl py-4 flex flex-col items-center gap-1 transition-all active:scale-[0.98]'
+            : 'w-full rounded-2xl py-3 flex items-center justify-center gap-3 transition-all active:scale-[0.98]'
+          }
+          style={{ backgroundColor: isSleeping ? tracker.color : `${tracker.color}22` }}
+        >
+          {isSleeping ? (
+            <>
+              <span className="text-3xl">☀️</span>
+              <span className="font-rubik font-bold text-white text-lg">{t('sleep.wakeUp')}</span>
+              <span className="font-rubik text-white/80 text-2xl font-mono tracking-wider">
+                {saving ? '...' : formatDuration(currentMs)}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="text-xl">🌙</span>
+              <span
+                className="font-rubik font-bold text-base"
+                style={{ color: tracker.color }}
+              >
+                {saving ? '...' : t('sleep.asleep')}
+              </span>
+            </>
+          )}
+        </button>
+      ) : (
+        <div
+          className="w-full rounded-2xl py-3 flex items-center justify-center gap-2"
+          style={{ backgroundColor: `${tracker.color}14` }}
+        >
+          <span className="font-rubik text-sm text-brown-400">
+            {completedSessions.length > 0
+              ? `${completedSessions.length} תנומות ביום זה`
+              : 'אין תנומות רשומות ביום זה'}
+          </span>
+        </div>
+      )}
 
       {/* Completed sessions list */}
       {completedSessions.length > 0 && (

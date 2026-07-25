@@ -243,6 +243,10 @@ export const STORAGE_KEYS = {
   NOTIFICATIONS: 'bt_notifications',
 }
 
+// Same-tab broadcast for localStorage-backed preferences. The native `storage`
+// event only fires in other tabs, so listeners in this tab need this instead.
+export const PREFS_CHANGED_EVENT = 'bt:prefs-changed'
+
 // Admin configuration — admin status is enforced server-side via the
 // `is_admin()` SQL function and the admin RLS policies. The email here is
 // only used as a UI gate (to show the /admin link).

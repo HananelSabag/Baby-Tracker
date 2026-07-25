@@ -110,7 +110,7 @@ export function AuthPage() {
   const [heroFeature, ...gridFeatures] = FEATURES
 
   return (
-    <div className="min-h-screen bg-cream-100 flex justify-center overflow-x-hidden" dir="rtl">
+    <div className="min-h-screen bg-cream-100 flex justify-center overflow-x-hidden animate-fade-in" dir="rtl">
       <div className="w-full max-w-[480px] min-h-screen flex flex-col">
 
         {/* ══════════════════════════════

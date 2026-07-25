@@ -7,7 +7,9 @@ export function useEvents(familyId, { trackerId, days, date, childId, startDate,
   const [loading, setLoading] = useState(true)
 
   const fetchEvents = useCallback(async () => {
-    if (!familyId) return
+    // Without this, `loading` stayed true forever for a signed-in user whose
+    // family hasn't resolved yet, and callers rendered a spinner indefinitely.
+    if (!familyId) { setEvents([]); setLoading(false); return }
     let query = supabase
       .from('events')
       .select('*, tracker:trackers(*), member:family_members(*), child:children(*)')
@@ -36,6 +38,7 @@ export function useEvents(familyId, { trackerId, days, date, childId, startDate,
 
   useEffect(() => {
     fetchEvents()
+    if (!familyId) return // nothing to subscribe to yet
 
     const channel = supabase
       .channel(`events:${familyId}:${trackerId ?? 'all'}`)

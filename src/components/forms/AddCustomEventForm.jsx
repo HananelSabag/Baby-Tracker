@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { format } from 'date-fns'
 import { t } from '../../lib/strings'
 import { Button } from '../ui/Button'
+import { composeOccurredAt } from '../../lib/utils'
 
-export function AddCustomEventForm({ tracker, onSave, onCancel, loading, initialData, initialTime }) {
+export function AddCustomEventForm({ tracker, onSave, onCancel, loading, initialData, initialTime, baseDate }) {
   const [fieldValues, setFieldValues] = useState(initialData ?? {})
   const [time, setTime] = useState(initialTime ?? format(new Date(), 'HH:mm'))
 
@@ -14,12 +15,7 @@ export function AddCustomEventForm({ tracker, onSave, onCancel, loading, initial
   }
 
   function handleSave() {
-    const [h, m] = time.split(':').map(Number)
-    const occurredAt = new Date()
-    occurredAt.setHours(h, m, 0, 0)
-    // Midnight guard: if the chosen time is in the future, the user meant yesterday
-    if (occurredAt > new Date()) occurredAt.setDate(occurredAt.getDate() - 1)
-    onSave(fieldValues, occurredAt)
+    onSave(fieldValues, composeOccurredAt(baseDate, time))
   }
 
   return (

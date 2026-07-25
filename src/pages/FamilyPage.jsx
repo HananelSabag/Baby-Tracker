@@ -42,7 +42,11 @@ export function FamilyPage() {
   const [deleteChildTarget, setDeleteChildTarget] = useState(null)
   const [removingMember, setRemovingMember] = useState(null)
 
-  const isParent = PARENT_ROLES.includes(identity.memberName)
+  // Read the role off the member row, not the cached display name. They happen
+  // to match for the default roles, but a member who renamed themselves would
+  // silently lose (or gain) parent-only controls.
+  const myMember = members.find(m => m.id === identity.memberId)
+  const isParent = PARENT_ROLES.includes(myMember?.role ?? identity.memberName)
 
   // BUG FIX: previously this used `useState(() => {...})` as a side effect,
   // which is the wrong primitive and never re-runs if familyId changes.

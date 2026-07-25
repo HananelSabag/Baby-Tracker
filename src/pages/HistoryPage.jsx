@@ -36,7 +36,19 @@ export function HistoryPage() {
   const [editTarget, setEditTarget] = useState(null)
   const [editSaving, setEditSaving] = useState(false)
 
-  const now = useRef(new Date()).current
+  // `now` anchors the query window. It was frozen at mount, so a session left
+  // open past midnight kept querying "up to yesterday 23:59" and new events
+  // never appeared. Re-anchor whenever the tab comes back and the day rolled.
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    function resync() {
+      if (document.visibilityState !== 'visible') return
+      setNow(prev => isSameDay(prev, new Date()) ? prev : new Date())
+    }
+    document.addEventListener('visibilitychange', resync)
+    return () => document.removeEventListener('visibilitychange', resync)
+  }, [])
+
   const prevEventsLengthRef = useRef(null)
   const todayStr = format(now, 'yyyy-MM-dd')
 
@@ -46,9 +58,9 @@ export function HistoryPage() {
 
   const startDate = useMemo(
     () => startOfDay(subDays(now, effectiveDaysBack - 1)),
-    [effectiveDaysBack]
+    [effectiveDaysBack, now]
   )
-  const endDate = useMemo(() => endOfDay(now), [])
+  const endDate = useMemo(() => endOfDay(now), [now])
 
   const { events, loading, deleteEvent, bulkDeleteEvents, updateEvent, refetch } = useEvents(
     identity.familyId,
@@ -176,12 +188,12 @@ export function HistoryPage() {
     }
   }
 
+  // The form composes occurredAt from `baseDate` (the event's own day) + the
+  // picked time, so it can be stored as-is.
   async function handleEditSave(data, occurredAt) {
     setEditSaving(true)
     try {
-      const original = new Date(editTarget.occurred_at)
-      original.setHours(occurredAt.getHours(), occurredAt.getMinutes(), 0, 0)
-      await updateEvent(editTarget.id, { data, occurred_at: original.toISOString() })
+      await updateEvent(editTarget.id, { data, occurred_at: occurredAt.toISOString() })
       setEditTarget(null)
     } finally {
       setEditSaving(false)
@@ -214,19 +226,20 @@ export function HistoryPage() {
   function renderEditForm() {
     if (!editTarget) return null
     const type = editTarget.tracker?.tracker_type
-    const initialTime = format(new Date(editTarget.occurred_at), 'HH:mm')
+    const eventDate = new Date(editTarget.occurred_at)
+    const initialTime = format(eventDate, 'HH:mm')
 
     if (type === TRACKER_TYPES.GROWTH) {
-      const initialDate = format(new Date(editTarget.occurred_at), 'yyyy-MM-dd')
+      const initialDate = format(eventDate, 'yyyy-MM-dd')
       return <GrowthEditForm initialData={editTarget.data} initialDate={initialDate} onSave={handleGrowthEditSave} onCancel={() => setEditTarget(null)} loading={editSaving} />
     }
     if (type === TRACKER_TYPES.FEEDING)
-      return <AddFeedingForm initialData={editTarget.data} initialTime={initialTime} onSave={handleEditSave} onCancel={() => setEditTarget(null)} loading={editSaving} />
+      return <AddFeedingForm initialData={editTarget.data} initialTime={initialTime} baseDate={eventDate} onSave={handleEditSave} onCancel={() => setEditTarget(null)} loading={editSaving} />
     if (type === TRACKER_TYPES.DIAPER)
-      return <AddDiaperForm initialData={editTarget.data} initialTime={initialTime} onSave={handleEditSave} onCancel={() => setEditTarget(null)} loading={editSaving} />
+      return <AddDiaperForm initialData={editTarget.data} initialTime={initialTime} baseDate={eventDate} onSave={handleEditSave} onCancel={() => setEditTarget(null)} loading={editSaving} />
     if (type === TRACKER_TYPES.VITAMIN_D || type === TRACKER_TYPES.DOSE)
       return <TimeOnlyForm initialTime={initialTime} onSave={handleTimeOnlySave} onCancel={() => setEditTarget(null)} loading={editSaving} />
-    return <AddCustomEventForm tracker={editTarget.tracker} initialData={editTarget.data} initialTime={initialTime} onSave={handleEditSave} onCancel={() => setEditTarget(null)} loading={editSaving} />
+    return <AddCustomEventForm tracker={editTarget.tracker} initialData={editTarget.data} initialTime={initialTime} baseDate={eventDate} onSave={handleEditSave} onCancel={() => setEditTarget(null)} loading={editSaving} />
   }
 
   function formatEventSummary(event) {

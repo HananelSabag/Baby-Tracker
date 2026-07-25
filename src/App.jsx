@@ -4,6 +4,7 @@ import { AppProvider, useApp } from './hooks/useAppContext'
 import { AccessibilityProvider } from './context/AccessibilityContext'
 import { AppLayout } from './components/layout/AppLayout'
 import { FullPageSpinner } from './components/ui/Spinner'
+import { AppSplash } from './components/ui/AppSplash'
 import { AuthPage } from './pages/AuthPage'
 import { SetupPage } from './pages/SetupPage'
 import { HomePage } from './pages/HomePage'
@@ -22,13 +23,15 @@ import { AccessibilityPage } from './pages/AccessibilityPage'
 // Spinner fallback is already used on auth/setup loading, so users won't notice.
 const ReportsPage = lazy(() => import('./pages/ReportsPage').then(m => ({ default: m.ReportsPage })))
 const AlbumPage   = lazy(() => import('./pages/AlbumPage').then(m => ({ default: m.AlbumPage })))
+const ChildSummaryPage = lazy(() => import('./pages/ChildSummaryPage').then(m => ({ default: m.ChildSummaryPage })))
 
 function AppRoutes() {
   const { user, identity, isAuthLoading, isSetupDone } = useApp()
   const location = useLocation()
 
-  // Show spinner while resolving auth session (handles refresh token recovery too)
-  if (isAuthLoading) return <FullPageSpinner />
+  // Resolving the auth session (and refresh-token recovery). Uses the same
+  // visual as the boot splash so the two phases read as one continuous load.
+  if (isAuthLoading) return <AppSplash />
 
   // Public pages — accessible without login
   if (location.pathname === '/privacy') return <PrivacyPage />
@@ -54,6 +57,7 @@ function AppRoutes() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/accessibility" element={<AccessibilityPage />} />
           <Route path="/album" element={<AlbumPage />} />
+          <Route path="/child" element={<ChildSummaryPage />} />
           {isAdmin && <Route path="/admin" element={<AdminPage />} />}
           {/* Fallback to home */}
           <Route path="*" element={<HomePage />} />

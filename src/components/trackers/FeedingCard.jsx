@@ -5,6 +5,7 @@ import { useEvents } from '../../hooks/useEvents'
 import { BottomSheet } from '../ui/BottomSheet'
 import { AddFeedingForm } from '../forms/AddFeedingForm'
 import { Card } from '../ui/Card'
+import { TrackerAddButton } from './TrackerAddButton'
 
 export function FeedingCard({ tracker, familyId, memberId, childId, viewDate, compact = false }) {
   const { events, loading, addEvent } = useEvents(familyId, { trackerId: tracker.id, date: viewDate, childId })
@@ -33,11 +34,11 @@ export function FeedingCard({ tracker, familyId, memberId, childId, viewDate, co
               <span className="text-xl">{tracker.icon}</span>
               <span className="font-rubik font-semibold text-brown-800 text-sm">{tracker.name}</span>
             </div>
-            <button
+            <TrackerAddButton
+              color={tracker.color}
               onClick={() => setSheetOpen(true)}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-soft active:scale-95 transition-transform"
-              style={{ backgroundColor: tracker.color }}
-            >+</button>
+              label={t('feeding.addFeeding')}
+            />
           </div>
           {events.length > 0 ? (
             <div className="flex gap-2">
@@ -62,7 +63,7 @@ export function FeedingCard({ tracker, familyId, memberId, childId, viewDate, co
           )}
         </Card>
         <BottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} title={t('feeding.addFeeding')}>
-          <AddFeedingForm onSave={handleSave} onCancel={() => setSheetOpen(false)} loading={saving} />
+          <AddFeedingForm baseDate={viewDate} onSave={handleSave} onCancel={() => setSheetOpen(false)} loading={saving} />
         </BottomSheet>
       </>
     )
@@ -78,13 +79,12 @@ export function FeedingCard({ tracker, familyId, memberId, childId, viewDate, co
             <span className="font-rubik font-semibold text-brown-800">{tracker.name}</span>
           </div>
           {/* "+" opens sheet for custom amount / time */}
-          <button
+          <TrackerAddButton
+            color={tracker.color}
             onClick={() => setSheetOpen(true)}
             disabled={saving}
-            className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-soft active:scale-95 transition-transform disabled:opacity-60"
-            style={{ backgroundColor: tracker.color }}
-            aria-label={t('feeding.addFeeding')}
-          >+</button>
+            label={t('feeding.addFeeding')}
+          />
         </div>
 
         {/*
@@ -114,7 +114,7 @@ export function FeedingCard({ tracker, familyId, memberId, childId, viewDate, co
       </Card>
 
       <BottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} title={t('feeding.addFeeding')}>
-        <AddFeedingForm onSave={handleSave} onCancel={() => setSheetOpen(false)} loading={saving} />
+        <AddFeedingForm baseDate={viewDate} onSave={handleSave} onCancel={() => setSheetOpen(false)} loading={saving} />
       </BottomSheet>
     </>
   )

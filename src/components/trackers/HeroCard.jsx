@@ -323,7 +323,7 @@ export function HeroCard({ trackers, eventsByTracker, isToday, child, familyId, 
                     )}
                   </div>
                   <p className="text-xs font-rubik mt-0.5" style={{ color: urgencyColor(displayFeeding.occurred_at, now) }}>
-                    {formatTimeAgo(displayFeeding.occurred_at)} לפני
+                    לפני {formatTimeAgo(displayFeeding.occurred_at)}
                   </p>
                 </div>
                 <div className="text-center flex flex-col gap-1">

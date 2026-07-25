@@ -4,7 +4,7 @@ import {
   Home, ClipboardList, BarChart2, User,
   Bell, Users, ListChecks, BookImage,
   HelpCircle, ChevronRight, ChevronLeft,
-  Accessibility, Palette, Zap,
+  Accessibility, Palette, Zap, Sparkles,
 } from 'lucide-react'
 import { t } from '../../lib/strings'
 import { cn } from '../../lib/utils'
@@ -46,6 +46,16 @@ function NavTab({ to, label, Icon, end }) {
 }
 
 const MENU_ITEMS = [
+  {
+    key: 'child',
+    path: '/child',
+    Icon: Sparkles,
+    label: 'סיכום ילד',
+    sub: 'הסיפור והגרפים',
+    bg: '#5BAD6F18',
+    iconBg: '#5BAD6F22',
+    iconColor: '#3E8A50',
+  },
   {
     key: 'trackers',
     path: '/trackers',
