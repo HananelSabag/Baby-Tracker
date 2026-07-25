@@ -5,7 +5,6 @@ import {
   Search, ChevronDown, ChevronUp, X,
   CalendarDays, Trash2, Filter, Pencil, CheckSquare, Square,
 } from 'lucide-react'
-import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
 import { useEvents } from '../hooks/useEvents'
@@ -248,7 +247,7 @@ export function HistoryPage() {
     if (type === 'feeding') return `${data.amount_ml} מ"ל`
     if (type === 'vitamin_d' || type === 'dose') return data.dose_label ?? data.dose ?? ''
     if (type === 'diaper') {
-      const map = { wet: t('diaper.wet'), dirty: t('diaper.dirty'), both: t('diaper.both') }
+      const map = { wet: "שתן", dirty: "צואה", both: "שניהם" }
       return map[data.type] ?? ''
     }
     if (type === 'sleep') return data.type === 'start' ? '💤 הלך לישון' : '☀️ התעורר'
@@ -284,7 +283,7 @@ export function HistoryPage() {
       {/* ── Page header ── */}
       <div className="flex items-start justify-between mb-5">
         <div>
-          <h1 className="font-rubik font-black text-3xl text-brown-800 leading-tight">{t('history.title')}</h1>
+          <h1 className="font-rubik font-black text-3xl text-brown-800 leading-tight">{"היסטוריה"}</h1>
           {filtered.length > 0 && (
             <p className="font-rubik text-brown-400 text-sm mt-0.5">
               {filtered.length} אירועים{daysBack > 1 ? ` · ${daysBack} ימים אחרונים` : ''}
@@ -361,7 +360,7 @@ export function HistoryPage() {
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
               <FilterChip
-                label={t('history.filterAll')}
+                label={"הכל"}
                 active={!filterTrackerId}
                 onClick={() => { setFilterTrackerId(null); setFilterOpen(false) }}
               />
@@ -576,7 +575,7 @@ export function HistoryPage() {
       {/* ── Dialogs ── */}
       <ConfirmDialog
         isOpen={Boolean(deleteTarget)}
-        message={t('history.deleteConfirm')}
+        message={"למחוק את האירוע הזה?"}
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />
@@ -591,7 +590,7 @@ export function HistoryPage() {
       <BottomSheet
         isOpen={Boolean(editTarget)}
         onClose={() => setEditTarget(null)}
-        title={`${t('common.edit')} ${editTarget?.tracker?.name ?? ''}`}
+        title={`${"ערוך"} ${editTarget?.tracker?.name ?? ''}`}
       >
         {renderEditForm()}
         {editTarget && (
@@ -621,7 +620,7 @@ function EmptyState({ jumpDate, hasActiveFilter, onClear }) {
         📭
       </div>
       <p className="font-rubik font-bold text-brown-700 text-base mb-1">
-        {jumpDate ? 'אין אירועים בתאריך זה' : t('history.noEvents')}
+        {jumpDate ? 'אין אירועים בתאריך זה' : "אין אירועים להציג"}
       </p>
       <p className="font-rubik text-brown-400 text-sm text-center leading-relaxed">
         {jumpDate ? 'בחר תאריך אחר' : 'הוסף דיווח ראשון ממסך הבית'}
@@ -676,7 +675,7 @@ function TimeOnlyForm({ initialTime, onSave, onCancel, loading }) {
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-sm font-bold text-brown-600 mb-2 font-rubik">{t('feeding.time')}</p>
+        <p className="text-sm font-bold text-brown-600 mb-2 font-rubik">{"שעה"}</p>
         <input
           type="time"
           value={time}
@@ -685,8 +684,8 @@ function TimeOnlyForm({ initialTime, onSave, onCancel, loading }) {
         />
       </div>
       <div className="flex gap-3 pt-2">
-        <Button variant="secondary" className="flex-1" onClick={onCancel}>{t('common.cancel')}</Button>
-        <Button className="flex-1" onClick={() => onSave(time)} disabled={loading}>{t('common.save')}</Button>
+        <Button variant="secondary" className="flex-1" onClick={onCancel}>{"ביטול"}</Button>
+        <Button className="flex-1" onClick={() => onSave(time)} disabled={loading}>{"שמור"}</Button>
       </div>
     </div>
   )

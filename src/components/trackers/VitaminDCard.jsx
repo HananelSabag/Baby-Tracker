@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react'
 import { isSameDay } from 'date-fns'
-import { t } from '../../lib/strings'
 import { useEvents } from '../../hooks/useEvents'
 import { Card } from '../ui/Card'
 import { cn } from '../../lib/utils'
-
-const FALLBACK_DOSE_EMOJIS = ['☀️', '🌅', '🌙', '⭐', '💫', '🌤']
+import { resolveDoses, givenDoseKeys } from '../../lib/doseConfig'
 
 export function VitaminDCard({ tracker, familyId, memberId, childId, viewDate, compact = false }) {
   const { events, addEvent } = useEvents(familyId, { trackerId: tracker.id, date: viewDate, childId })
@@ -22,21 +20,13 @@ export function VitaminDCard({ tracker, familyId, memberId, childId, viewDate, c
   const dayKey = viewDate ? viewDate.toDateString() : 'today'
   useEffect(() => { setPendingKeys(new Set()) }, [dayKey, childId, tracker.id])
 
-  // Read dose config from tracker, fallback to defaults
   const config = tracker.config ?? {}
-  const doseCount  = config.daily_doses ?? 2
-  const doseLabels = config.dose_labels ?? ['בוקר', 'ערב']
-  const doseEmojis = config.dose_emojis ?? FALLBACK_DOSE_EMOJIS
-
-  // Build dose slots array from config
-  const doses = Array.from({ length: doseCount }, (_, i) => ({
-    key: String(i),
-    label: doseLabels[i] ?? `מינון ${i + 1}`,
-    emoji: doseEmojis[i] ?? FALLBACK_DOSE_EMOJIS[i] ?? '💊',
-  }))
+  // Slots come from the shared resolver so this card, the hero chip and the
+  // notifications screen can never show different emoji for the same dose.
+  const doses = resolveDoses(tracker)
 
   // Which doses are confirmed from DB
-  const confirmedKeys = new Set(events.map(e => String(e.data?.dose_index ?? e.data?.dose)))
+  const confirmedKeys = givenDoseKeys(events)
   // Combined: confirmed + optimistic pending — used for all UI decisions
   const givenKeys = new Set([...confirmedKeys, ...pendingKeys])
 

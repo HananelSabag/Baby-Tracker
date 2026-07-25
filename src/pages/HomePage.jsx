@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
 import { useChildren } from '../hooks/useChildren'
@@ -328,7 +327,7 @@ export function HomePage() {
           <div className={cn('relative', editMode && 'hidden')}>
             <button
               onClick={handleBellClick}
-              aria-label={t('notifications.title')}
+              aria-label={"התראות בזמן אמת"}
               className="w-10 h-10 rounded-2xl flex items-center justify-center active:scale-95 transition-all duration-150 relative cursor-pointer border border-cream-200"
               style={{
                 backgroundColor: unreadCount > 0 ? '#FEF3C7' : '#FFFFFF',
@@ -633,7 +632,7 @@ export function HomePage() {
       <BottomSheet
         isOpen={childPickerOpen}
         onClose={() => setChildPickerOpen(false)}
-        title={t('children.switchChild')}
+        title={"החלף ילד/ה"}
       >
         <div className="space-y-2 pb-2">
           {children.map(child => (
@@ -796,7 +795,7 @@ export function HomePage() {
       )}
 
       {/* Notifications bottom sheet */}
-      <BottomSheet isOpen={bellOpen} onClose={() => setBellOpen(false)} title={t('notifications.title')}>
+      <BottomSheet isOpen={bellOpen} onClose={() => setBellOpen(false)} title={"התראות בזמן אמת"}>
         <div className="space-y-2 pb-2" dir="rtl">
           {notifications.length === 0 ? (
             <div className="flex flex-col items-center py-10 gap-3">
@@ -806,7 +805,7 @@ export function HomePage() {
               >
                 <Bell size={28} className="text-brown-300" />
               </div>
-              <p className="text-center text-brown-400 font-rubik text-sm">{t('notifications.noNotifications')}</p>
+              <p className="text-center text-brown-400 font-rubik text-sm">{"אין התראות עדיין"}</p>
             </div>
           ) : (
             <>
@@ -838,7 +837,7 @@ export function HomePage() {
                   onClick={() => { setBellOpen(false); navigate('/history') }}
                   className="w-full pt-3 pb-1 flex items-center justify-center gap-1.5 font-rubik text-sm font-semibold text-brown-500 active:opacity-70 cursor-pointer"
                 >
-                  {t('notifications.showAll')}
+                  {"הצג הכל"}
                   <ChevronLeft size={14} className="text-brown-400" />
                 </button>
               )}

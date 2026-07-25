@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { t } from '../../lib/strings'
 import { formatTime } from '../../lib/utils'
 import { useEvents } from '../../hooks/useEvents'
 import { BottomSheet } from '../ui/BottomSheet'
@@ -38,7 +37,7 @@ export function CustomTrackerCard({ tracker, familyId, memberId, childId, viewDa
               <div className="min-w-0 flex-1">
                 <p className="font-rubik font-semibold text-brown-800 truncate">{tracker.name}</p>
                 <p className="text-xs text-brown-400 font-rubik truncate">
-                  {loading ? '...' : `${events.length} ${t('tracker.events')}`}
+                  {loading ? '...' : `${events.length} ${"אירועים"}`}
                   {lastEvent ? ` · ${formatTime(lastEvent.occurred_at)}` : ''}
                 </p>
               </div>

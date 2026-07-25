@@ -5,7 +5,6 @@ import {
   Copy, Check, Users, User, Plus, Loader2, UserMinus,
 } from 'lucide-react'
 import { goBack } from '../lib/utils'
-import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { useFamilyMembers, updateMember, updateFamily, removeMember } from '../hooks/useFamily'
 import { useChildren, addChild } from '../hooks/useChildren'
@@ -113,11 +112,11 @@ export function FamilyPage() {
     if (isEdit) {
       await updateChild(editChildTarget.id, { name, avatar_url: uploadedUrl, birth_date: birthDate || null, gender: gender || null })
       setEditChildTarget(null)
-      showToast({ message: t('profile.childUpdated'), emoji: '✅' })
+      showToast({ message: "פרטי הילד עודכנו", emoji: '✅' })
     } else {
       await addChild({ familyId: identity.familyId, name, avatarUrl: uploadedUrl, birthDate, gender })
       setAddChildOpen(false)
-      showToast({ message: t('profile.childAdded', { name }), emoji: '👶' })
+      showToast({ message: `${name} נוסף`, emoji: '👶' })
     }
   }
 
@@ -125,7 +124,7 @@ export function FamilyPage() {
     if (!deleteChildTarget) return
     try {
       await deleteChild(deleteChildTarget.id)
-      showToast({ message: t('profile.childRemoved', { name: deleteChildTarget.name }), emoji: '🗑' })
+      showToast({ message: `${deleteChildTarget.name} הוסר`, emoji: '🗑' })
     } catch { /* ignore */ }
     setDeleteChildTarget(null)
   }
@@ -175,7 +174,7 @@ export function FamilyPage() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Baby size={13} className="text-brown-400" />
-              <p className="font-rubik font-bold text-brown-400 text-xs uppercase tracking-widest">{t('profile.childrenSection')}</p>
+              <p className="font-rubik font-bold text-brown-400 text-xs uppercase tracking-widest">{"ילדים 👶"}</p>
             </div>
             {isParent && (
               <button
@@ -184,7 +183,7 @@ export function FamilyPage() {
                 style={{ boxShadow: '0 4px 12px rgba(180,93,20,0.28), inset 0 1px 0 rgba(255,255,255,0.18)' }}
               >
                 <Plus size={14} />
-                {t('profile.addChildButton')}
+                {"+ הוסף"}
               </button>
             )}
           </div>
@@ -201,7 +200,7 @@ export function FamilyPage() {
                 >
                   <Baby size={24} className="text-brown-300" />
                 </div>
-                <span className="font-semibold">{t('children.noChildren')}</span>
+                <span className="font-semibold">{"אין ילדים עדיין"}</span>
               </div>
             </button>
           ) : (
@@ -298,7 +297,7 @@ export function FamilyPage() {
           {/* Code row */}
           <div className="flex items-center justify-between mb-1">
             <div>
-              <p className="text-xs font-bold text-brown-400 font-rubik uppercase tracking-widest mb-1">{t('profile.familyCode')}</p>
+              <p className="text-xs font-bold text-brown-400 font-rubik uppercase tracking-widest mb-1">{"קוד משפחה"}</p>
               <p
                 className="font-rubik font-bold text-3xl tracking-[0.22em] text-brown-800"
                 style={{ letterSpacing: '0.22em' }}
@@ -327,19 +326,19 @@ export function FamilyPage() {
                 style={{ boxShadow: copied ? '0 2px 8px rgba(34,197,94,0.20)' : '0 2px 6px rgba(61,43,31,0.07)' }}
               >
                 {copied
-                  ? <><Check size={14} className="text-green-500" /> {t('common.copied')}</>
-                  : <><Copy size={14} /> {t('common.copy')}</>
+                  ? <><Check size={14} className="text-green-500" /> {"הועתק ✓"}</>
+                  : <><Copy size={14} /> {"העתק"}</>
                 }
               </button>
             </div>
           </div>
-          <p className="text-xs text-brown-400 font-rubik mb-5">{t('profile.familyCodeHint')}</p>
+          <p className="text-xs text-brown-400 font-rubik mb-5">{"שתף עם בני המשפחה כדי שיצטרפו"}</p>
 
           {/* Members */}
           <div className="border-t border-cream-200 pt-4">
             <div className="flex items-center gap-2 mb-3">
               <Users size={13} className="text-brown-400" />
-              <p className="text-xs font-bold text-brown-400 font-rubik uppercase tracking-widest">{t('profile.members')}</p>
+              <p className="text-xs font-bold text-brown-400 font-rubik uppercase tracking-widest">{"בני המשפחה"}</p>
             </div>
             <div className="flex flex-wrap gap-4">
               {members.map(m => (
@@ -360,7 +359,7 @@ export function FamilyPage() {
                   </div>
                   <p className="font-rubik font-medium text-brown-700 text-xs">{m.display_name}</p>
                   {m.id === identity.memberId && (
-                    <span className="text-[10px] text-amber-500 font-rubik font-bold -mt-1">{t('profile.you')}</span>
+                    <span className="text-[10px] text-amber-500 font-rubik font-bold -mt-1">{"אתה"}</span>
                   )}
                   {isParent && m.id !== identity.memberId && (
                     <button
@@ -382,7 +381,7 @@ export function FamilyPage() {
       {/* Dialogs */}
       <ConfirmDialog
         isOpen={!!removingMember}
-        message={t('profile.removeMemberConfirm').replace('{{name}}', removingMember?.display_name ?? '')}
+        message={`להסיר את ${removingMember?.display_name ?? ''} מהמשפחה?`}
         onConfirm={async () => {
           try { await removeMember(removingMember.id) } catch {}
           setRemovingMember(null)
@@ -391,7 +390,7 @@ export function FamilyPage() {
       />
       <ConfirmDialog
         isOpen={!!deleteChildTarget}
-        message={t('profile.deleteChildConfirm', { name: deleteChildTarget?.name ?? '' })}
+        message={`למחוק את ${deleteChildTarget?.name ?? ''}?`}
         onConfirm={handleDeleteChild}
         onCancel={() => setDeleteChildTarget(null)}
         confirmVariant="danger"
@@ -400,14 +399,14 @@ export function FamilyPage() {
       <ChildFormSheet
         isOpen={addChildOpen}
         onClose={() => setAddChildOpen(false)}
-        title={t('children.addChild')}
+        title={"הוסף ילד/ה"}
         onSave={data => handleChildSave(data, false)}
       />
       {editChildTarget && (
         <ChildFormSheet
           isOpen={Boolean(editChildTarget)}
           onClose={() => setEditChildTarget(null)}
-          title={t('children.editChild')}
+          title={"ערוך ילד/ה"}
           initialName={editChildTarget.name}
           initialAvatar={editChildTarget.avatar_url}
           initialBirthDate={editChildTarget.birth_date ?? ''}

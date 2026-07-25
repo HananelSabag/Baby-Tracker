@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { startOfDay, differenceInCalendarDays, subDays } from 'date-fns'
 import api from '../lib/api'
+import { pairSleepEvents } from '../lib/sleepSessions'
 import { TRACKER_TYPES } from '../lib/constants'
 
 // How far back the "recent habits" figures look. Long enough to smooth out a
@@ -167,25 +168,10 @@ function diaperStats(all, recent, windowDays) {
 }
 
 function sleepStats(all, windowDays, windowStart) {
-  // Same pairing rules as SleepCard / HeroCard / ReportsPage: a repeated
-  // 'start' replaces the open one, an 'end' with nothing open is an orphan.
-  const chronological = [...all].sort(
-    (a, b) => new Date(a.occurred_at) - new Date(b.occurred_at)
-  )
-  const sessions = []
-  let open = null
-  for (const ev of chronological) {
-    const type = ev.data?.type
-    if (type === 'start') open = ev
-    else if (type === 'end' && open) {
-      sessions.push({
-        start: new Date(open.occurred_at),
-        end: new Date(ev.occurred_at),
-        ms: new Date(ev.occurred_at) - new Date(open.occurred_at),
-      })
-      open = null
-    }
-  }
+  // Pairing rules live in lib/sleepSessions — shared with SleepCard, HeroCard
+  // and ReportsPage. An in-progress nap is excluded here on purpose: a summary
+  // reports what actually happened, not a stopwatch.
+  const { sessions } = pairSleepEvents(all)
 
   const recent = sessions.filter(s => s.end >= windowStart)
   const recentMs = recent.reduce((sum, s) => sum + s.ms, 0)

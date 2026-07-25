@@ -3,7 +3,6 @@ import {
   Camera, ChevronLeft, ShieldCheck, Users, Bell, LogOut, Lock,
   Loader2, Accessibility, Pencil,
 } from 'lucide-react'
-import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { updateMember, useFamilyMembers } from '../hooks/useFamily'
 import { ROLES, ADMIN_EMAIL, PARENT_ROLES } from '../lib/constants'
@@ -70,9 +69,9 @@ export function ProfilePage() {
       await updateMember(identity.memberId, updates)
       saveIdentity({ familyId: identity.familyId, memberId: identity.memberId, memberName: displayName })
       setRoleSheetOpen(false)
-      showToast({ message: t('profile.profileSaved'), emoji: '✅' })
+      showToast({ message: "הפרופיל נשמר", emoji: '✅' })
     } catch (err) {
-      showToast({ message: err?.message ?? t('errors.saveFailed'), emoji: '⚠️' })
+      showToast({ message: err?.message ?? "שגיאה בשמירה", emoji: '⚠️' })
     } finally {
       setSaving(false)
     }
@@ -169,10 +168,10 @@ export function ProfilePage() {
               </button>
 
               {uploadStatus === 'success' && (
-                <p className="text-xs text-green-600 font-rubik font-semibold mt-1">{t('profile.photoUploaded')}</p>
+                <p className="text-xs text-green-600 font-rubik font-semibold mt-1">{"✓ התמונה הועלתה"}</p>
               )}
               {uploadStatus === 'error' && (
-                <p className="text-xs text-red-500 font-rubik font-semibold mt-1">{t('profile.photoError')}</p>
+                <p className="text-xs text-red-500 font-rubik font-semibold mt-1">{"✗ שגיאה בהעלאה"}</p>
               )}
             </div>
           </div>
@@ -188,7 +187,7 @@ export function ProfilePage() {
               }}
             >
               <ShieldCheck size={14} className="text-brown-700" />
-              <span className="font-rubik font-bold text-brown-700 text-sm">{t('profile.admin')}</span>
+              <span className="font-rubik font-bold text-brown-700 text-sm">{"ניהול מערכת"}</span>
             </button>
           )}
         </div>
@@ -245,7 +244,7 @@ export function ProfilePage() {
             icon={<LogOut size={20} className="text-red-400" />}
             iconBg="bg-red-50"
             iconBorder="border-red-100"
-            label={t('profile.signOut')}
+            label={"התנתק"}
             labelClass="text-red-500"
             hoverBg="active:bg-red-50"
             onClick={() => setSignOutConfirm(true)}
@@ -268,10 +267,10 @@ export function ProfilePage() {
       {/* ── Dialogs ── */}
       <ConfirmDialog
         isOpen={signOutConfirm}
-        message={t('profile.signOutConfirm')}
+        message={"להתנתק?"}
         onConfirm={signOut}
         onCancel={() => setSignOutConfirm(false)}
-        confirmLabel={t('auth.signOut')}
+        confirmLabel={"התנתק"}
         confirmVariant="secondary"
       />
 
@@ -328,7 +327,7 @@ export function ProfilePage() {
                 type="text"
                 value={customRole}
                 onChange={e => setCustomRole(e.target.value)}
-                placeholder={t('setup.customRolePlaceholder')}
+                placeholder={"הכנס תפקיד..."}
                 className="w-full bg-cream-100 rounded-2xl px-4 py-3 font-rubik text-brown-800 outline-none text-sm border border-cream-200 focus:border-amber-300 transition-colors duration-150"
               />
             </div>
@@ -339,7 +338,7 @@ export function ProfilePage() {
             onClick={handleSaveRole}
             disabled={saving || (role === 'אחר' && !customRole.trim())}
           >
-            {saving ? t('app.loading') : 'שמור תפקיד'}
+            {saving ? "טוען..." : 'שמור תפקיד'}
           </Button>
         </div>
       </BottomSheet>

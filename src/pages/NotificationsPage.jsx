@@ -9,9 +9,9 @@ import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
 import { usePushNotifications, DEFAULT_PREFS } from '../hooks/usePushNotifications'
 import { STORAGE_KEYS, PREFS_CHANGED_EVENT } from '../lib/constants'
+import { resolveDoses } from '../lib/doseConfig'
 import { cn } from '../lib/utils'
 
-const DOSE_EMOJIS = ['☀️', '🌙', '🌅', '🌤', '⭐', '💫']
 const DIAPER_HOUR_OPTIONS = [3, 4, 5]
 
 function Toggle({ on, onChange, disabled }) {
@@ -84,10 +84,10 @@ export function NotificationsPage() {
 
   function getDisplayTimes(tracker) {
     if (localTimes[tracker.id]) return localTimes[tracker.id]
-    const config = tracker.config ?? {}
-    const count = config.daily_doses ?? 1
-    const stored = config.notification_times ?? []
-    // Pad to doseCount with empty strings
+    // Slot count comes from the shared resolver so the reminder rows always
+    // line up one-to-one with the dose buttons on the home card.
+    const count = resolveDoses(tracker).length
+    const stored = tracker.config?.notification_times ?? []
     return Array.from({ length: count }, (_, i) => stored[i] ?? '')
   }
 
@@ -256,9 +256,9 @@ export function NotificationsPage() {
           </div>
 
           {doseTrackers.map(tracker => {
-            const config = tracker.config ?? {}
-            const doseCount = config.daily_doses ?? 1
-            const doseLabels = config.dose_labels ?? []
+            // Same resolver the home cards use, so labels and emoji match.
+            const doses = resolveDoses(tracker)
+            const doseCount = doses.length
             const displayTimes = getDisplayTimes(tracker)
             const enabled = isTrackerEnabled(tracker.id)
             const isDirty = dirty[tracker.id]
@@ -303,20 +303,15 @@ export function NotificationsPage() {
                       <p className="font-rubik text-xs font-semibold text-brown-400 mb-2">
                         שעת תזכורת לכל מינון (אם לא ניתן עד השעה הזו):
                       </p>
-                      {Array.from({ length: doseCount }, (_, i) => {
-                        const label = doseLabels[i] || `מינון ${i + 1}`
+                      {doses.map((dose, i) => {
                         const timeVal = displayTimes[i] ?? ''
                         return (
                           <div
-                            key={i}
+                            key={dose.key}
                             className="flex items-center gap-3 bg-cream-50 rounded-2xl px-3 py-3 border border-cream-200"
                           >
-                            {/* Prefer the tracker's own configured emoji so this
-                                screen matches the home card, not a fixed list. */}
-                            <span className="text-lg flex-shrink-0">
-                              {config.dose_emojis?.[i] ?? DOSE_EMOJIS[i % DOSE_EMOJIS.length]}
-                            </span>
-                            <p className="font-rubik text-sm font-medium text-brown-700 flex-1">{label}</p>
+                            <span className="text-lg flex-shrink-0">{dose.emoji}</span>
+                            <p className="font-rubik text-sm font-medium text-brown-700 flex-1">{dose.label}</p>
                             <div className="flex items-center gap-1.5 bg-white rounded-xl px-2 py-1.5 border border-cream-200 flex-shrink-0">
                               <Clock size={13} className="text-brown-400" />
                               <input

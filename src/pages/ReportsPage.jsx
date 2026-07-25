@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect } from 'react'
-import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
 import { useEvents } from '../hooks/useEvents'
 import { useChildren } from '../hooks/useChildren'
+import { pairSleepEvents as sharedPairSleepEvents } from '../lib/sleepSessions'
 import { TRACKER_TYPES } from '../lib/constants'
 import { supabase } from '../lib/supabase'
 import { formatAge } from '../lib/utils'
@@ -85,22 +85,10 @@ function deltaVs(thisTotal, lastTotal, weekOffset = 0, elapsedDays = 7) {
 }
 
 // Pair sleep start/end events robustly — handles duplicate starts and orphan ends.
+// Thin adapter over lib/sleepSessions so this page can't drift from the cards.
+// It keeps the { start, end } Date shape the charts below already consume.
 function pairSleepEvents(events) {
-  const sorted = [...events].sort(
-    (a, b) => new Date(a.occurred_at) - new Date(b.occurred_at)
-  )
-  const pairs = []
-  let openStart = null
-  for (const ev of sorted) {
-    const type = ev.data?.type
-    if (type === 'start') {
-      openStart = ev
-    } else if (type === 'end' && openStart) {
-      pairs.push({ start: openStart, end: ev })
-      openStart = null
-    }
-  }
-  return pairs
+  return sharedPairSleepEvents(events).sessions.filter(s => s.end)
 }
 
 // ── Main page ────────────────────────────────────────────────────────────────
@@ -190,7 +178,7 @@ export function ReportsPage() {
       case TRACKER_TYPES.SLEEP: {
         const pairs = pairSleepEvents(trEvents)
         const hours = pairs.reduce(
-          (s, p) => s + (new Date(p.end.occurred_at) - new Date(p.start.occurred_at)) / 3600000, 0
+          (s, p) => s + p.ms / 3600000, 0
         )
         return { num: Math.round(hours * 10) / 10, unit: 'hours' }
       }
@@ -222,7 +210,7 @@ export function ReportsPage() {
         case TRACKER_TYPES.SLEEP: {
           const pairs = pairSleepEvents(trEvents)
           const totalHours = pairs.reduce(
-            (s, p) => s + (new Date(p.end.occurred_at) - new Date(p.start.occurred_at)) / 3600000, 0
+            (s, p) => s + p.ms / 3600000, 0
           )
           map[tr.id] = { value: Math.round(totalHours * 10) / 10, unit: "שע' שינה", delta }
           break
@@ -379,7 +367,7 @@ export function ReportsPage() {
     <div className="px-4 pt-6 pb-6 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="font-rubik font-bold text-2xl text-brown-800">{t('reports.title')}</h1>
+        <h1 className="font-rubik font-bold text-2xl text-brown-800">{"דוחות"}</h1>
         <div className="flex items-center gap-2">
           {activeChild?.birth_date && (
             <div
@@ -441,7 +429,7 @@ export function ReportsPage() {
           >
             <BarChart2 size={28} className="text-brown-400" />
           </div>
-          <p className="font-rubik font-semibold text-brown-600">{t('reports.noData')}</p>
+          <p className="font-rubik font-semibold text-brown-600">{"אין מעקבים פעילים"}</p>
         </div>
       ) : (
         <>
@@ -980,8 +968,8 @@ function TrackerChartContent({ tracker, weekEvents, prevWeekEvents, weekDays, pr
     const weekPairs = pairSleepEvents(weekEvents)
     const data = weekDays.map(day => {
       const ms = weekPairs
-        .filter(p => isSameDay(new Date(p.start.occurred_at), day))
-        .reduce((sum, p) => sum + (new Date(p.end.occurred_at) - new Date(p.start.occurred_at)), 0)
+        .filter(p => isSameDay(p.start, day))
+        .reduce((sum, p) => sum + p.ms, 0)
       return { day: dayLabel(day), hours: Math.round(ms / 3600000 * 10) / 10 }
     }).reverse()
 
@@ -1575,7 +1563,7 @@ function DryEvents({ events, tracker }) {
   function summarise(e) {
     if (!e.data || Object.keys(e.data).length === 0) return null
     if (tracker.tracker_type === TRACKER_TYPES.DIAPER) {
-      const map = { wet: t('diaper.wet'), dirty: t('diaper.dirty'), both: t('diaper.both') }
+      const map = { wet: "שתן", dirty: "צואה", both: "שניהם" }
       return map[e.data.type] ?? ''
     }
     if (tracker.tracker_type === TRACKER_TYPES.FEEDING && e.data.amount_ml) {
@@ -1590,7 +1578,7 @@ function DryEvents({ events, tracker }) {
 
   return (
     <div>
-      <p className="font-rubik font-semibold text-brown-600 text-xs uppercase tracking-wide mb-2">{t('reports.recent')}</p>
+      <p className="font-rubik font-semibold text-brown-600 text-xs uppercase tracking-wide mb-2">{"אחרונות"}</p>
       <div className="space-y-1.5">
         {sorted.map(e => {
           const summary = summarise(e)

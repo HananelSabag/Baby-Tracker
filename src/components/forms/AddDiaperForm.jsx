@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { format } from 'date-fns'
-import { t } from '../../lib/strings'
 import { Button } from '../ui/Button'
 import { cn, composeOccurredAt } from '../../lib/utils'
 
 const DIAPER_TYPES = [
-  { key: 'wet', label: t('diaper.wet'), emoji: '💧' },
-  { key: 'dirty', label: t('diaper.dirty'), emoji: '💩' },
-  { key: 'both', label: t('diaper.both'), emoji: '💧💩' },
+  { key: 'wet', label: "שתן", emoji: '💧' },
+  { key: 'dirty', label: "צואה", emoji: '💩' },
+  { key: 'both', label: "שניהם", emoji: '💧💩' },
 ]
 
 export function AddDiaperForm({ onSave, onCancel, loading, initialData, initialTime, baseDate }) {
@@ -40,7 +39,7 @@ export function AddDiaperForm({ onSave, onCancel, loading, initialData, initialT
 
       {/* Time */}
       <div>
-        <p className="text-sm font-medium text-brown-600 mb-2">{t('diaper.time')}</p>
+        <p className="text-sm font-medium text-brown-600 mb-2">{"שעה"}</p>
         <input
           type="time"
           value={time}
@@ -50,14 +49,14 @@ export function AddDiaperForm({ onSave, onCancel, loading, initialData, initialT
       </div>
 
       <div className="flex gap-3 pt-2">
-        <Button variant="secondary" className="flex-1" onClick={onCancel}>{t('diaper.cancel')}</Button>
+        <Button variant="secondary" className="flex-1" onClick={onCancel}>{"ביטול"}</Button>
         <Button
           className="flex-1"
           style={{ backgroundColor: '#9B8EC4' }}
           onClick={handleSave}
           disabled={!type || loading}
         >
-          {t('diaper.save')}
+          {"שמור"}
         </Button>
       </div>
     </div>

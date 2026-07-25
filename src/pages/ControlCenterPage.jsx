@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Settings2, Pencil, Trash2, Plus, LayoutGrid, List, ChevronLeft } from 'lucide-react'
-import { t } from '../lib/strings'
 import { useApp } from '../hooks/useAppContext'
 import { useTrackers } from '../hooks/useTrackers'
 import { TRACKER_COLORS, TRACKER_ARCHETYPES, TRACKER_ICON_CATEGORIES, ARCHETYPE_ICON_CATEGORY_IDS } from '../lib/constants'
+import {
+  DOSE_DEFAULT_LABELS as DEFAULT_DOSE_LABELS, DOSE_DEFAULT_EMOJIS, DOSE_TIME_EMOJIS,
+  MAX_DOSES, autoEmojiForLabel, padToCount,
+} from '../lib/doseConfig'
 import { Button } from '../components/ui/Button'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
@@ -14,31 +17,7 @@ import { cn } from '../lib/utils'
 
 // Wizard steps
 const WIZARD_STEPS = { ARCHETYPE: 'archetype', IDENTITY: 'identity', DOSE_CONFIG: 'dose_config', DISPLAY_MODE: 'display_mode', MEASURE_CONFIG: 'measure_config' }
-const DOSE_DEFAULT_EMOJIS = ['☀️', '🌙', '🌅', '🌤', '⭐', '💫']
-const DOSE_TIME_EMOJIS    = ['☀️', '🌤', '🌅', '🌙', '⭐', '💫', '🌛', '🌞', '💊', '🕐', '🌿', '🍃']
 const MEASURE_UNITS = ['מ"ל', 'גרם', '°C', 'ס"מ', 'ק"ג', 'אחר']
-const DEFAULT_DOSE_LABELS = ['בוקר', 'ערב', 'צהריים', 'לילה', 'בוקר מאוחר', 'ערב מוקדם']
-const MAX_DOSES = 6
-
-// A tracker saved with 2 doses has only 2 labels/emojis stored. Raising the
-// dose count later must not leave the extra slots undefined — that rendered
-// nameless buttons on the home card. Pad from the defaults, keep what exists.
-function padToCount(values, count, defaults) {
-  return Array.from({ length: count }, (_, i) => {
-    const v = values?.[i]
-    return (typeof v === 'string' && v.trim()) ? v : defaults[i % defaults.length]
-  })
-}
-
-function autoEmojiForLabel(label) {
-  if (!label) return null
-  if (label.includes('בוקר')) return '☀️'
-  if (label.includes('ערב'))  return '🌙'
-  if (label.includes('צהר')) return '🌤'
-  if (label.includes('לילה')) return '⭐'
-  if (label.includes('שחר')) return '🌅'
-  return null
-}
 
 function archetypeCategories(archetypeId) {
   const ids = ARCHETYPE_ICON_CATEGORY_IDS[archetypeId] ?? TRACKER_ICON_CATEGORIES.map(c => c.id)
@@ -143,7 +122,7 @@ function TrackersTab({ familyId, openAdd }) {
         <h1 className="font-rubik font-bold text-2xl text-brown-800 leading-tight">המעקבים שלי</h1>
         <Button onClick={() => setAddSheetOpen(true)} className="shadow-soft text-sm px-4 py-2 flex items-center gap-1.5">
           <Plus size={15} />
-          {t('settings.addTracker')}
+          {"הוסף מעקב"}
         </Button>
       </div>
 
@@ -194,7 +173,7 @@ function TrackersTab({ familyId, openAdd }) {
                     style={{ boxShadow: '0 1px 4px rgba(61,43,31,0.06)' }}
                   >
                     <Settings2 size={13} />
-                    {t('settings.dosesButton')}
+                    {"מינונים"}
                   </button>
                 )}
                 <button
@@ -203,7 +182,7 @@ function TrackersTab({ familyId, openAdd }) {
                   style={{ boxShadow: '0 1px 4px rgba(61,43,31,0.06)' }}
                 >
                   <Pencil size={13} />
-                  {t('common.edit')}
+                  {"ערוך"}
                 </button>
                 {!isDefault ? (
                   <button
@@ -212,7 +191,7 @@ function TrackersTab({ familyId, openAdd }) {
                     style={{ boxShadow: '0 1px 4px rgba(239,68,68,0.06)' }}
                   >
                     <Trash2 size={13} />
-                    {t('common.delete')}
+                    {"מחק"}
                   </button>
                 ) : (
                   <span className="text-xs font-rubik text-brown-300 mr-auto">לא ניתן למחיקה</span>
@@ -233,7 +212,7 @@ function TrackersTab({ familyId, openAdd }) {
             >
               <Plus size={22} className="text-brown-400" />
             </div>
-            {t('settings.addTracker')}
+            {"הוסף מעקב"}
           </button>
         )}
       </div>
@@ -256,7 +235,7 @@ function TrackersTab({ familyId, openAdd }) {
           onSave={async config => {
             await updateTracker(editTarget.id, { config })
             setEditTarget(null)
-            showToast({ message: t('settings.dosesSaved'), emoji: '💊' })
+            showToast({ message: "המינונים נשמרו", emoji: '💊' })
           }}
         />
       )}
@@ -269,14 +248,14 @@ function TrackersTab({ familyId, openAdd }) {
           onSave={async updates => {
             await updateTracker(editTrackerTarget.id, updates)
             setEditTrackerTarget(null)
-            showToast({ message: t('settings.trackerUpdated', { name: updates.name || editTrackerTarget.name }), emoji: '✅' })
+            showToast({ message: `${updates.name || editTrackerTarget.name} עודכן`, emoji: '✅' })
           }}
         />
       )}
 
       <ConfirmDialog
         isOpen={Boolean(deleteTarget)}
-        message={t('settings.deleteTrackerConfirm')}
+        message={"למחוק את המעקב הזה? כל הנתונים יאבדו."}
         onConfirm={async () => { await deleteTracker(deleteTarget); setDeleteTarget(null) }}
         onCancel={() => setDeleteTarget(null)}
       />
@@ -317,10 +296,10 @@ function DoseConfigSheet({ tracker, isOpen, onClose, onSave }) {
   }
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title={t('settings.doseConfigTitle', { name: tracker.name })}>
+    <BottomSheet isOpen={isOpen} onClose={onClose} title={`הגדרת מינונים — ${tracker.name}`}>
       <div className="space-y-5">
         <div>
-          <p className="text-sm font-medium text-brown-600 mb-3">{t('settings.dosesPerDay')}</p>
+          <p className="text-sm font-medium text-brown-600 mb-3">{"מינונים ביום"}</p>
           <div className="flex gap-2">
             {Array.from({ length: MAX_DOSES }, (_, i) => i + 1).map(n => (
               <button
@@ -339,7 +318,7 @@ function DoseConfigSheet({ tracker, isOpen, onClose, onSave }) {
         </div>
 
         <div>
-          <p className="text-sm font-medium text-brown-600 mb-3">{t('settings.doseName')}</p>
+          <p className="text-sm font-medium text-brown-600 mb-3">{"שם כל מינון"}</p>
           <div className="space-y-2">
             {Array.from({ length: doseCount }, (_, i) => {
               const pickerOpen = emojiPickerOpen === i
@@ -365,7 +344,7 @@ function DoseConfigSheet({ tracker, isOpen, onClose, onSave }) {
                         const auto = autoEmojiForLabel(val)
                         if (auto) setDoseEmojis(prev => prev.map((em, idx) => idx === i ? auto : em))
                       }}
-                      placeholder={t('settings.dosePlaceholder', { number: i + 1 })}
+                      placeholder={`מינון ${i + 1}`}
                       className="flex-1 bg-transparent font-rubik text-brown-800 outline-none text-base"
                     />
                   </div>
@@ -403,9 +382,9 @@ function DoseConfigSheet({ tracker, isOpen, onClose, onSave }) {
         </div>
 
         <div className="flex gap-3 pt-1">
-          <Button variant="secondary" className="flex-1" onClick={onClose}>{t('common.cancel')}</Button>
+          <Button variant="secondary" className="flex-1" onClick={onClose}>{"ביטול"}</Button>
           <Button className="flex-1" onClick={handleSave} disabled={saving}>
-            {saving ? t('app.loading') : t('common.save')}
+            {saving ? "טוען..." : "שמור"}
           </Button>
         </div>
       </div>
@@ -436,10 +415,10 @@ function EditTrackerSheet({ tracker, isOpen, onClose, onSave }) {
   }
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title={t('settings.editTracker')}>
+    <BottomSheet isOpen={isOpen} onClose={onClose} title={"ערוך מעקב"}>
       <div className="space-y-4">
         <div>
-          <p className="text-sm font-medium text-brown-600 mb-2">{t('settings.trackerName')}</p>
+          <p className="text-sm font-medium text-brown-600 mb-2">{"שם המעקב"}</p>
           <input
             type="text"
             value={name}
@@ -462,7 +441,7 @@ function EditTrackerSheet({ tracker, isOpen, onClose, onSave }) {
           </div>
         )}
         <div>
-          <p className="text-sm font-medium text-brown-600 mb-2">{t('settings.trackerIcon')}</p>
+          <p className="text-sm font-medium text-brown-600 mb-2">{"אייקון"}</p>
           <IconPicker
             categories={TRACKER_ICON_CATEGORIES}
             value={icon}
@@ -471,7 +450,7 @@ function EditTrackerSheet({ tracker, isOpen, onClose, onSave }) {
           />
         </div>
         <div>
-          <p className="text-sm font-medium text-brown-600 mb-2">{t('settings.trackerColor')}</p>
+          <p className="text-sm font-medium text-brown-600 mb-2">{"צבע"}</p>
           <div className="flex flex-wrap gap-2">
             {TRACKER_COLORS.map(c => (
               <button key={c} onClick={() => setColor(c)}
@@ -481,9 +460,9 @@ function EditTrackerSheet({ tracker, isOpen, onClose, onSave }) {
           </div>
         </div>
         <div className="flex gap-3 pt-1">
-          <Button variant="secondary" className="flex-1" onClick={onClose}>{t('common.cancel')}</Button>
+          <Button variant="secondary" className="flex-1" onClick={onClose}>{"ביטול"}</Button>
           <Button className="flex-1" onClick={handleSave} disabled={saving || !name.trim()}>
-            {saving ? t('app.loading') : t('common.save')}
+            {saving ? "טוען..." : "שמור"}
           </Button>
         </div>
       </div>
@@ -595,11 +574,11 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
   }
 
   const stepTitle = {
-    [WIZARD_STEPS.ARCHETYPE]:     t('settings.addTracker'),
-    [WIZARD_STEPS.IDENTITY]:      t('settings.wizardIdentity'),
-    [WIZARD_STEPS.DOSE_CONFIG]:   t('settings.wizardDoseConfig'),
-    [WIZARD_STEPS.DISPLAY_MODE]:  t('settings.displayMode'),
-    [WIZARD_STEPS.MEASURE_CONFIG]: t('settings.wizardMeasure'),
+    [WIZARD_STEPS.ARCHETYPE]:     "הוסף מעקב",
+    [WIZARD_STEPS.IDENTITY]:      "שם ועיצוב",
+    [WIZARD_STEPS.DOSE_CONFIG]:   "הגדרת מינונים",
+    [WIZARD_STEPS.DISPLAY_MODE]:  "תצוגה בדף הבית",
+    [WIZARD_STEPS.MEASURE_CONFIG]: "פרטי המדידה",
   }[step]
 
   return (
@@ -653,7 +632,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
         {step === WIZARD_STEPS.IDENTITY && (
           <>
             <div>
-              <p className="text-sm font-medium text-brown-600 mb-2">{t('settings.trackerName')}</p>
+              <p className="text-sm font-medium text-brown-600 mb-2">{"שם המעקב"}</p>
               <input
                 type="text"
                 value={name}
@@ -678,7 +657,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
               </div>
             )}
             <div>
-              <p className="text-sm font-medium text-brown-600 mb-2">{t('settings.trackerIcon')}</p>
+              <p className="text-sm font-medium text-brown-600 mb-2">{"אייקון"}</p>
               <IconPicker
                 categories={archetypeCategories(archetype?.id)}
                 value={icon}
@@ -687,7 +666,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
               />
             </div>
             <div>
-              <p className="text-sm font-medium text-brown-600 mb-2">{t('settings.trackerColor')}</p>
+              <p className="text-sm font-medium text-brown-600 mb-2">{"צבע"}</p>
               <div className="flex flex-wrap gap-2">
                 {TRACKER_COLORS.map(c => (
                   <button
@@ -719,11 +698,11 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
               <p className="text-xs font-rubik text-red-600 bg-red-50 rounded-2xl px-3 py-2 border border-red-100">{saveError}</p>
             )}
             <div className="flex gap-3 pt-1">
-              <Button variant="secondary" className="flex-1" onClick={() => setStep(WIZARD_STEPS.ARCHETYPE)}>{t('common.back')}</Button>
+              <Button variant="secondary" className="flex-1" onClick={() => setStep(WIZARD_STEPS.ARCHETYPE)}>{"חזור"}</Button>
               <Button className="flex-1" onClick={handleIdentityNext} disabled={!name.trim() || saving}>
                 {(archetype.id === 'dose' || archetype.id === 'measure')
-                  ? t('settings.nextButton')
-                  : saving ? t('app.loading') : t('common.save')}
+                  ? "הבא ←"
+                  : saving ? "טוען..." : "שמור"}
               </Button>
             </div>
           </>
@@ -732,7 +711,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
         {/* ── DOSE_CONFIG ── */}
         {step === WIZARD_STEPS.DOSE_CONFIG && (
           <>
-            <p className="text-sm font-medium text-brown-600">{t('settings.howManyDoses')}</p>
+            <p className="text-sm font-medium text-brown-600">{"כמה מינונים ביום?"}</p>
             <div className="flex gap-2">
               {[1, 2, 3, 4, 5, 6].map(n => (
                 <button
@@ -746,7 +725,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
                 </button>
               ))}
             </div>
-            <p className="text-sm font-medium text-brown-600">{t('settings.doseName')}</p>
+            <p className="text-sm font-medium text-brown-600">{"שם כל מינון"}</p>
             <div className="space-y-2">
               {Array.from({ length: doseCount }, (_, i) => {
                 const pickerOpen = emojiPickerOpen === i
@@ -772,7 +751,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
                           const auto = autoEmojiForLabel(val)
                           if (auto) setDoseEmojis(prev => prev.map((em, idx) => idx === i ? auto : em))
                         }}
-                        placeholder={t('settings.dosePlaceholder', { number: i + 1 })}
+                        placeholder={`מינון ${i + 1}`}
                         className="flex-1 bg-transparent font-rubik text-brown-800 outline-none"
                       />
                     </div>
@@ -796,8 +775,8 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
             </div>
             <p className="font-rubik text-brown-300 text-xs text-center -mt-1">לחץ על האמוג'י לשינוי</p>
             <div className="flex gap-3 pt-1">
-              <Button variant="secondary" className="flex-1" onClick={() => setStep(WIZARD_STEPS.IDENTITY)}>{t('common.back')}</Button>
-              <Button className="flex-1" onClick={handleDoseNext}>{t('settings.nextButton')}</Button>
+              <Button variant="secondary" className="flex-1" onClick={() => setStep(WIZARD_STEPS.IDENTITY)}>{"חזור"}</Button>
+              <Button className="flex-1" onClick={handleDoseNext}>{"הבא ←"}</Button>
             </div>
           </>
         )}
@@ -805,11 +784,11 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
         {/* ── DISPLAY_MODE ── */}
         {step === WIZARD_STEPS.DISPLAY_MODE && (
           <>
-            <p className="text-sm text-brown-400 font-rubik text-center mb-2">{t('settings.displayModeQuestion', { name })}</p>
+            <p className="text-sm text-brown-400 font-rubik text-center mb-2">{`איך להציג את ${name} בדף הבית?`}</p>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { mode: 'buttons', Icon: LayoutGrid, label: t('settings.displayModeButtons'), desc: t('settings.displayModeButtonsDesc') },
-                { mode: 'simple',  Icon: List,       label: t('settings.displayModeSimple'),  desc: t('settings.displayModeSimpleDesc') },
+                { mode: 'buttons', Icon: LayoutGrid, label: "כפתורי מינון", desc: "לחצן לכל מינון — בוקר, ערב..." },
+                { mode: 'simple',  Icon: List,       label: "אירוע פשוט",  desc: "כפתור + בלבד, ללא בחירת מינון" },
               ].map(({ mode, Icon, label, desc }) => (
                 <button
                   key={mode}
@@ -828,7 +807,7 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
               <p className="text-xs font-rubik text-red-600 bg-red-50 rounded-2xl px-3 py-2 border border-red-100">{saveError}</p>
             )}
             <Button variant="secondary" className="w-full mt-1" onClick={() => setStep(WIZARD_STEPS.DOSE_CONFIG)}>
-              {t('common.back')}
+              {"חזור"}
             </Button>
           </>
         )}
@@ -906,13 +885,13 @@ function AddTrackerWizard({ isOpen, onClose, onAdd }) {
               <p className="text-xs font-rubik text-red-600 bg-red-50 rounded-2xl px-3 py-2 border border-red-100">{saveError}</p>
             )}
             <div className="flex gap-3 pt-1">
-              <Button variant="secondary" className="flex-1" onClick={() => setStep(WIZARD_STEPS.IDENTITY)}>{t('common.back')}</Button>
+              <Button variant="secondary" className="flex-1" onClick={() => setStep(WIZARD_STEPS.IDENTITY)}>{"חזור"}</Button>
               <Button
                 className="flex-1"
                 onClick={() => handleSave()}
                 disabled={saving || !measureLabel.trim()}
               >
-                {saving ? t('app.loading') : t('common.save')}
+                {saving ? "טוען..." : "שמור"}
               </Button>
             </div>
           </>

@@ -1,4 +1,3 @@
-import { t } from '../../lib/strings'
 import { Button } from './Button'
 
 export function ConfirmDialog({ isOpen, message, onConfirm, onCancel, confirmLabel, confirmVariant = 'danger' }) {
@@ -11,10 +10,10 @@ export function ConfirmDialog({ isOpen, message, onConfirm, onCancel, confirmLab
         <p className="font-rubik text-brown-800 text-center text-base mb-6">{message}</p>
         <div className="flex gap-3">
           <Button variant="secondary" className="flex-1" onClick={onCancel}>
-            {t('common.cancel')}
+            {"ביטול"}
           </Button>
           <Button variant={confirmVariant} className="flex-1" onClick={onConfirm}>
-            {confirmLabel ?? t('common.delete')}
+            {confirmLabel ?? "מחק"}
           </Button>
         </div>
       </div>
