@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { startOfDay, differenceInCalendarDays, subDays } from 'date-fns'
-import { supabase } from '../lib/supabase'
+import api from '../lib/api'
 import { TRACKER_TYPES } from '../lib/constants'
 
 // How far back the "recent habits" figures look. Long enough to smooth out a
@@ -38,19 +38,14 @@ export function useChildSummary(familyId, childId, trackers) {
       return
     }
     setLoading(true)
-    supabase
-      .from('events')
-      .select('id, tracker_id, member_id, occurred_at, data')
-      .eq('family_id', familyId)
-      .eq('child_id', childId)
-      .order('occurred_at', { ascending: false })
-      .limit(EVENT_LIMIT)
-      .then(({ data }) => {
+    api.events.listForChild(familyId, childId, EVENT_LIMIT)
+      .then(data => {
         if (cancelled) return
         setEvents(data ?? [])
         setTruncated((data?.length ?? 0) >= EVENT_LIMIT)
         setLoading(false)
       })
+      .catch(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [familyId, childId])
 

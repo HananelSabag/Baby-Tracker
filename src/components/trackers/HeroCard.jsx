@@ -3,7 +3,7 @@ import { isToday as isTodayFn, isYesterday } from 'date-fns'
 import { TRACKER_TYPES } from '../../lib/constants'
 import { formatTime, formatTimeAgo, cn } from '../../lib/utils'
 import { ageInMonths, getWeightPercentileLabel, getHeightPercentileLabel } from '../../lib/whoGrowthData'
-import { supabase } from '../../lib/supabase'
+import api from '../../lib/api'
 import { BarChart2 } from 'lucide-react'
 
 const FALLBACK_DOSE_EMOJIS = ['☀️', '🌤', '🌙', '⭐', '💫', '🌅']
@@ -62,13 +62,16 @@ function DoseChip({ tracker, events, familyId, memberId, childId, isToday }) {
     const key = String(i)
     if (pending.has(key)) return
 
+    // Both paths go through the api so the events cache is invalidated on the
+    // spot. Writing straight to supabase here left the cached day stale until
+    // the realtime round-trip landed.
     if (given.has(key)) {
       // Undo — delete the event for this dose
       const eventToDelete = events.find(e => String(e.data?.dose_index ?? e.data?.dose) === key)
       if (!eventToDelete) return
       setPending(prev => new Set([...prev, key]))
       try {
-        await supabase.from('events').delete().eq('id', eventToDelete.id)
+        await api.events.remove(familyId, eventToDelete.id)
       } finally {
         setPending(prev => { const s = new Set(prev); s.delete(key); return s })
       }
@@ -76,12 +79,11 @@ function DoseChip({ tracker, events, familyId, memberId, childId, isToday }) {
       // Give dose
       setPending(prev => new Set([...prev, key]))
       try {
-        await supabase.from('events').insert({
-          family_id: familyId,
-          tracker_id: tracker.id,
-          member_id: memberId,
-          child_id: childId,
-          occurred_at: new Date().toISOString(),
+        await api.events.create(familyId, {
+          trackerId: tracker.id,
+          memberId,
+          childId,
+          occurredAt: new Date().toISOString(),
           data: { dose_index: i, dose_label: doseLabels[i] ?? `מינון ${i + 1}` },
         })
       } finally {
@@ -271,14 +273,11 @@ export function HeroCard({ trackers, eventsByTracker, isToday, child, familyId, 
       setLastEverFeeding(null)
       return
     }
-    let query = supabase.from('events')
-      .select('*')
-      .eq('family_id', familyId)
-      .eq('tracker_id', feedingTracker.id)
-      .order('occurred_at', { ascending: false })
-      .limit(1)
-    if (childId) query = query.eq('child_id', childId)
-    query.then(({ data }) => setLastEverFeeding(data?.[0] ?? null))
+    let cancelled = false
+    api.events
+      .latestForTracker(familyId, feedingTracker.id, childId)
+      .then(row => { if (!cancelled) setLastEverFeeding(row) })
+    return () => { cancelled = true }
   }, [familyId, feedingTracker?.id, childId, feedingEvents.length])
 
   const anySleeping = useMemo(() => {
