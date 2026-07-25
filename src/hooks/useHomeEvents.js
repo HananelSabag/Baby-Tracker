@@ -1,57 +1,43 @@
-import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../lib/supabase'
-import { startOfDay, endOfDay } from 'date-fns'
+import { useMemo, useCallback } from 'react'
+import api, { keys } from '../lib/api'
+import { useRealtimeQuery } from './useRealtimeQuery'
 
+/**
+ * All of one day's events for the home page, grouped by tracker.
+ *
+ * Shares the exact same cache entry as every `useEvents({ date })` on screen,
+ * so the hero card and the tracker cards below it are served by a single
+ * request rather than one each.
+ */
 export function useHomeEvents(familyId, viewDate, childId) {
-  const [eventsByTracker, setEventsByTracker] = useState({})
-  const [loading, setLoading] = useState(true)
+  const dateIso = viewDate?.toISOString() ?? null
 
-  const fetchAll = useCallback(async () => {
-    if (!familyId) { setEventsByTracker({}); setLoading(false); return }
-    let query = supabase
-      .from('events')
-      .select('*')
-      .eq('family_id', familyId)
-      .gte('occurred_at', startOfDay(viewDate).toISOString())
-      .lte('occurred_at', endOfDay(viewDate).toISOString())
-      .order('occurred_at', { ascending: false })
+  const { cacheKey, fetcher } = useMemo(() => {
+    if (!familyId) return { cacheKey: null, fetcher: async () => [] }
+    const day = dateIso ? new Date(dateIso) : new Date()
+    return {
+      cacheKey: keys.eventsDay(familyId, childId, day),
+      fetcher: () => api.events.listDay(familyId, childId, day),
+    }
+  }, [familyId, childId, dateIso])
 
-    if (childId) query = query.eq('child_id', childId)
+  const { data, loading } = useRealtimeQuery({
+    familyId,
+    table: 'events',
+    cacheKey,
+    fetcher,
+    initialData: EMPTY,
+  })
 
-    const { data } = await query
+  const eventsByTracker = useMemo(() => {
     const grouped = {}
-    for (const ev of (data ?? [])) {
-      if (!grouped[ev.tracker_id]) grouped[ev.tracker_id] = []
-      grouped[ev.tracker_id].push(ev)
+    for (const ev of (data ?? EMPTY)) {
+      ;(grouped[ev.tracker_id] ??= []).push(ev)
     }
-    setEventsByTracker(grouped)
-    setLoading(false)
-  }, [familyId, viewDate?.toISOString(), childId])
-
-  useEffect(() => {
-    fetchAll()
-    if (!familyId) return // nothing to subscribe to yet
-
-    // Use date in channel name so resubscribe on date-change always creates
-    // a fresh channel (avoids Supabase silent-dedup on same channel name)
-    const dateKey = viewDate ? viewDate.toISOString().split('T')[0] : 'today'
-    const channel = supabase
-      .channel(`home-all:${familyId}:${dateKey}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'events', filter: `family_id=eq.${familyId}` }, fetchAll)
-      .subscribe()
-
-    // Refetch when app comes back to foreground (WebSocket may have dropped
-    // while phone was locked / app was backgrounded)
-    function onVisibilityChange() {
-      if (document.visibilityState === 'visible') fetchAll()
-    }
-    document.addEventListener('visibilitychange', onVisibilityChange)
-
-    return () => {
-      supabase.removeChannel(channel)
-      document.removeEventListener('visibilitychange', onVisibilityChange)
-    }
-  }, [fetchAll, familyId])
+    return grouped
+  }, [data])
 
   return { eventsByTracker, loading }
 }
+
+const EMPTY = []

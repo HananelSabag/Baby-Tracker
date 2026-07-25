@@ -1,85 +1,59 @@
-import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../lib/supabase'
+import { useCallback, useMemo } from 'react'
+import api, { keys } from '../lib/api'
+import { useRealtimeQuery } from './useRealtimeQuery'
 
 export function useTrackers(familyId) {
-  const [trackers, setTrackers] = useState([])
-  const [loading, setLoading] = useState(true)
+  const cacheKey = familyId ? keys.trackers(familyId) : null
+  const fetcher = useCallback(() => api.trackers.list(familyId), [familyId])
 
-  const fetchTrackers = useCallback(async () => {
-    if (!familyId) return
-    const { data } = await supabase
-      .from('trackers')
-      .select()
-      .eq('family_id', familyId)
-      .neq('is_deleted', true)
-      .order('display_order')
-    setTrackers(data ?? [])
-    setLoading(false)
-  }, [familyId])
+  const { data, loading, refetch, setData } = useRealtimeQuery({
+    familyId,
+    table: 'trackers',
+    cacheKey,
+    fetcher,
+    initialData: EMPTY,
+  })
 
-  useEffect(() => {
-    if (!familyId) return
-    fetchTrackers()
+  const trackers = data ?? EMPTY
 
-    const channel = supabase
-      .channel(`trackers:${familyId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'trackers', filter: `family_id=eq.${familyId}` }, fetchTrackers)
-      .subscribe()
-
-    return () => supabase.removeChannel(channel)
-  }, [fetchTrackers, familyId])
-
-  async function addTracker(trackerData) {
+  const addTracker = useCallback(async (trackerData) => {
     const maxOrder = trackers.length ? Math.max(...trackers.map(t => t.display_order)) : -1
-    const { error } = await supabase.from('trackers').insert({
-      ...trackerData,
-      family_id: familyId,
-      display_order: maxOrder + 1,
-    })
-    if (error) throw error
-  }
+    await api.trackers.create(familyId, trackerData, maxOrder + 1)
+    await refetch()
+  }, [familyId, trackers, refetch])
 
-  async function updateTracker(id, updates) {
-    const { error } = await supabase.from('trackers').update(updates).eq('id', id)
-    if (error) throw error
-  }
+  const updateTracker = useCallback(async (id, updates) => {
+    await api.trackers.update(familyId, id, updates)
+    await refetch()
+  }, [familyId, refetch])
 
-  async function deleteTracker(id) {
-    const { error } = await supabase.from('trackers').update({ is_deleted: true }).eq('id', id)
-    if (error) throw error
-  }
+  const deleteTracker = useCallback(async (id) => {
+    await api.trackers.softDelete(familyId, id)
+    await refetch()
+  }, [familyId, refetch])
 
-  // Optimistic reorder: updates local state immediately so the UI feels instant.
-  // `orderedTrackers` is the localOrder array from edit mode (may include `_visible`).
-  // DB writes happen in parallel; on failure reverts to DB truth.
-  async function reorderTrackers(orderedTrackers) {
-    // Build the canonical objects that normal view expects
-    const optimistic = orderedTrackers.map((t, i) => ({
+  /**
+   * Optimistic reorder: the new order paints immediately, then persists.
+   * On failure we pull server truth back and rethrow so the caller can toast.
+   */
+  const reorderTrackers = useCallback(async (orderedTrackers) => {
+    setData(orderedTrackers.map((t, i) => ({
       ...t,
       display_order: i,
       is_active: t._visible !== undefined ? t._visible : t.is_active,
-    }))
-    setTrackers(optimistic)
-
-    const results = await Promise.allSettled(
-      orderedTrackers.map((tracker, index) =>
-        supabase
-          .from('trackers')
-          .update({
-            display_order: index,
-            is_active: tracker._visible !== undefined ? tracker._visible : tracker.is_active,
-          })
-          .eq('id', tracker.id)
-          .then(({ error }) => { if (error) throw error })
-      )
-    )
-
-    const failures = results.filter(r => r.status === 'rejected').length
-    if (failures > 0) {
-      await fetchTrackers() // revert to DB truth
-      throw new Error(`שמירת ${failures} מעקב${failures > 1 ? 'ים' : ''} נכשלה — נסה שוב`)
+    })))
+    try {
+      await api.trackers.reorder(familyId, orderedTrackers)
+    } catch (err) {
+      await refetch()
+      throw err
     }
-  }
+  }, [familyId, refetch, setData])
 
-  return { trackers, loading, addTracker, updateTracker, deleteTracker, reorderTrackers }
+  return useMemo(
+    () => ({ trackers, loading, addTracker, updateTracker, deleteTracker, reorderTrackers }),
+    [trackers, loading, addTracker, updateTracker, deleteTracker, reorderTrackers]
+  )
 }
+
+const EMPTY = []

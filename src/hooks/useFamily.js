@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { STORAGE_KEYS, BUILTIN_TRACKERS } from '../lib/constants'
 import { generateFamilyCode } from '../lib/utils'
+import api, { keys, invalidate } from '../lib/api'
+import { useRealtimeQuery } from './useRealtimeQuery'
 
 // Returns current identity from localStorage (cache)
 export function useIdentity() {
@@ -129,6 +131,8 @@ export async function updateMember(memberId, updates) {
     .update(updates)
     .eq('id', memberId)
   if (error) throw error
+  // Callers here don't carry familyId; drop every members entry.
+  invalidate('members:')
 }
 
 // Remove a member from the family (parents only, enforced by RLS)
@@ -138,6 +142,7 @@ export async function removeMember(memberId) {
     .delete()
     .eq('id', memberId)
   if (error) throw error
+  invalidate('members:')
 }
 
 // Update family record (name, etc.)
@@ -149,28 +154,18 @@ export async function updateFamily(familyId, updates) {
   if (error) throw error
 }
 
-// Fetch all members for a family with realtime sync
+// Fetch all members for a family with realtime sync.
+// Shares the family-wide channel and the request cache like every other hook.
 export function useFamilyMembers(familyId) {
-  const [members, setMembers] = useState([])
-
-  const fetch = useCallback(async () => {
-    if (!familyId) return
-    const { data } = await supabase
-      .from('family_members')
-      .select()
-      .eq('family_id', familyId)
-      .order('created_at')
-    setMembers(data ?? [])
-  }, [familyId])
-
-  useEffect(() => {
-    fetch()
-    const channel = supabase
-      .channel(`members:${familyId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'family_members', filter: `family_id=eq.${familyId}` }, fetch)
-      .subscribe()
-    return () => supabase.removeChannel(channel)
-  }, [fetch, familyId])
-
-  return members
+  const fetcher = useCallback(() => api.members.list(familyId), [familyId])
+  const { data } = useRealtimeQuery({
+    familyId,
+    table: 'family_members',
+    cacheKey: familyId ? keys.members(familyId) : null,
+    fetcher,
+    initialData: EMPTY_MEMBERS,
+  })
+  return data ?? EMPTY_MEMBERS
 }
+
+const EMPTY_MEMBERS = []

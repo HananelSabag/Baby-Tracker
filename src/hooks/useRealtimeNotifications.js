@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { subscribeToTable } from '../lib/realtime'
 
 const LAST_CHECK_KEY = 'bt_last_notif_check'
 const BATCH_MS = 5000 // collect rapid-fire live events before firing one grouped notification
@@ -78,16 +79,12 @@ export function useRealtimeNotifications({ familyId, memberId, enabled, showToas
       })
     })
 
-    // ── 2. Realtime subscription: batched live events ───────────────────────
-    const channel = supabase
-      .channel(`notifications:${familyId}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'events',
-        filter: `family_id=eq.${familyId}`,
-      }, (payload) => {
+    // ── 2. Realtime: batched live events, on the shared family channel ──────
+    const unsubscribe = subscribeToTable(familyId, 'events', (payload) => {
+        // The shared channel carries every change type; only inserts are news.
+        if (payload.eventType && payload.eventType !== 'INSERT') return
         const event = payload.new
+        if (!event?.member_id) return
         if (event.member_id === memberId) return
 
         localStorage.setItem(LAST_CHECK_KEY, new Date().toISOString())
@@ -107,14 +104,13 @@ export function useRealtimeNotifications({ familyId, memberId, enabled, showToas
         if (child) batch.childNames.add(child.name)
         clearTimeout(batch.timer)
         batch.timer = setTimeout(() => flushBatch(key), BATCH_MS)
-      })
-      .subscribe()
+    })
 
     return () => {
       // Flush any pending batches on unmount
       Object.values(pendingRef.current).forEach(b => clearTimeout(b.timer))
       pendingRef.current = {}
-      supabase.removeChannel(channel)
+      unsubscribe()
     }
   }, [familyId, memberId, enabled])
 }
