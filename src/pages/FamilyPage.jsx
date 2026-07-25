@@ -10,7 +10,7 @@ import { useFamilyMembers, updateMember, updateFamily, removeMember } from '../h
 import { useChildren, addChild } from '../hooks/useChildren'
 import { generateFamilyCode } from '../lib/utils'
 import { ROLES, PARENT_ROLES } from '../lib/constants'
-import { supabase } from '../lib/supabase'
+import api from '../lib/api'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { BottomSheet } from '../components/ui/BottomSheet'
@@ -52,12 +52,13 @@ export function FamilyPage() {
   useEffect(() => {
     if (!identity.familyId) return
     let cancelled = false
-    supabase.from('families').select().eq('id', identity.familyId).single()
-      .then(({ data }) => {
+    api.families.get(identity.familyId)
+      .then(data => {
         if (cancelled || !data) return
         setFamily(data)
         setFamilyNameEdit(data.name)
       })
+      .catch(() => {})
     return () => { cancelled = true }
   }, [identity.familyId])
 

@@ -5,7 +5,7 @@ import { addChild } from '../hooks/useChildren'
 import { useApp } from '../hooks/useAppContext'
 import { Button } from '../components/ui/Button'
 import { cn } from '../lib/utils'
-import { supabase } from '../lib/supabase'
+import api from '../lib/api'
 import { useToast } from '../hooks/useToast'
 import { ToastContainer } from '../components/ui/Toast'
 import { PhotoSourceSheet } from '../components/ui/PhotoSourceSheet'
@@ -128,9 +128,9 @@ export function SetupPage() {
         authUserId: user.id,
         avatarUrl,
       })
-      const { data: existingChildren } = await supabase
-        .from('children').select('id').eq('family_id', family.id)
-        .order('created_at', { ascending: true }).limit(1)
+      // The family you just joined may already have children — adopt the first
+      // as the active one so the home page isn't empty on arrival.
+      const existingChildren = await api.children.list(family.id)
       const childId = existingChildren?.[0]?.id ?? null
       onFamilyJoined({ family, member, childId })
     } catch (err) {

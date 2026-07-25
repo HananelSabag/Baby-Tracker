@@ -429,83 +429,103 @@ export async function generateAlbumVideo({ byMonth, childName, options, onProgre
   let audioCtx    = null
   let musicSource = null
   let gainNode    = null
+  let recorder    = null
   const audioTracks = []
 
-  const musicTrack = options.music ? MUSIC_TRACKS.find(t => t.id === options.music) : null
-  if (musicTrack) {
-    audioCtx = new AudioContext()
-    const resp   = await fetch(`${SUPABASE_MUSIC_URL}/${musicTrack.id}.mp3`)
-    if (!resp.ok) throw new Error('לא הצלחתי לטעון את השיר. בדוק חיבור אינטרנט.')
-    const buf    = await resp.arrayBuffer()
-    const decoded = await audioCtx.decodeAudioData(buf)
+  // Everything below can throw — a failed music fetch, a decode error, a canvas
+  // failure mid-render. Without this, an AudioContext was leaked on every such
+  // failure. Browsers cap concurrent AudioContexts (~6), so a handful of failed
+  // exports would permanently break audio for the whole tab until reload.
+  try {
+    const musicTrack = options.music ? MUSIC_TRACKS.find(t => t.id === options.music) : null
+    if (musicTrack) {
+      audioCtx = new AudioContext()
+      const resp   = await fetch(`${SUPABASE_MUSIC_URL}/${musicTrack.id}.mp3`)
+      if (!resp.ok) throw new Error('לא הצלחתי לטעון את השיר. בדוק חיבור אינטרנט.')
+      const buf    = await resp.arrayBuffer()
+      const decoded = await audioCtx.decodeAudioData(buf)
 
-    const dest = audioCtx.createMediaStreamDestination()
-    gainNode   = audioCtx.createGain()
-    gainNode.connect(dest)
-    musicSource = audioCtx.createBufferSource()
-    musicSource.buffer = decoded
-    musicSource.connect(gainNode)
-    audioTracks.push(...dest.stream.getAudioTracks())
-  }
-
-  const combined = new MediaStream([...videoStream.getVideoTracks(), ...audioTracks])
-  const chunks   = []
-  const recorder = new MediaRecorder(combined, {
-    mimeType,
-    // 8 Mbps @ 1080p is high quality for a photo slideshow while staying within
-    // reach of mobile software encoders (12 Mbps could choke VP8 → dropped frames).
-    videoBitsPerSecond: 8_000_000,
-  })
-  recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
-  const stoppedPromise = new Promise(resolve => { recorder.onstop = resolve })
-
-  const frameDurationMs = GIF_SPEED_MS[options.speed ?? 'normal']
-  const totalVideoMs    =
-    photos.length * frameDurationMs +
-    (photos.length > 1 ? (photos.length - 1) * TRANSITION_MS : 0)
-
-  recorder.start(1000)
-
-  if (musicSource && gainNode && audioCtx) {
-    musicSource.start(0, options.musicStart ?? 0)
-    const fadeStart = audioCtx.currentTime + Math.max(0, (totalVideoMs - 2000) / 1000)
-    const fadeEnd   = audioCtx.currentTime + totalVideoMs / 1000
-    gainNode.gain.setValueAtTime(1, audioCtx.currentTime)
-    gainNode.gain.setValueAtTime(1, fadeStart)
-    gainNode.gain.linearRampToValueAtTime(0, fadeEnd)
-  }
-
-  // Phase 2: rendering — sequential for per-frame progress reporting
-  const offscreens = []
-  for (let i = 0; i < photos.length; i++) {
-    onProgress({ phase: 'rendering', step: i + 1, total: photos.length })
-    const [monthStr, photo] = photos[i]
-    const off = document.createElement('canvas')
-    off.width = off.height = VIDEO_SIZE
-    await drawAlbumFrame(off.getContext('2d'), VIDEO_SIZE, imgs[i], photo, Number(monthStr), options, dates[i])
-    offscreens.push(off)
-  }
-
-  // Phase 3: recording — hold each frame, then a smooth rAF cross-fade to the next.
-  for (let i = 0; i < photos.length; i++) {
-    onProgress({ phase: 'recording', step: i + 1, total: photos.length })
-
-    ctx.globalAlpha = 1
-    ctx.drawImage(offscreens[i], 0, 0)
-    await waitMs(frameDurationMs)
-
-    if (i < photos.length - 1) {
-      await crossfadeCanvases(ctx, offscreens[i], offscreens[i + 1], TRANSITION_MS)
+      const dest = audioCtx.createMediaStreamDestination()
+      gainNode   = audioCtx.createGain()
+      gainNode.connect(dest)
+      musicSource = audioCtx.createBufferSource()
+      musicSource.buffer = decoded
+      musicSource.connect(gainNode)
+      audioTracks.push(...dest.stream.getAudioTracks())
     }
+
+    const combined = new MediaStream([...videoStream.getVideoTracks(), ...audioTracks])
+    const chunks   = []
+    recorder = new MediaRecorder(combined, {
+      mimeType,
+      // 8 Mbps @ 1080p is high quality for a photo slideshow while staying within
+      // reach of mobile software encoders (12 Mbps could choke VP8 → dropped frames).
+      videoBitsPerSecond: 8_000_000,
+    })
+    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
+    const stoppedPromise = new Promise(resolve => { recorder.onstop = resolve })
+
+    const frameDurationMs = GIF_SPEED_MS[options.speed ?? 'normal']
+    const totalVideoMs    =
+      photos.length * frameDurationMs +
+      (photos.length > 1 ? (photos.length - 1) * TRANSITION_MS : 0)
+
+    recorder.start(1000)
+
+    if (musicSource && gainNode && audioCtx) {
+      musicSource.start(0, options.musicStart ?? 0)
+      const fadeStart = audioCtx.currentTime + Math.max(0, (totalVideoMs - 2000) / 1000)
+      const fadeEnd   = audioCtx.currentTime + totalVideoMs / 1000
+      gainNode.gain.setValueAtTime(1, audioCtx.currentTime)
+      gainNode.gain.setValueAtTime(1, fadeStart)
+      gainNode.gain.linearRampToValueAtTime(0, fadeEnd)
+    }
+
+    // Phase 2: rendering — sequential for per-frame progress reporting
+    const offscreens = []
+    for (let i = 0; i < photos.length; i++) {
+      onProgress({ phase: 'rendering', step: i + 1, total: photos.length })
+      const [monthStr, photo] = photos[i]
+      const off = document.createElement('canvas')
+      off.width = off.height = VIDEO_SIZE
+      await drawAlbumFrame(off.getContext('2d'), VIDEO_SIZE, imgs[i], photo, Number(monthStr), options, dates[i])
+      offscreens.push(off)
+    }
+
+    // Phase 3: recording — hold each frame, then a smooth rAF cross-fade to the next.
+    for (let i = 0; i < photos.length; i++) {
+      onProgress({ phase: 'recording', step: i + 1, total: photos.length })
+
+      ctx.globalAlpha = 1
+      ctx.drawImage(offscreens[i], 0, 0)
+      await waitMs(frameDurationMs)
+
+      if (i < photos.length - 1) {
+        await crossfadeCanvases(ctx, offscreens[i], offscreens[i + 1], TRANSITION_MS)
+      }
+    }
+
+    recorder.stop()
+    try { musicSource?.stop() } catch { /* already ended */ }
+
+    // Wait for the recorder to flush BEFORE tearing down the audio graph.
+    // Closing the AudioContext first killed the MediaStreamDestination feeding
+    // the recorder while it was still finalising, which could clip the tail of
+    // the soundtrack off the exported file.
+    await stoppedPromise
+
+    const blob = new Blob(chunks, { type: mimeType })
+    triggerDownload(blob, `BabyTracker-${childName.replace(/[^\w-]/g, '-')}.${ext}`)
+    onDone()
+  } finally {
+    if (recorder && recorder.state !== 'inactive') {
+      try { recorder.stop() } catch { /* already stopping */ }
+    }
+    try { musicSource?.stop() } catch { /* never started, or already ended */ }
+    if (audioCtx && audioCtx.state !== 'closed') {
+      try { await audioCtx.close() } catch { /* already closing */ }
+    }
+    // captureStream tracks stay live otherwise, holding the canvas alive.
+    for (const track of videoStream.getTracks()) track.stop()
   }
-
-  recorder.stop()
-  try { musicSource?.stop() } catch { /* already ended */ }
-  if (audioCtx) await audioCtx.close()
-
-  await stoppedPromise
-
-  const blob = new Blob(chunks, { type: mimeType })
-  triggerDownload(blob, `BabyTracker-${childName.replace(/[^\w-]/g, '-')}.${ext}`)
-  onDone()
 }

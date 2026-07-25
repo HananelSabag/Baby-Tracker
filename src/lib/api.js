@@ -94,6 +94,7 @@ export const keys = {
   trackers:    familyId => `trackers:${familyId}`,
   children:    familyId => `children:${familyId}`,
   members:     familyId => `members:${familyId}`,
+  family:      familyId => `family:${familyId}`,
 }
 
 function unwrap({ data, error }) {
@@ -309,6 +310,27 @@ export const children = {
   },
 }
 
+// ── Families ─────────────────────────────────────────────────────────────────
+
+export const families = {
+  get(familyId) {
+    if (!familyId) return Promise.resolve(null)
+    return query(keys.family(familyId), async () =>
+      unwrap(await supabase
+        .from('families')
+        .select('id, name, code, created_at')
+        .eq('id', familyId)
+        .single()) ?? null
+    )
+  },
+
+  async update(familyId, updates) {
+    const { error } = await supabase.from('families').update(updates).eq('id', familyId)
+    if (error) throw error
+    invalidate(keys.family(familyId))
+  },
+}
+
 // ── Family members ───────────────────────────────────────────────────────────
 
 export const members = {
@@ -336,5 +358,5 @@ export const members = {
   },
 }
 
-export const api = { query, invalidate, invalidateAll, keys, events, trackers, children, members }
+export const api = { query, invalidate, invalidateAll, keys, events, trackers, children, members, families }
 export default api
