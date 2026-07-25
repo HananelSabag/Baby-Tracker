@@ -4,9 +4,9 @@ import { TRACKER_TYPES } from '../../lib/constants'
 import { formatTime, formatTimeAgo, cn } from '../../lib/utils'
 import { ageInMonths, getWeightPercentileLabel, getHeightPercentileLabel } from '../../lib/whoGrowthData'
 import api from '../../lib/api'
+import { resolveDoses, givenDoseKeys, isButtonDoseTracker } from '../../lib/doseConfig'
+import { sleepStats } from '../../lib/sleepSessions'
 import { BarChart2 } from 'lucide-react'
-
-const FALLBACK_DOSE_EMOJIS = ['☀️', '🌤', '🌙', '⭐', '💫', '🌅']
 
 function urgencyColor(isoDate, now) {
   const hours = (now - new Date(isoDate).getTime()) / 3600000
@@ -25,36 +25,13 @@ function formatDur(ms) {
   return `${m} דק'`
 }
 
-// Same robust pairing semantics as ReportsPage.pairSleepEvents:
-//   • duplicate starts overwrite the open start (treated as a re-tap)
-//   • orphan ends without a start are ignored
-//   • a final unmatched start = currently sleeping
-function getSleepStats(events, now) {
-  const sorted = [...events].sort((a, b) => new Date(a.occurred_at) - new Date(b.occurred_at))
-  let totalMs = 0
-  let openStart = null
-  for (const ev of sorted) {
-    const type = ev.data?.type
-    if (type === 'start') {
-      openStart = ev
-    } else if (type === 'end' && openStart) {
-      totalMs += new Date(ev.occurred_at) - new Date(openStart.occurred_at)
-      openStart = null
-    }
-  }
-  const isSleeping = openStart !== null
-  if (isSleeping) totalMs += now - new Date(openStart.occurred_at).getTime()
-  return { isSleeping, totalMs }
-}
-
 // ── Interactive dose chip (VitaminD / Dose tracker) ───────────────────────────
 function DoseChip({ tracker, events, familyId, memberId, childId, isToday }) {
-  const doseCount  = tracker.config?.daily_doses ?? 2
-  const doseLabels = tracker.config?.dose_labels ?? ['בוקר', 'ערב', 'צהריים', 'לילה']
-  const doseEmojis = tracker.config?.dose_emojis ?? FALLBACK_DOSE_EMOJIS
+  const doses = resolveDoses(tracker)
+  const doseCount = doses.length
   const [pending, setPending] = useState(new Set())
 
-  const given = new Set(events.map(e => String(e.data?.dose_index ?? e.data?.dose)))
+  const given = givenDoseKeys(events)
   const allDone = given.size >= doseCount
 
   async function handleDoseTap(i) {
@@ -84,7 +61,7 @@ function DoseChip({ tracker, events, familyId, memberId, childId, isToday }) {
           memberId,
           childId,
           occurredAt: new Date().toISOString(),
-          data: { dose_index: i, dose_label: doseLabels[i] ?? `מינון ${i + 1}` },
+          data: { dose_index: i, dose_label: doses[i]?.label ?? `מינון ${i + 1}` },
         })
       } finally {
         setPending(prev => { const s = new Set(prev); s.delete(key); return s })
@@ -108,13 +85,13 @@ function DoseChip({ tracker, events, familyId, memberId, childId, isToday }) {
       </div>
       {/* Dose buttons */}
       <div className="flex gap-1">
-        {Array.from({ length: doseCount }, (_, i) => {
-          const key = String(i)
+        {doses.map((dose, i) => {
+          const key = dose.key
           const isDone = given.has(key)
           const isPending = pending.has(key)
           return (
             <button
-              key={i}
+              key={key}
               onClick={() => handleDoseTap(i)}
               disabled={isPending || !isToday}
               className="w-8 h-8 rounded-xl flex items-center justify-center text-sm transition-all active:scale-90 disabled:opacity-50"
@@ -124,9 +101,9 @@ function DoseChip({ tracker, events, familyId, memberId, childId, isToday }) {
                 borderStyle: (!isDone && isToday) ? 'dashed' : 'solid',
                 boxShadow: isDone ? `0 2px 6px ${tracker.color}40` : 'none',
               }}
-              title={doseLabels[i] ?? `מינון ${i + 1}`}
+              title={dose.label}
             >
-              {isPending ? '⌛' : isDone ? '✓' : (doseEmojis[i] ?? '💊')}
+              {isPending ? '⌛' : isDone ? '✓' : dose.emoji}
             </button>
           )
         })}
@@ -157,7 +134,7 @@ function StaticChip({ tracker, events, now, child }) {
       ? <span className="font-rubik text-xs font-semibold" style={{ color: diaperColor }}>{formatTime(last.occurred_at)} · {events.length}×</span>
       : <span className="font-rubik text-xs text-brown-300">עדיין לא</span>
   } else if (type === TRACKER_TYPES.SLEEP) {
-    const { isSleeping, totalMs } = getSleepStats(events, now)
+    const { isSleeping, totalMs } = sleepStats(events, { now })
     label = isSleeping
       ? <span className="font-rubik text-xs font-semibold" style={{ color: tracker.color }}>ישן · {formatDur(totalMs)}</span>
       : totalMs > 0
@@ -221,7 +198,7 @@ function SmartStatusLine({ trackers, eventsByTracker, now }) {
 
   for (const tr of trackers) {
     if (tr.tracker_type === TRACKER_TYPES.SLEEP) {
-      const { isSleeping, totalMs } = getSleepStats(eventsByTracker[tr.id] ?? [], now)
+      const { isSleeping, totalMs } = sleepStats(eventsByTracker[tr.id] ?? [], { now })
       if (isSleeping) {
         lines.push(
           <p key={tr.id} className="font-rubik text-xs text-center" style={{ color: tr.color }}>
@@ -230,11 +207,9 @@ function SmartStatusLine({ trackers, eventsByTracker, now }) {
         )
       }
     }
-    if (tr.tracker_type === TRACKER_TYPES.VITAMIN_D || tr.tracker_type === TRACKER_TYPES.DOSE) {
-      if (tr.config?.display_mode === 'simple') continue
-      const doseCount = tr.config?.daily_doses ?? 2
-      if (doseCount < 1) continue
-      const given = new Set((eventsByTracker[tr.id] ?? []).map(e => String(e.data?.dose_index ?? e.data?.dose)))
+    if (isButtonDoseTracker(tr)) {
+      const doseCount = resolveDoses(tr).length
+      const given = givenDoseKeys(eventsByTracker[tr.id] ?? [])
       if (given.size >= doseCount) {
         lines.push(
           <p key={tr.id} className="font-rubik text-xs text-amber-600 text-center">☀️ {tr.name} הושלם — כל הכבוד!</p>
@@ -249,11 +224,6 @@ function SmartStatusLine({ trackers, eventsByTracker, now }) {
       {lines}
     </div>
   )
-}
-
-function isDoseTracker(tr) {
-  return tr.tracker_type === TRACKER_TYPES.VITAMIN_D ||
-    (tr.tracker_type === TRACKER_TYPES.DOSE && tr.config?.display_mode !== 'simple')
 }
 
 export function HeroCard({ trackers, eventsByTracker, isToday, child, familyId, childId, memberId }) {
@@ -283,7 +253,7 @@ export function HeroCard({ trackers, eventsByTracker, isToday, child, familyId, 
   const anySleeping = useMemo(() => {
     for (const tr of trackers) {
       if (tr.tracker_type !== TRACKER_TYPES.SLEEP) continue
-      const { isSleeping } = getSleepStats(eventsByTracker[tr.id] ?? [], Date.now())
+      const { isSleeping } = sleepStats(eventsByTracker[tr.id] ?? [])
       if (isSleeping) return true
     }
     return false
@@ -352,7 +322,7 @@ export function HeroCard({ trackers, eventsByTracker, isToday, child, familyId, 
       {otherTrackers.length > 0 && (
         <div className="px-4 py-3.5 border-t border-cream-100 flex flex-wrap gap-2.5">
           {otherTrackers.map(tr =>
-            isDoseTracker(tr) ? (
+            isButtonDoseTracker(tr) ? (
               <DoseChip
                 key={tr.id}
                 tracker={tr}

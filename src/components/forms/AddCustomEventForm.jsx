@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { format } from 'date-fns'
-import { t } from '../../lib/strings'
 import { Button } from '../ui/Button'
 import { composeOccurredAt } from '../../lib/utils'
 
@@ -96,7 +95,7 @@ export function AddCustomEventForm({ tracker, onSave, onCancel, loading, initial
 
       {/* Time */}
       <div>
-        <p className="text-sm font-medium text-brown-600 mb-2">{t('feeding.time')}</p>
+        <p className="text-sm font-medium text-brown-600 mb-2">{"שעה"}</p>
         <input
           type="time"
           value={time}
@@ -106,9 +105,9 @@ export function AddCustomEventForm({ tracker, onSave, onCancel, loading, initial
       </div>
 
       <div className="flex gap-3 pt-2">
-        <Button variant="secondary" className="flex-1" onClick={onCancel}>{t('common.cancel')}</Button>
+        <Button variant="secondary" className="flex-1" onClick={onCancel}>{"ביטול"}</Button>
         <Button className="flex-1 text-white" style={{ backgroundColor: tracker.color }} onClick={handleSave} disabled={loading}>
-          {t('common.save')}
+          {"שמור"}
         </Button>
       </div>
     </div>

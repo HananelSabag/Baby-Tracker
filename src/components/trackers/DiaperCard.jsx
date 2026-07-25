@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { isSameDay } from 'date-fns'
-import { t } from '../../lib/strings'
 import { formatTime, formatTimeAgo } from '../../lib/utils'
 import { useEvents } from '../../hooks/useEvents'
 import { BottomSheet } from '../ui/BottomSheet'
@@ -81,7 +80,7 @@ export function DiaperCard({ tracker, familyId, memberId, childId, viewDate, com
             <TrackerAddButton color={tracker.color} decorative />
           </div>
         </Card>
-        <BottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} title={t('diaper.addChange')}>
+        <BottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} title={"החלפת חיתול"}>
           <AddDiaperForm baseDate={viewDate} onSave={handleSave} onCancel={() => setSheetOpen(false)} loading={saving} />
         </BottomSheet>
       </>
@@ -100,7 +99,7 @@ export function DiaperCard({ tracker, familyId, memberId, childId, viewDate, com
           <TrackerAddButton
             color={tracker.color}
             onClick={() => setSheetOpen(true)}
-            label={t('diaper.addChange')}
+            label={"החלפת חיתול"}
           />
         </div>
 
@@ -109,14 +108,14 @@ export function DiaperCard({ tracker, familyId, memberId, childId, viewDate, com
           <div className="rounded-2xl px-4 py-2.5 mb-3" style={{ backgroundColor: `${tracker.color}18` }}>
             <div className="flex items-center justify-between mb-1.5">
               <div>
-                <p className="text-xs text-brown-500 font-rubik">{t('diaper.todayTotal')}</p>
+                <p className="text-xs text-brown-500 font-rubik">{"החלפות"}</p>
                 <p className="font-rubik font-bold text-brown-800 text-xl leading-tight">
                   {loading ? '...' : events.length}
                 </p>
               </div>
               {lastEvent && (
                 <div className="text-left">
-                  <p className="text-xs text-brown-500 font-rubik">{t('diaper.lastChange')}</p>
+                  <p className="text-xs text-brown-500 font-rubik">{"אחרון"}</p>
                   <p className="font-rubik font-bold text-brown-800 text-lg leading-tight">{formatTime(lastEvent.occurred_at)}</p>
                   <p className="font-rubik text-xs leading-tight" style={{ color: diaperUrgencyColor(lastEvent.occurred_at, now) }}>
                     לפני {formatTimeAgo(lastEvent.occurred_at)}
@@ -125,9 +124,9 @@ export function DiaperCard({ tracker, familyId, memberId, childId, viewDate, com
               )}
             </div>
             <div className="flex gap-3 text-xs font-rubik text-brown-500 border-t border-black/5 pt-1.5">
-              {wetCount > 0   && <span>🌊 {t('diaper.wet')} ×{wetCount}</span>}
-              {dirtyCount > 0 && <span>💩 {t('diaper.dirty')} ×{dirtyCount}</span>}
-              {bothCount > 0  && <span>✌️ {t('diaper.both')} ×{bothCount}</span>}
+              {wetCount > 0   && <span>🌊 {"שתן"} ×{wetCount}</span>}
+              {dirtyCount > 0 && <span>💩 {"צואה"} ×{dirtyCount}</span>}
+              {bothCount > 0  && <span>✌️ {"שניהם"} ×{bothCount}</span>}
             </div>
           </div>
         )}
@@ -162,7 +161,7 @@ export function DiaperCard({ tracker, familyId, memberId, childId, viewDate, com
         )}
       </Card>
 
-      <BottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} title={t('diaper.addChange')}>
+      <BottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} title={"החלפת חיתול"}>
         <AddDiaperForm baseDate={viewDate} onSave={handleSave} onCancel={() => setSheetOpen(false)} loading={saving} />
       </BottomSheet>
     </>

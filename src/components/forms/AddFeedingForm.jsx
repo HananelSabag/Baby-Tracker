@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { format } from 'date-fns'
-import { t } from '../../lib/strings'
 import { FEEDING_PRESETS } from '../../lib/constants'
 import { Button } from '../ui/Button'
 import { cn, composeOccurredAt } from '../../lib/utils'
@@ -17,7 +16,7 @@ export function AddFeedingForm({ onSave, onCancel, loading, initialData, initial
 
   function handleSave() {
     if (!finalAmount || finalAmount <= 0) {
-      setError(t('feeding.amountRequired'))
+      setError("יש להזין כמות")
       return
     }
     onSave({ amount_ml: finalAmount }, composeOccurredAt(baseDate, time))
@@ -27,7 +26,7 @@ export function AddFeedingForm({ onSave, onCancel, loading, initialData, initial
     <div className="space-y-4">
       {/* Preset buttons */}
       <div>
-        <p className="text-sm font-medium text-brown-600 mb-2">{t('feeding.presets')}</p>
+        <p className="text-sm font-medium text-brown-600 mb-2">{"כמויות מהירות"}</p>
         <div className="grid grid-cols-3 gap-2">
           {FEEDING_PRESETS.map(ml => (
             <button
@@ -40,7 +39,7 @@ export function AddFeedingForm({ onSave, onCancel, loading, initialData, initial
                   : 'bg-cream-200 text-brown-700'
               )}
             >
-              {ml} {t('feeding.ml')}
+              {ml} {"מ\"ל"}
             </button>
           ))}
         </div>
@@ -48,7 +47,7 @@ export function AddFeedingForm({ onSave, onCancel, loading, initialData, initial
 
       {/* Custom amount */}
       <div>
-        <p className="text-sm font-medium text-brown-600 mb-2">{t('feeding.custom')}</p>
+        <p className="text-sm font-medium text-brown-600 mb-2">{"אחר"}</p>
         <div className="flex items-center gap-2 bg-cream-200 rounded-2xl px-4 py-3">
           <input
             type="number"
@@ -56,17 +55,17 @@ export function AddFeedingForm({ onSave, onCancel, loading, initialData, initial
             max="500"
             value={custom}
             onChange={e => { setCustom(e.target.value); setAmount(null); setError('') }}
-            placeholder={t('feeding.customPlaceholder')}
+            placeholder={"כמות מ\"ל"}
             className="flex-1 bg-transparent text-brown-800 placeholder-brown-400 font-rubik text-base outline-none"
           />
-          <span className="text-brown-500 text-sm font-medium">{t('feeding.ml')}</span>
+          <span className="text-brown-500 text-sm font-medium">{"מ\"ל"}</span>
         </div>
         {error && <p className="text-red-500 text-xs mt-1 font-rubik">{error}</p>}
       </div>
 
       {/* Time picker */}
       <div>
-        <p className="text-sm font-medium text-brown-600 mb-2">{t('feeding.time')}</p>
+        <p className="text-sm font-medium text-brown-600 mb-2">{"שעה"}</p>
         <input
           type="time"
           value={time}
@@ -77,14 +76,14 @@ export function AddFeedingForm({ onSave, onCancel, loading, initialData, initial
 
       {/* Actions */}
       <div className="flex gap-3 pt-2">
-        <Button variant="secondary" className="flex-1" onClick={onCancel}>{t('feeding.cancel')}</Button>
+        <Button variant="secondary" className="flex-1" onClick={onCancel}>{"ביטול"}</Button>
         <Button
           className="flex-1"
           style={{ backgroundColor: '#6B9E8C' }}
           onClick={handleSave}
           disabled={loading}
         >
-          {t('feeding.save')}
+          {"שמור"}
         </Button>
       </div>
     </div>

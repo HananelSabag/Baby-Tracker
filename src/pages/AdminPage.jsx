@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ShieldCheck, Trash2, Users, User, ChevronLeft, ChevronRight, AlertTriangle, Activity, Zap } from 'lucide-react'
-import { t } from '../lib/strings'
 import { supabase } from '../lib/supabase'
 import { formatDateLabel, goBack } from '../lib/utils'
 import { Spinner } from '../components/ui/Spinner'
@@ -208,7 +207,7 @@ export function AdminPage() {
           <ShieldCheck size={22} className="text-red-500" />
         </div>
         <div className="flex-1">
-          <h1 className="font-rubik font-bold text-2xl text-brown-800 leading-tight">{t('admin.title')}</h1>
+          <h1 className="font-rubik font-bold text-2xl text-brown-800 leading-tight">{"ניהול"}</h1>
         </div>
         <span
           className="text-xs bg-red-100 text-red-600 px-3 py-1.5 rounded-xl font-rubik font-bold border border-red-200"
@@ -223,14 +222,14 @@ export function AdminPage() {
         <Card compact>
           <div className="flex items-center gap-1.5 mb-1">
             <Users size={11} className="text-brown-400" />
-            <p className="text-[11px] text-brown-400 font-rubik leading-tight">{t('admin.families')}</p>
+            <p className="text-[11px] text-brown-400 font-rubik leading-tight">{"משפחות"}</p>
           </div>
           <p className="font-rubik font-bold text-3xl text-brown-800">{families.length}</p>
         </Card>
         <Card compact>
           <div className="flex items-center gap-1.5 mb-1">
             <User size={11} className="text-brown-400" />
-            <p className="text-[11px] text-brown-400 font-rubik leading-tight">{t('admin.members')}</p>
+            <p className="text-[11px] text-brown-400 font-rubik leading-tight">{"חברים"}</p>
           </div>
           <p className="font-rubik font-bold text-3xl text-brown-800">{totalMembers}</p>
         </Card>
@@ -257,7 +256,7 @@ export function AdminPage() {
           }`}
           style={tab === 'families' ? { boxShadow: '0 2px 8px rgba(61,43,31,0.10), inset 0 1px 0 rgba(255,255,255,0.9)' } : {}}
         >
-          {t('admin.familiesTab')}
+          {"🏠 משפחות"}
         </button>
         <button
           onClick={() => setTab('users')}
@@ -268,7 +267,7 @@ export function AdminPage() {
           }`}
           style={tab === 'users' ? { boxShadow: '0 2px 8px rgba(61,43,31,0.10), inset 0 1px 0 rgba(255,255,255,0.9)' } : {}}
         >
-          {t('admin.usersTab')}
+          {"👤 משתמשים"}
           {users.length > 0 && (
             <span className="text-[10px] bg-brown-100 text-brown-600 px-1.5 py-0.5 rounded-full font-bold">{users.length}</span>
           )}
@@ -280,7 +279,7 @@ export function AdminPage() {
         familiesLoading ? (
           <div className="flex justify-center py-12"><Spinner size="lg" /></div>
         ) : families.length === 0 ? (
-          <p className="text-center text-brown-400 font-rubik py-8">{t('admin.noFamilies')}</p>
+          <p className="text-center text-brown-400 font-rubik py-8">{"אין משפחות רשומות"}</p>
         ) : (
           <>
             <div className="flex gap-2 mb-4">
@@ -385,7 +384,7 @@ export function AdminPage() {
         usersLoading ? (
           <div className="flex justify-center py-12"><Spinner size="lg" /></div>
         ) : users.length === 0 ? (
-          <p className="text-center text-brown-400 font-rubik py-8">{t('admin.noUsers')}</p>
+          <p className="text-center text-brown-400 font-rubik py-8">{"אין משתמשים"}</p>
         ) : (
           <>
             <div className="flex gap-2 mb-4 overflow-x-auto pb-0.5">
@@ -480,13 +479,15 @@ export function AdminPage() {
 
       <ConfirmDialog
         isOpen={!!deletingFamily}
-        message={t('admin.deleteFamilyConfirm').replace('{{name}}', deletingFamily?.name ?? '')}
+        message={`למחוק את משפחת ${deletingFamily?.name ?? ''}? כל הנתונים יאבדו לצמיתות.`}
         onConfirm={handleDeleteFamily}
         onCancel={() => setDeletingFamily(null)}
       />
       <ConfirmDialog
         isOpen={!!deletingUser}
-        message={t('admin.deleteUserConfirm', { email: deletingUser?.email ?? '' })}
+        message={`למחוק את ${deletingUser?.email ?? ''}?
+
+אם הוא היחיד במשפחה — המשפחה תימחק גם כן.`}
         onConfirm={handleDeleteUser}
         onCancel={() => setDeletingUser(null)}
       />

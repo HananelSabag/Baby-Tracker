@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { t } from '../../lib/strings'
 import { formatMl, formatTime } from '../../lib/utils'
 import { useEvents } from '../../hooks/useEvents'
 import { BottomSheet } from '../ui/BottomSheet'
@@ -37,7 +36,7 @@ export function FeedingCard({ tracker, familyId, memberId, childId, viewDate, co
             <TrackerAddButton
               color={tracker.color}
               onClick={() => setSheetOpen(true)}
-              label={t('feeding.addFeeding')}
+              label={"הוסף האכלה"}
             />
           </div>
           {events.length > 0 ? (
@@ -45,12 +44,12 @@ export function FeedingCard({ tracker, familyId, memberId, childId, viewDate, co
               {todayTotal > 0 && (
                 <div className="flex-1 rounded-xl px-3 py-2.5 text-center bg-cream-100">
                   <p className="font-rubik font-bold text-brown-800 text-lg leading-tight">{todayTotal}</p>
-                  <p className="font-rubik text-brown-400 text-xs">{t('feeding.ml')}</p>
+                  <p className="font-rubik text-brown-400 text-xs">{"מ\"ל"}</p>
                 </div>
               )}
               <div className="flex-1 rounded-xl px-3 py-2.5 text-center bg-cream-100">
                 <p className="font-rubik font-bold text-brown-800 text-lg leading-tight">{events.length}</p>
-                <p className="font-rubik text-brown-400 text-xs">{t('home.feedings')}</p>
+                <p className="font-rubik text-brown-400 text-xs">{"האכלות"}</p>
               </div>
             </div>
           ) : (
@@ -58,11 +57,11 @@ export function FeedingCard({ tracker, familyId, memberId, childId, viewDate, co
               onClick={() => setSheetOpen(true)}
               className="w-full py-2 text-brown-400 font-rubik text-sm text-center active:opacity-70"
             >
-              {t('home.noFeedingYet')}
+              {"עדיין אין האכלות היום"}
             </button>
           )}
         </Card>
-        <BottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} title={t('feeding.addFeeding')}>
+        <BottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} title={"הוסף האכלה"}>
           <AddFeedingForm baseDate={viewDate} onSave={handleSave} onCancel={() => setSheetOpen(false)} loading={saving} />
         </BottomSheet>
       </>
@@ -83,7 +82,7 @@ export function FeedingCard({ tracker, familyId, memberId, childId, viewDate, co
             color={tracker.color}
             onClick={() => setSheetOpen(true)}
             disabled={saving}
-            label={t('feeding.addFeeding')}
+            label={"הוסף האכלה"}
           />
         </div>
 
@@ -97,11 +96,11 @@ export function FeedingCard({ tracker, familyId, memberId, childId, viewDate, co
         {/* Totals row — total ml + feeding count + last feeding time */}
         <div className="flex gap-2">
           <div className="flex-1 rounded-xl px-3 py-2 text-center bg-cream-100">
-            <p className="text-xs text-brown-400 font-rubik">{t('home.totalMl')}</p>
+            <p className="text-xs text-brown-400 font-rubik">{"סה\"כ מ\"ל"}</p>
             <p className="font-rubik font-bold text-brown-800 text-sm">{loading ? '...' : formatMl(todayTotal)}</p>
           </div>
           <div className="flex-1 rounded-xl px-3 py-2 text-center bg-cream-100">
-            <p className="text-xs text-brown-400 font-rubik">{t('home.feedings')}</p>
+            <p className="text-xs text-brown-400 font-rubik">{"האכלות"}</p>
             <p className="font-rubik font-bold text-brown-800 text-sm">{loading ? '...' : events.length}</p>
           </div>
           {lastEvent && (
@@ -113,7 +112,7 @@ export function FeedingCard({ tracker, familyId, memberId, childId, viewDate, co
         </div>
       </Card>
 
-      <BottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} title={t('feeding.addFeeding')}>
+      <BottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} title={"הוסף האכלה"}>
         <AddFeedingForm baseDate={viewDate} onSave={handleSave} onCancel={() => setSheetOpen(false)} loading={saving} />
       </BottomSheet>
     </>

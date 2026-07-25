@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { t } from '../../lib/strings'
 import { cn } from '../../lib/utils'
 import { pickAndCompressImage } from '../../lib/imageUpload'
 import { BottomSheet } from './BottomSheet'
@@ -25,19 +24,19 @@ export function ChildFormSheet({ isOpen, onClose, title, initialName = '', initi
       setPhoto(picked)
       setAvatarPreview(URL.createObjectURL(picked.blob))
     } catch (err) {
-      setError(err?.message ?? t('errors.saveFailed'))
+      setError(err?.message ?? "שגיאה בשמירה")
     } finally {
       setPhotoBusy(false)
     }
   }
 
   async function handleSave() {
-    if (!name.trim()) { setError(t('children.nameRequired')); return }
+    if (!name.trim()) { setError("הכנס שם"); return }
     setSaving(true)
     try {
       await onSave({ name: name.trim(), photo, birthDate: birthDate || null, gender: gender || null })
     } catch {
-      setError(t('errors.saveFailed'))
+      setError("שגיאה בשמירה")
     } finally {
       setSaving(false)
     }
@@ -60,23 +59,23 @@ export function ChildFormSheet({ isOpen, onClose, title, initialName = '', initi
             }
           </button>
           <button onClick={() => setPhotoSourceOpen(true)} disabled={photoBusy} className="text-xs font-rubik text-brown-500 bg-cream-200 px-3 py-1.5 rounded-full disabled:opacity-60">
-            {t('children.addPhoto')}
+            {"הוסף תמונה"}
           </button>
           <PhotoSourceSheet
             isOpen={photoSourceOpen}
             onClose={() => setPhotoSourceOpen(false)}
             onPick={handlePickPhoto}
-            title={t('children.addPhoto')}
+            title={"הוסף תמונה"}
           />
         </div>
 
         <div>
-          <p className="text-sm font-medium text-brown-600 mb-2">{t('children.childName')}</p>
+          <p className="text-sm font-medium text-brown-600 mb-2">{"שם הילד/ה"}</p>
           <input
             type="text"
             value={name}
             onChange={e => { setName(e.target.value); setError('') }}
-            placeholder={t('children.childNamePlaceholder')}
+            placeholder={"הכנס שם ילד או כינוי"}
             className="w-full bg-cream-200 rounded-2xl px-4 py-3 font-rubik text-brown-800 text-base outline-none"
             autoFocus
           />
@@ -85,7 +84,7 @@ export function ChildFormSheet({ isOpen, onClose, title, initialName = '', initi
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="text-sm font-medium text-brown-600 mb-2">{t('children.birthDate')}</p>
+            <p className="text-sm font-medium text-brown-600 mb-2">{"תאריך לידה"}</p>
             <input
               type="date"
               value={birthDate}
@@ -95,9 +94,9 @@ export function ChildFormSheet({ isOpen, onClose, title, initialName = '', initi
             />
           </div>
           <div>
-            <p className="text-sm font-medium text-brown-600 mb-2">{t('children.gender')}</p>
+            <p className="text-sm font-medium text-brown-600 mb-2">{"מין"}</p>
             <div className="grid grid-cols-2 gap-2">
-              {[{ value: 'male', emoji: '👦', label: t('children.male') }, { value: 'female', emoji: '👧', label: t('children.female') }].map(opt => (
+              {[{ value: 'male', emoji: '👦', label: "ילד" }, { value: 'female', emoji: '👧', label: "ילדה" }].map(opt => (
                 <button
                   key={opt.value}
                   type="button"
@@ -117,9 +116,9 @@ export function ChildFormSheet({ isOpen, onClose, title, initialName = '', initi
         </div>
 
         <div className="flex gap-3 pt-1">
-          <Button variant="secondary" className="flex-1" onClick={onClose}>{t('common.cancel')}</Button>
+          <Button variant="secondary" className="flex-1" onClick={onClose}>{"ביטול"}</Button>
           <Button className="flex-1" onClick={handleSave} disabled={saving}>
-            {saving ? t('app.loading') : t('common.save')}
+            {saving ? "טוען..." : "שמור"}
           </Button>
         </div>
       </div>

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { t } from '../lib/strings'
 import { ROLES, PARENT_ROLES } from '../lib/constants'
 import { createFamily, joinFamily, lookupFamilyByCode } from '../hooks/useFamily'
 import { addChild } from '../hooks/useChildren'
@@ -98,17 +97,17 @@ export function SetupPage() {
 
   // ── Join path: step 1 — enter code ────────────────────────────────────────
   async function handleCodeContinue() {
-    if (code.length !== 6) { setError(t('setup.codeError')); return }
+    if (code.length !== 6) { setError("קוד לא נמצא — בדוק שוב"); return }
     setCodeValidating(true)
     setError('')
     try {
       const result = await lookupFamilyByCode(code)
-      if (!result) { setError(t('setup.codeError')); return }
+      if (!result) { setError("קוד לא נמצא — בדוק שוב"); return }
       setFoundFamily(result)
       setRole('')
       setStep(STEPS.ROLE_JOIN)
     } catch {
-      setError(t('setup.codeError'))
+      setError("קוד לא נמצא — בדוק שוב")
     } finally {
       setCodeValidating(false)
     }
@@ -116,8 +115,8 @@ export function SetupPage() {
 
   // ── Join path: step 2 — pick role then join ────────────────────────────────
   async function handleJoin() {
-    if (!role) { setError(t('setup.roleRequired')); return }
-    if (isRoleDisabled(role)) { setError(t('errors.roleTaken')); return }
+    if (!role) { setError("בחר תפקיד לפני שממשיכים"); return }
+    if (isRoleDisabled(role)) { setError("התפקיד הזה כבר תפוס במשפחה — בחר תפקיד אחר"); return }
     setLoading(true)
     setError('')
     try {
@@ -135,9 +134,9 @@ export function SetupPage() {
       const childId = existingChildren?.[0]?.id ?? null
       onFamilyJoined({ family, member, childId })
     } catch (err) {
-      if (err.message === 'family_full') setError(t('errors.familyFull'))
-      else if (err.message === 'role_taken') setError(t('errors.roleTaken'))
-      else setError(t('setup.codeError'))
+      if (err.message === 'family_full') setError("המשפחה מלאה — מקסימום 5 חברים")
+      else if (err.message === 'role_taken') setError("התפקיד הזה כבר תפוס במשפחה — בחר תפקיד אחר")
+      else setError("קוד לא נמצא — בדוק שוב")
     } finally {
       setLoading(false)
     }
@@ -145,8 +144,8 @@ export function SetupPage() {
 
   // ── Create path: role + family name → CHILD ────────────────────────────────
   function handleRoleAndNameContinue() {
-    if (!role) { setError(t('setup.roleRequired')); return }
-    if (!familyName.trim()) { setError(t('setup.nameRequired')); return }
+    if (!role) { setError("בחר תפקיד לפני שממשיכים"); return }
+    if (!familyName.trim()) { setError("הכנס שם משפחה"); return }
     setError('')
     setStep(STEPS.CHILD)
   }
@@ -209,7 +208,7 @@ export function SetupPage() {
       setPendingFamily(family)
       setPendingMember(member)
       setPendingChildId(child.id)
-      showToast({ message: t('setup.childAdded', { name: finalChildName }), emoji: '👶' })
+      showToast({ message: `${finalChildName} נוסף בהצלחה!`, emoji: '👶' })
       setStep(STEPS.DONE)
     } catch (e) {
       setError(`שגיאה לא צפויה: ${e?.message ?? JSON.stringify(e)}`)
@@ -242,7 +241,7 @@ export function SetupPage() {
             onClick={goBack}
             className="self-start mb-4 flex items-center gap-1 text-brown-500 font-rubik text-sm py-2 active:scale-95 transition-transform"
           >
-            ← {t('common.back')}
+            ← {"חזור"}
           </button>
         )}
 
@@ -253,7 +252,7 @@ export function SetupPage() {
               ? <img src={avatarUrl} alt={googleName} className="w-10 h-10 rounded-full object-cover" />
               : <div className="w-10 h-10 rounded-full bg-cream-200 flex items-center justify-center text-xl">👤</div>
             }
-            <p className="font-rubik text-brown-600 text-sm">{t('setup.helloUser', { name: googleName })}</p>
+            <p className="font-rubik text-brown-600 text-sm">{`שלום, ${googleName}`}</p>
           </div>
         )}
 
@@ -278,8 +277,8 @@ export function SetupPage() {
           <div className="flex-1 flex flex-col justify-center space-y-4">
             <div className="text-center mb-6">
               <div className="text-5xl mb-3">🍼</div>
-              <h1 className="font-rubik font-bold text-2xl text-brown-800">{t('setup.createOrJoin')}</h1>
-              <p className="font-rubik text-brown-400 text-sm mt-1">{t('setup.welcomeSubtitle')}</p>
+              <h1 className="font-rubik font-bold text-2xl text-brown-800">{"רוצה ליצור משפחה חדשה או להצטרף לקיימת?"}</h1>
+              <p className="font-rubik text-brown-400 text-sm mt-1">{"ברוך הבא! איך נתחיל?"}</p>
             </div>
 
             <button
@@ -290,8 +289,8 @@ export function SetupPage() {
               <div className="p-5 flex items-center gap-4">
                 <div className="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center text-3xl flex-shrink-0">✨</div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-rubik font-bold text-brown-800 text-lg">{t('setup.createFamily')}</p>
-                  <p className="font-rubik text-brown-400 text-sm mt-0.5">{t('setup.createFamilyDesc')}</p>
+                  <p className="font-rubik font-bold text-brown-800 text-lg">{"צור משפחה חדשה"}</p>
+                  <p className="font-rubik text-brown-400 text-sm mt-0.5">{"התחל מסע חדש עם המשפחה שלך"}</p>
                 </div>
                 <span className="text-brown-300 text-2xl flex-shrink-0">‹</span>
               </div>
@@ -305,8 +304,8 @@ export function SetupPage() {
               <div className="p-5 flex items-center gap-4">
                 <div className="w-14 h-14 rounded-2xl bg-cream-200 flex items-center justify-center text-3xl flex-shrink-0">🔗</div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-rubik font-bold text-brown-800 text-lg">{t('setup.joinFamily')}</p>
-                  <p className="font-rubik text-brown-400 text-sm mt-0.5">{t('setup.joinFamilyDesc')}</p>
+                  <p className="font-rubik font-bold text-brown-800 text-lg">{"הצטרף למשפחה קיימת"}</p>
+                  <p className="font-rubik text-brown-400 text-sm mt-0.5">{"הצטרף לתא משפחתי קיים עם קוד"}</p>
                 </div>
                 <span className="text-brown-300 text-2xl flex-shrink-0">‹</span>
               </div>
@@ -319,13 +318,13 @@ export function SetupPage() {
           <div className="flex-1 flex flex-col justify-center space-y-5">
             <div className="text-center">
               <div className="text-4xl mb-2">🔗</div>
-              <h2 className="font-rubik font-bold text-xl text-brown-800">{t('setup.enterCodeTitle')}</h2>
+              <h2 className="font-rubik font-bold text-xl text-brown-800">{"הצטרפות למשפחה קיימת"}</h2>
             </div>
 
             {/* How-to instruction card */}
             <div className="bg-white rounded-2xl shadow-soft px-4 py-4 flex gap-3">
               <span className="text-2xl flex-shrink-0 mt-0.5">💡</span>
-              <p className="font-rubik text-brown-500 text-sm leading-relaxed">{t('setup.enterCodeHint')}</p>
+              <p className="font-rubik text-brown-500 text-sm leading-relaxed">{"בקש את קוד המשפחה מהאדם שפתח את המשפחה — הוא/היא ישתפו אותך דרך פרופיל → קוד משפחה."}</p>
             </div>
 
             {/* Code input */}
@@ -334,7 +333,7 @@ export function SetupPage() {
               maxLength={6}
               value={code}
               onChange={e => { setCode(e.target.value.toUpperCase()); setError('') }}
-              placeholder={t('setup.codePlaceholder')}
+              placeholder={"קוד בן 6 תווים"}
               className="w-full bg-white text-center text-3xl font-bold font-rubik tracking-[0.5em] rounded-2xl py-5 shadow-soft outline-none text-brown-800 uppercase focus:ring-2 focus:ring-amber-400"
               autoFocus
             />
@@ -342,7 +341,7 @@ export function SetupPage() {
             {error && <p className="text-red-500 text-sm text-center font-rubik">{error}</p>}
 
             <Button className="w-full" size="lg" onClick={handleCodeContinue} disabled={codeValidating || code.length !== 6}>
-              {codeValidating ? t('setup.codeValidating') : t('setup.continue')}
+              {codeValidating ? "מאמת קוד..." : "המשך"}
             </Button>
           </div>
         )}
@@ -351,10 +350,10 @@ export function SetupPage() {
         {step === STEPS.ROLE_JOIN && (
           <div className="flex-1 flex flex-col justify-center space-y-3">
             <div className="text-center mb-1">
-              <h2 className="font-rubik font-bold text-xl text-brown-800">{t('setup.chooseRole')}</h2>
+              <h2 className="font-rubik font-bold text-xl text-brown-800">{"מה התפקיד שלך?"}</h2>
               {foundFamily && (
                 <p className="font-rubik text-brown-400 text-sm mt-1">
-                  {t('setup.chooseRoleSubtitle', { name: foundFamily.family_name })}
+                  {`בחר את תפקידך במשפחה ${foundFamily.family_name}`}
                 </p>
               )}
             </div>
@@ -378,7 +377,7 @@ export function SetupPage() {
                   <span className="flex-1 text-right">{r.label}</span>
                   {disabled && (
                     <span className="text-xs font-rubik font-semibold bg-brown-200 text-brown-500 px-2 py-0.5 rounded-full">
-                      {t('setup.roleTakenBadge')}
+                      {"תפוס"}
                     </span>
                   )}
                   {selected && !disabled && <span className="text-white font-bold text-xl">✓</span>}
@@ -391,7 +390,7 @@ export function SetupPage() {
                 type="text"
                 value={customRole}
                 onChange={e => setCustomRole(e.target.value)}
-                placeholder={t('setup.customRolePlaceholder')}
+                placeholder={"הכנס תפקיד..."}
                 className="w-full bg-cream-200 rounded-2xl px-4 py-3 font-rubik text-brown-800 outline-none mt-1"
                 autoFocus
               />
@@ -400,7 +399,7 @@ export function SetupPage() {
             {error && <p className="text-red-500 text-sm text-center font-rubik">{error}</p>}
 
             <Button className="w-full mt-2" size="lg" onClick={handleJoin} disabled={loading || !role}>
-              {loading ? t('app.loading') : t('setup.join')}
+              {loading ? "טוען..." : "הצטרף"}
             </Button>
           </div>
         )}
@@ -409,7 +408,7 @@ export function SetupPage() {
         {step === STEPS.ROLE_AND_NAME && (
           <div className="flex-1 flex flex-col justify-center space-y-4">
             <div>
-              <h2 className="font-rubik font-bold text-xl text-brown-800 text-center mb-3">{t('setup.chooseRole')}</h2>
+              <h2 className="font-rubik font-bold text-xl text-brown-800 text-center mb-3">{"מה התפקיד שלך?"}</h2>
               <div className="space-y-2">
                 {ROLES.filter(r => PARENT_ROLES.includes(r.value)).map(r => (
                   <button
@@ -431,19 +430,19 @@ export function SetupPage() {
             <div className="border-t border-cream-300" />
 
             <div>
-              <h2 className="font-rubik font-bold text-lg text-brown-800 text-center mb-2">{t('setup.familyName')}</h2>
+              <h2 className="font-rubik font-bold text-lg text-brown-800 text-center mb-2">{"שם המשפחה"}</h2>
               <input
                 type="text"
                 value={familyName}
                 onChange={e => { setFamilyName(e.target.value); setError('') }}
-                placeholder={t('setup.familyNamePlaceholder')}
+                placeholder={"הזן שם משפחה"}
                 className="w-full bg-white rounded-2xl shadow-soft px-5 py-4 font-rubik text-brown-800 text-lg outline-none focus:ring-2 focus:ring-amber-400"
               />
             </div>
 
             {error && <p className="text-red-500 text-sm text-center font-rubik">{error}</p>}
             <Button className="w-full" size="lg" onClick={handleRoleAndNameContinue}>
-              {t('setup.continue')}
+              {"המשך"}
             </Button>
           </div>
         )}
@@ -453,9 +452,9 @@ export function SetupPage() {
           <div className="flex-1 flex flex-col justify-center space-y-5">
             <div className="text-center">
               <div className="text-4xl mb-2">👶</div>
-              <h2 className="font-rubik font-bold text-xl text-brown-800">{t('setup.addFirstChild')}</h2>
-              <p className="font-rubik text-brown-400 text-sm mt-1">{t('setup.addChildSubtitle')}</p>
-              <p className="font-rubik text-brown-300 text-xs mt-1">{t('setup.childStepOptional')}</p>
+              <h2 className="font-rubik font-bold text-xl text-brown-800">{"הוסיפו את הילד/ה הראשון/ה"}</h2>
+              <p className="font-rubik text-brown-400 text-sm mt-1">{"שם, תמונה — ואפשר להוסיף עוד בהמשך"}</p>
+              <p className="font-rubik text-brown-300 text-xs mt-1">{"הכל אופציונלי — ניתן לשנות בכל עת"}</p>
             </div>
 
             <div className="flex flex-col items-center gap-2">
@@ -476,12 +475,12 @@ export function SetupPage() {
                   </div>
                 )}
               </button>
-              <p className="font-rubik text-brown-400 text-xs">{t('children.addPhoto')}</p>
+              <p className="font-rubik text-brown-400 text-xs">{"הוסף תמונה"}</p>
               <PhotoSourceSheet
                 isOpen={photoSourceOpen}
                 onClose={() => setPhotoSourceOpen(false)}
                 onPick={handlePickAvatar}
-                title={t('children.addPhoto')}
+                title={"הוסף תמונה"}
               />
             </div>
 
@@ -489,12 +488,12 @@ export function SetupPage() {
               type="text"
               value={childName}
               onChange={e => { setChildName(e.target.value); setError('') }}
-              placeholder={t('children.childNamePlaceholder')}
+              placeholder={"הכנס שם ילד או כינוי"}
               className="w-full bg-white rounded-2xl shadow-soft px-5 py-4 font-rubik text-brown-800 text-xl text-center outline-none focus:ring-2 focus:ring-amber-400"
             />
 
             <div>
-              <p className="text-xs text-brown-400 font-rubik text-center mb-2">{t('setup.newbornSection')}</p>
+              <p className="text-xs text-brown-400 font-rubik text-center mb-2">{"עדיין אין שם? בחרו כינוי זמני"}</p>
               <div className="flex flex-wrap gap-2 justify-center">
                 {['תינוקי 🍼', 'כוכב שלי ⭐', 'מלכה שלי 👑', 'אהובי ❤️'].map(nick => (
                   <button
@@ -510,14 +509,14 @@ export function SetupPage() {
                 ))}
               </div>
               {childName && (
-                <p className="text-xs text-amber-600 font-rubik text-center mt-2">{t('setup.newbornHint')}</p>
+                <p className="text-xs text-amber-600 font-rubik text-center mt-2">{"שם זמני — ניתן לשנות בכל עת מהפרופיל"}</p>
               )}
             </div>
 
             <div className="bg-white rounded-2xl shadow-soft px-5 py-4 space-y-4">
-              <p className="font-rubik text-xs text-brown-400 text-center">{t('setup.growthOptional')}</p>
+              <p className="font-rubik text-xs text-brown-400 text-center">{"לא חובה — נדרש לגרף גדילה לפי עקומות WHO ⚖️"}</p>
               <div>
-                <p className="text-sm font-medium text-brown-600 mb-2">{t('children.birthDate')}</p>
+                <p className="text-sm font-medium text-brown-600 mb-2">{"תאריך לידה"}</p>
                 <input
                   type="date"
                   value={childBirthDate}
@@ -527,9 +526,9 @@ export function SetupPage() {
                 />
               </div>
               <div>
-                <p className="text-sm font-medium text-brown-600 mb-2">{t('children.gender')}</p>
+                <p className="text-sm font-medium text-brown-600 mb-2">{"מין"}</p>
                 <div className="grid grid-cols-2 gap-3">
-                  {[{ value: 'male', emoji: '👦', label: t('children.male') }, { value: 'female', emoji: '👧', label: t('children.female') }].map(opt => (
+                  {[{ value: 'male', emoji: '👦', label: "ילד" }, { value: 'female', emoji: '👧', label: "ילדה" }].map(opt => (
                     <button
                       key={opt.value}
                       type="button"
@@ -547,10 +546,10 @@ export function SetupPage() {
 
             {error && <p className="text-red-500 text-sm text-center font-rubik">{error}</p>}
             <Button className="w-full" size="lg" onClick={handleChildSave} disabled={loading}>
-              {loading ? t('app.loading') : t('setup.letsGo')}
+              {loading ? "טוען..." : "בואו נתחיל!"}
             </Button>
             {!childName && (
-              <p className="text-xs text-brown-300 font-rubik text-center -mt-2">{t('setup.noNameHint')}</p>
+              <p className="text-xs text-brown-300 font-rubik text-center -mt-2">{"ללא שם? נשמור כ\"תינוקי שלי\" — תמיד אפשר לשנות"}</p>
             )}
           </div>
         )}
@@ -559,7 +558,7 @@ export function SetupPage() {
         {step === STEPS.DONE && (
           <div className="flex-1 flex flex-col justify-center text-center space-y-5">
             <div className="text-5xl">🎉</div>
-            <h2 className="font-rubik font-bold text-2xl text-brown-800">{t('setup.familyCode')}</h2>
+            <h2 className="font-rubik font-bold text-2xl text-brown-800">{"קוד המשפחה שלך"}</h2>
             {createdCode && (
               <>
                 <div className="rounded-3xl shadow-card overflow-hidden">
@@ -587,7 +586,7 @@ export function SetupPage() {
                     </div>
                   </div>
                 </div>
-                <p className="text-sm text-brown-400 font-rubik">{t('setup.shareCode')}</p>
+                <p className="text-sm text-brown-400 font-rubik">{"שתף את הקוד הזה כדי שאחרים יצטרפו"}</p>
                 <p className="text-xs text-brown-300 font-rubik -mt-2">הקוד תמיד זמין אצלך בהגדרות המשפחה — אל תדאג 🙂</p>
               </>
             )}
@@ -596,7 +595,7 @@ export function SetupPage() {
               size="lg"
               onClick={() => onFamilyJoined({ family: pendingFamily, member: pendingMember, childId: pendingChildId })}
             >
-              {t('setup.goToDashboard')}
+              {"כניסה לאפליקציה"}
             </Button>
           </div>
         )}

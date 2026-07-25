@@ -6,20 +6,19 @@ import {
   HelpCircle, ChevronRight, ChevronLeft,
   Accessibility, Palette, Zap, Sparkles,
 } from 'lucide-react'
-import { t } from '../../lib/strings'
 import { cn } from '../../lib/utils'
 import { BottomSheet } from '../ui/BottomSheet'
 import { useAccessibility } from '../../context/AccessibilityContext'
 
 // RTL order: Home (right) → History → [FAB] → Reports → Profile (left)
 const RIGHT_TABS = [
-  { to: '/', label: t('nav.home'), Icon: Home, end: true },
-  { to: '/history', label: t('nav.history'), Icon: ClipboardList },
+  { to: '/', label: "בית", Icon: Home, end: true },
+  { to: '/history', label: "היסטוריה", Icon: ClipboardList },
 ]
 
 const LEFT_TABS = [
-  { to: '/reports', label: t('nav.reports'), Icon: BarChart2 },
-  { to: '/profile', label: t('nav.profile'), Icon: User },
+  { to: '/reports', label: "דוחות", Icon: BarChart2 },
+  { to: '/profile', label: "פרופיל", Icon: User },
 ]
 
 function NavTab({ to, label, Icon, end }) {

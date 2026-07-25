@@ -9,10 +9,13 @@ import { UpgradePopup } from '../ui/UpgradePopup'
 import { BottomNav } from './BottomNav'
 import { InstallBanner } from '../ui/InstallBanner'
 import { STORAGE_KEYS, PREFS_CHANGED_EVENT } from '../../lib/constants'
-import { t } from '../../lib/strings'
 
-const WIFE_EMAIL = 'nofarromi1998@gmail.com'
-const SISTER_EMAIL = 'ortalhayuta@gmail.com'
+// Personal easter eggs, keyed by email. These used to be literals in source —
+// which put two private addresses in a public repo for search engines to index.
+// Set VITE_LOVE_EMAIL / VITE_SISTER_EMAIL in the environment; unset simply
+// means the popup never shows.
+const WIFE_EMAIL = import.meta.env.VITE_LOVE_EMAIL ?? ''
+const SISTER_EMAIL = import.meta.env.VITE_SISTER_EMAIL ?? ''
 
 function getNotificationsEnabled() {
   const stored = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS)
@@ -45,7 +48,7 @@ export function AppLayout({ children }) {
   useEffect(() => {
     if (!identity.memberName) return
     if (!sessionStorage.getItem('bt_welcome')) {
-      showToast({ message: t('app.welcome', { name: identity.memberName }), emoji: '🏠' })
+      showToast({ message: `שלום, ${identity.memberName}! 👋`, emoji: '🏠' })
       sessionStorage.setItem('bt_welcome', '1')
     }
   }, [])
@@ -58,8 +61,10 @@ export function AppLayout({ children }) {
     addNotification,
   })
 
-  const isWife = identity.email === WIFE_EMAIL
-  const isSister = identity.email === SISTER_EMAIL
+  // Guard on the configured value too — with the env var unset, an empty
+  // identity.email must not match an empty constant and fire for everyone.
+  const isWife   = Boolean(WIFE_EMAIL)   && identity.email === WIFE_EMAIL
+  const isSister = Boolean(SISTER_EMAIL) && identity.email === SISTER_EMAIL
 
   return (
     <div className="min-h-screen bg-cream-100 flex justify-center">

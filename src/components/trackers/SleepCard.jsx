@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import { isSameDay } from 'date-fns'
-import { t } from '../../lib/strings'
 import { useEvents } from '../../hooks/useEvents'
 import { Card } from '../ui/Card'
 import { formatTime } from '../../lib/utils'
+import { sleepStats } from '../../lib/sleepSessions'
 
 function formatDuration(ms) {
   if (ms < 0) ms = 0
@@ -20,9 +20,9 @@ function formatDurationShort(ms) {
   const totalMin = Math.floor(ms / 60000)
   const h = Math.floor(totalMin / 60)
   const m = totalMin % 60
-  if (h > 0 && m > 0) return `${h}:${String(m).padStart(2, '0')} ${t('sleep.hoursAbbr')}`
-  if (h > 0) return `${h} ${t('sleep.hoursAbbr')}`
-  return `${m} ${t('sleep.minAbbr')}`
+  if (h > 0 && m > 0) return `${h}:${String(m).padStart(2, '0')} ${"שע'"}`
+  if (h > 0) return `${h} ${"שע'"}`
+  return `${m} ${"דק'"}`
 }
 
 export function SleepCard({ tracker, familyId, memberId, childId, viewDate, compact = false }) {
@@ -30,42 +30,19 @@ export function SleepCard({ tracker, familyId, memberId, childId, viewDate, comp
   const [now, setNow] = useState(Date.now())
   const [saving, setSaving] = useState(false)
 
-  // Sort chronologically to build sessions
-  const sortedEvents = useMemo(
-    () => [...events].sort((a, b) => new Date(a.occurred_at) - new Date(b.occurred_at)),
-    [events]
-  )
-
-  // Pair start/end events into sessions.
-  //
-  // Same semantics as HeroCard.getSleepStats / ReportsPage.pairSleepEvents so
-  // the three views can never disagree:
-  //   • a second 'start' with no 'end' between overwrites the open one (re-tap)
-  //   • an 'end' with no open 'start' is an orphan and is ignored
-  //   • a trailing unmatched 'start' means "sleeping right now"
-  const sessions = useMemo(() => {
-    const result = []
-    let openStart = null
-    for (const ev of sortedEvents) {
-      const type = ev.data?.type
-      if (type === 'start') {
-        openStart = ev
-      } else if (type === 'end' && openStart) {
-        result.push({ start: openStart, end: ev })
-        openStart = null
-      }
-    }
-    if (openStart) result.push({ start: openStart, end: null })
-    return result
-  }, [sortedEvents])
-
-  const isSleeping = sessions.length > 0 && sessions[sessions.length - 1].end === null
-
   // start/end are stamped with the current clock time — only meaningful today.
   const isViewingToday = !viewDate || isSameDay(viewDate, new Date())
 
-  // A nap left open on a past day would otherwise "run" until now and report
-  // an absurd total — only the live day counts unfinished time.
+  // Pairing lives in lib/sleepSessions so this card, the hero chip and the
+  // reports page cannot drift apart. `live` is what stops a nap left open on a
+  // past day from running until now and reporting an absurd total.
+  const stats = useMemo(
+    () => sleepStats(events, { now, live: isViewingToday }),
+    [events, now, isViewingToday]
+  )
+
+  const { isSleeping, currentMs, totalMs, sessions } = stats
+  const completedSessions = sessions
   const isLive = isSleeping && isViewingToday
 
   // Live timer tick while sleeping
@@ -74,17 +51,6 @@ export function SleepCard({ tracker, familyId, memberId, childId, viewDate, comp
     const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
   }, [isLive])
-
-  const currentMs = isLive
-    ? now - new Date(sessions[sessions.length - 1].start.occurred_at).getTime()
-    : 0
-
-  const totalMs = sessions.reduce((sum, s) => {
-    if (s.end) return sum + (new Date(s.end.occurred_at) - new Date(s.start.occurred_at))
-    return sum + currentMs
-  }, 0)
-
-  const completedSessions = sessions.filter(s => s.end)
 
   async function handleToggle() {
     if (saving || !isViewingToday) return
@@ -110,7 +76,7 @@ export function SleepCard({ tracker, familyId, memberId, childId, viewDate, comp
           <div className="flex-1 min-w-0">
             <p className="font-rubik font-semibold text-brown-800 text-sm">{tracker.name}</p>
             {totalMs > 0 && !isSleeping && (
-              <p className="font-rubik text-xs text-brown-400">{formatDurationShort(totalMs)} {t('sleep.totalToday')}</p>
+              <p className="font-rubik text-xs text-brown-400">{formatDurationShort(totalMs)} {"סה\"כ היום"}</p>
             )}
           </div>
           <button
@@ -121,7 +87,7 @@ export function SleepCard({ tracker, familyId, memberId, childId, viewDate, comp
           >
             <span>{isSleeping ? '☀️' : '🌙'}</span>
             <span style={{ color: isSleeping ? 'white' : tracker.color }}>
-              {saving ? '...' : isSleeping ? formatDuration(currentMs) : t('sleep.asleep')}
+              {saving ? '...' : isSleeping ? formatDuration(currentMs) : "הלך לישון"}
             </span>
           </button>
         </div>
@@ -142,7 +108,7 @@ export function SleepCard({ tracker, familyId, memberId, childId, viewDate, comp
             className="text-xs font-rubik font-medium px-3 py-1 rounded-full"
             style={{ backgroundColor: `${tracker.color}20`, color: tracker.color }}
           >
-            {formatDurationShort(totalMs)} {t('sleep.totalToday')}
+            {formatDurationShort(totalMs)} {"סה\"כ היום"}
           </span>
         )}
       </div>
@@ -162,7 +128,7 @@ export function SleepCard({ tracker, familyId, memberId, childId, viewDate, comp
           {isSleeping ? (
             <>
               <span className="text-3xl">☀️</span>
-              <span className="font-rubik font-bold text-white text-lg">{t('sleep.wakeUp')}</span>
+              <span className="font-rubik font-bold text-white text-lg">{"התעורר"}</span>
               <span className="font-rubik text-white/80 text-2xl font-mono tracking-wider">
                 {saving ? '...' : formatDuration(currentMs)}
               </span>
@@ -174,7 +140,7 @@ export function SleepCard({ tracker, familyId, memberId, childId, viewDate, comp
                 className="font-rubik font-bold text-base"
                 style={{ color: tracker.color }}
               >
-                {saving ? '...' : t('sleep.asleep')}
+                {saving ? '...' : "הלך לישון"}
               </span>
             </>
           )}
@@ -195,19 +161,18 @@ export function SleepCard({ tracker, familyId, memberId, childId, viewDate, comp
       {/* Completed sessions list */}
       {completedSessions.length > 0 && (
         <div className="mt-3 space-y-1.5">
-          {completedSessions.map((s, i) => {
-            const dur = new Date(s.end.occurred_at) - new Date(s.start.occurred_at)
-            return (
-              <div key={i} className="flex items-center justify-between rounded-xl px-3 py-2 bg-cream-100">
-                <span className="font-rubik text-xs text-brown-400">
-                  {formatTime(s.start.occurred_at)} – {formatTime(s.end.occurred_at)}
-                </span>
-                <span className="font-rubik text-sm font-semibold text-brown-700">
-                  {formatDurationShort(dur)}
-                </span>
-              </div>
-            )
-          })}
+          {/* sleepStats returns { start: Date, end: Date, ms } — not the raw
+              event rows this block used to receive. */}
+          {completedSessions.map((s, i) => (
+            <div key={i} className="flex items-center justify-between rounded-xl px-3 py-2 bg-cream-100">
+              <span className="font-rubik text-xs text-brown-400">
+                {formatTime(s.start)} – {formatTime(s.end)}
+              </span>
+              <span className="font-rubik text-sm font-semibold text-brown-700">
+                {formatDurationShort(s.ms)}
+              </span>
+            </div>
+          ))}
         </div>
       )}
     </Card>
