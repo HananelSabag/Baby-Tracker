@@ -17,7 +17,7 @@ import {
 import {
   exportAlbum, generateAlbumGif, generateAlbumVideo,
   drawAlbumFrame, loadImageCrossOrigin, waitMs, crossfadeCanvases,
-  getPhotoDate, formatAlbumTime,
+  getPhotoDate, formatAlbumTime, suggestMilestoneDate,
 } from '../lib/albumExport'
 
 // ── Age / milestone helpers ────────────────────────────────────────────────────
@@ -409,6 +409,7 @@ export function AlbumPage() {
           photo={byMonth[editMonth] ?? null}
           childId={activeChild.id}
           familyId={identity.familyId}
+          birthDate={activeChild.birth_date}
           onSave={async (data) => {
             await upsertPhoto({ month: editMonth, ...data })
             setEditMonth(null)
@@ -688,11 +689,13 @@ function MilestoneCelebrationPopup({ child, monthsOld, currentMonthPhoto, onClos
 
 // ── Edit bottom sheet ──────────────────────────────────────────────────────────
 
-function EditMonthSheet({ month, photo, childId, familyId, onSave, onDelete, onClose }) {
+function EditMonthSheet({ month, photo, childId, familyId, birthDate, onSave, onDelete, onClose }) {
   const [caption,    setCaption]    = useState(photo?.caption   ?? '')
   const [effectId,   setEffectId]   = useState(photo?.effect_id ?? 'none')
   const [frameId,    setFrameId]    = useState(photo?.frame_id  ?? 'none')
   const [photoUrl,   setPhotoUrl]   = useState(photo?.photo_url ?? null)
+  // '' = no explicit date → the export falls back to EXIF, then upload time.
+  const [photoDate,  setPhotoDate]  = useState(photo?.photo_date?.slice(0, 10) ?? '')
   // uploadPhase: null | 'processing' | 'uploading' — drives the overlay label
   const [uploadPhase,  setUploadPhase]  = useState(null)
   const [uploadOk,     setUploadOk]     = useState(false)
@@ -705,6 +708,7 @@ function EditMonthSheet({ month, photo, childId, familyId, onSave, onDelete, onC
   const ef = getEffect(effectId)
   const fr = getFrame(frameId)
   const uploading = uploadPhase !== null
+  const suggestedDate = useMemo(() => suggestMilestoneDate(birthDate, month), [birthDate, month])
 
   async function handlePickPhoto(mode) {
     setUploadError(null)
@@ -742,7 +746,7 @@ function EditMonthSheet({ month, photo, childId, familyId, onSave, onDelete, onC
     if (!photoUrl) return
     setSaving(true)
     try {
-      await onSave({ photoUrl, caption, frameId, effectId })
+      await onSave({ photoUrl, caption, frameId, effectId, photoDate })
     } finally {
       setSaving(false)
     }
@@ -840,6 +844,53 @@ function EditMonthSheet({ month, photo, childId, familyId, onSave, onDelete, onC
               dir="rtl"
             />
             <p className="font-rubik text-brown-400 text-[10px] text-left mt-0.5">{caption.length}/60</p>
+          </div>
+
+          {/* ── Photo date ──
+              The album gets printed, so the date on the page has to be the one
+              the parent chooses — not the upload time and not whatever EXIF the
+              phone happened to write. Left empty, the export keeps the old
+              behaviour (EXIF → upload date). */}
+          <div
+            className="rounded-2xl px-4 py-3 border border-cream-200 bg-white"
+            style={{ boxShadow: '0 2px 8px rgba(61,43,31,0.04), inset 0 1px 0 rgba(255,255,255,0.9)' }}
+          >
+            <label htmlFor="milestone-photo-date" className="font-rubik text-brown-500 text-xs font-semibold block mb-1.5">
+              תאריך התמונה
+            </label>
+            <input
+              id="milestone-photo-date"
+              type="date"
+              value={photoDate}
+              onChange={e => setPhotoDate(e.target.value)}
+              className="w-full font-rubik text-brown-800 text-sm bg-transparent outline-none"
+              dir="ltr"
+            />
+            <div className="flex items-center gap-2 mt-2">
+              {suggestedDate && photoDate !== suggestedDate && (
+                <button
+                  type="button"
+                  onClick={() => setPhotoDate(suggestedDate)}
+                  className="font-rubik text-[11px] font-semibold text-amber-600 bg-amber-50 rounded-xl px-2.5 py-1 active:scale-95 transition-transform cursor-pointer"
+                >
+                  יום ההולדת החודשי
+                </button>
+              )}
+              {photoDate && (
+                <button
+                  type="button"
+                  onClick={() => setPhotoDate('')}
+                  className="font-rubik text-[11px] font-semibold text-brown-400 bg-cream-100 rounded-xl px-2.5 py-1 active:scale-95 transition-transform cursor-pointer"
+                >
+                  נקה
+                </button>
+              )}
+            </div>
+            <p className="font-rubik text-brown-400 text-[10px] leading-snug mt-1.5">
+              {photoDate
+                ? 'התאריך הזה יודפס על התמונה באלבום.'
+                : 'ללא תאריך — יילקח תאריך הצילום מהתמונה, ואם אין, תאריך ההעלאה.'}
+            </p>
           </div>
 
           {/* ── Effect picker ── */}
@@ -984,7 +1035,7 @@ const SPEED_OPTIONS = [
 ]
 const TEXT_TOGGLES  = [
   { key: 'showMonthLabel', label: 'שם החודש',  desc: 'כותרת חודש בתחתית כל תמונה' },
-  { key: 'showDate',       label: 'תאריך',      desc: 'מה-EXIF או תאריך העלאה' },
+  { key: 'showDate',       label: 'תאריך',      desc: 'התאריך שנבחר לתמונה (או תאריך הצילום)' },
   { key: 'showCaption',    label: 'כיתוב',      desc: 'הטקסט שנכתב לכל חודש' },
 ]
 
@@ -1043,7 +1094,8 @@ function PreviewSlideshow({ byMonth, options }) {
     return () => { abortRef.current = true }
   }, [
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    photos.map(([m]) => m).join(','),
+    // Keyed on the date too, so editing a photo's date refreshes the preview.
+    photos.map(([m, p]) => `${m}:${p.photo_date ?? ''}`).join(','),
     options.speed, options.effectOverride,
     options.showDate, options.showCaption, options.showMonthLabel,
   ])

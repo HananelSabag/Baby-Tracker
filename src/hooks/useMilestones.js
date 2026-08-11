@@ -25,7 +25,7 @@ export function useMilestones(familyId, childId) {
       const rows = await query(key, async () => {
         const { data, error } = await supabase
           .from('milestone_photos')
-          .select('id, child_id, family_id, month, photo_url, caption, frame_id, effect_id, created_at')
+          .select('id, child_id, family_id, month, photo_url, caption, frame_id, effect_id, photo_date, created_at')
           .eq('family_id', familyId)
           .eq('child_id', childId)
           .order('month', { ascending: true })
@@ -44,17 +44,19 @@ export function useMilestones(familyId, childId) {
 
   const refetch = useCallback(() => load({ force: true }), [load])
 
-  async function upsertPhoto({ month, photoUrl, caption, frameId, effectId }) {
+  async function upsertPhoto({ month, photoUrl, caption, frameId, effectId, photoDate }) {
     const { error } = await supabase
       .from('milestone_photos')
       .upsert({
-        child_id:  childId,
-        family_id: familyId,
+        child_id:   childId,
+        family_id:  familyId,
         month,
-        photo_url: photoUrl,
-        caption:   caption ?? null,
-        frame_id:  frameId ?? 'none',
-        effect_id: effectId ?? 'none',
+        photo_url:  photoUrl,
+        caption:    caption ?? null,
+        frame_id:   frameId ?? 'none',
+        effect_id:  effectId ?? 'none',
+        // Empty string → null so clearing the field falls back to EXIF/upload date.
+        photo_date: photoDate || null,
       }, { onConflict: 'child_id,month' })
     if (error) throw error
     await refetch()

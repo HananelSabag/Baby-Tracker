@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { computeAlbumBand, wrapCanvasText } from '../lib/albumExport'
+import {
+  computeAlbumBand, wrapCanvasText, parseDateOnly, getPhotoDate, suggestMilestoneDate,
+} from '../lib/albumExport'
 
 // A minimal 2D-context stand-in: width is proportional to string length so we
 // can reason about wrapping deterministically without a real canvas.
@@ -105,5 +107,86 @@ describe('wrapCanvasText', () => {
     // Nothing is lost silently: either it fits, or the last line is elided.
     const joined = lines.join(' ')
     expect(joined.length).toBeGreaterThan(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// parseDateOnly — a 'date' column must not drift a day across timezones
+// ---------------------------------------------------------------------------
+describe('parseDateOnly', () => {
+  it('parses YYYY-MM-DD into that exact local calendar day', () => {
+    const d = parseDateOnly('2026-08-11')
+    expect(d.getFullYear()).toBe(2026)
+    expect(d.getMonth()).toBe(7)   // 0-based
+    expect(d.getDate()).toBe(11)
+  })
+
+  it('tolerates a full timestamp string', () => {
+    expect(parseDateOnly('2026-01-05T22:00:00.000Z').getDate()).toBe(5)
+  })
+
+  it('returns null for empty, malformed or non-string input', () => {
+    expect(parseDateOnly('')).toBeNull()
+    expect(parseDateOnly('not a date')).toBeNull()
+    expect(parseDateOnly(null)).toBeNull()
+    expect(parseDateOnly(undefined)).toBeNull()
+    expect(parseDateOnly(new Date())).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// getPhotoDate — the user's chosen date beats EXIF and upload time
+// ---------------------------------------------------------------------------
+describe('getPhotoDate', () => {
+  it('prints the user-chosen photo_date over the upload date', async () => {
+    const label = await getPhotoDate({
+      photo_url:  'https://example.test/p.jpg',
+      photo_date: '2026-03-09',
+      created_at: '2026-08-11T09:00:00.000Z',
+    })
+    expect(label).toBe('09 מרץ 2026')
+  })
+
+  it('falls back to the upload date when no date was chosen', async () => {
+    const label = await getPhotoDate({
+      photo_url:  'https://example.test/p.jpg',
+      photo_date: null,
+      created_at: '2026-08-11T09:00:00.000Z',
+    })
+    expect(label).toBe('11 אוגוסט 2026')
+  })
+
+  it('ignores a malformed photo_date instead of printing garbage', async () => {
+    const label = await getPhotoDate({
+      photo_url:  'https://example.test/p.jpg',
+      photo_date: 'yesterday',
+      created_at: '2026-08-11T09:00:00.000Z',
+    })
+    expect(label).toBe('11 אוגוסט 2026')
+  })
+
+  it('returns null when there is nothing to show', async () => {
+    expect(await getPhotoDate({ photo_url: 'https://example.test/p.jpg' })).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// suggestMilestoneDate — the default offered in the edit sheet
+// ---------------------------------------------------------------------------
+describe('suggestMilestoneDate', () => {
+  it('offers the monthly birthday for the given month', () => {
+    expect(suggestMilestoneDate('2026-01-15', 1)).toBe('2026-02-15')
+    expect(suggestMilestoneDate('2026-01-15', 12)).toBe('2027-01-15')
+  })
+
+  it('clamps to the last day of a short month instead of rolling over', () => {
+    // Born Jan 31 → the "1 month" milestone is Feb 28, not Mar 3.
+    expect(suggestMilestoneDate('2026-01-31', 1)).toBe('2026-02-28')
+  })
+
+  it('returns an empty string when the birth date is missing or invalid', () => {
+    expect(suggestMilestoneDate(null, 3)).toBe('')
+    expect(suggestMilestoneDate('nope', 3)).toBe('')
+    expect(suggestMilestoneDate('2026-01-15', 0)).toBe('')
   })
 })
