@@ -759,10 +759,16 @@ function EditMonthSheet({ month, photo, childId, familyId, birthDate, onSave, on
       <BottomSheet isOpen onClose={onClose} title={sheetTitle}>
         <div className="space-y-4 pb-2" dir="rtl">
 
-          {/* ── Photo area (4:3 ratio — less cramped than square) ── */}
+          {/* ── Photo area — square, matching the grid cell and every export
+              (drawAlbumFrame always composites into a square canvas). A 4:3 box
+              here used to show a different crop than what actually gets printed:
+              a landscape photo looked uncropped in this preview while the square
+              ZIP page cut its sides, and a portrait photo was cropped *harder*
+              here than in the real export. What the parent frames now is what
+              ends up on the page. ── */}
           <div
             className="relative w-full rounded-2xl overflow-hidden"
-            style={{ aspectRatio: '4/3', boxShadow: '0 4px 20px rgba(61,43,31,0.1)' }}
+            style={{ aspectRatio: '1/1', boxShadow: '0 4px 20px rgba(61,43,31,0.1)' }}
           >
             {uploading ? (
               <div className="w-full h-full bg-cream-100 flex flex-col items-center justify-center gap-2.5">
