@@ -4,7 +4,7 @@
 import {
   MONTH_LABELS, MONTH_FILENAMES, HE_MONTHS,
   EFFECTS, FRAMES, MUSIC_TRACKS, SUPABASE_MUSIC_URL,
-  VIDEO_SIZE, TRANSITION_MS,
+  VIDEO_SIZE, VIDEO_BITRATE, VIDEO_SIZE_HQ, VIDEO_BITRATE_HQ, TRANSITION_MS,
   GIF_SIZE, GIF_SPEED_MS, GIF_TRANSITION_FRAMES,
   CANVAS_SIZE,
 } from './albumConstants'
@@ -79,6 +79,28 @@ export function wrapCanvasText(ctx, text, maxWidth, maxLines = 2) {
   }
 
   return lines.slice(0, maxLines)
+}
+
+// `\w` is ASCII-only ([A-Za-z0-9_]) — running a Hebrew name through
+// `.replace(/[^\w-]/g, '-')` turned every letter into a dash (e.g. "הראל"
+// became "----"), so downloads came out named "BabyTracker------album.zip"
+// with no trace of the child's name. The `download` attribute (used by
+// triggerDownload) handles Unicode filenames fine — only the handful of
+// characters that are actually invalid on a filesystem need stripping.
+function sanitizeFilename(name) {
+  return (name ?? '')
+    .replace(/[\\/:*?"<>|]/g, ' ')  // reserved on Windows/most filesystems
+    .replace(/[\x00-\x1f]/g, ' ')   // control characters
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[. ]+$/, '') // trailing dot/space is invalid on Windows
+}
+
+// Shared naming for every export format: "אלבום שנתי - <name>.<ext>".
+export function albumFilename(childName, ext) {
+  const safeName = sanitizeFilename(childName)
+  const base = safeName ? `אלבום שנתי - ${safeName}` : 'אלבום שנתי'
+  return `${base}.${ext}`
 }
 
 export function triggerDownload(blob, filename) {
@@ -256,6 +278,14 @@ export async function drawAlbumFrame(ctx, size, img, photo, month, options, prec
   ctx.fillStyle = '#FFFAF5'
   ctx.fillRect(0, 0, S, S)
 
+  // Every export composites through this one function, so this is the single
+  // place that affects sharpness everywhere (ZIP print pages, GIF, video,
+  // preview). Each call gets a *fresh* canvas (a new offscreen canvas per
+  // frame), and imageSmoothingQuality defaults to the browser's low-effort
+  // setting on a fresh 2D context — so it has to be set on every call, not once.
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+
   // Photo — cover-fit and centred; the canvas clips anything past its edges.
   const filter = getEffect(options.effectOverride ?? photo.effect_id).filter
   if (filter) ctx.filter = filter
@@ -385,7 +415,7 @@ export async function exportAlbum({ byMonth, childName, onProgress, onDone }) {
   }
 
   const zipBlob = await zip.generateAsync({ type: 'blob' })
-  triggerDownload(zipBlob, `BabyTracker-${childName.replace(/[^\w-]/g, '-')}-album.zip`)
+  triggerDownload(zipBlob, albumFilename(childName, 'zip'))
   onDone()
 }
 
@@ -445,7 +475,7 @@ export async function generateAlbumGif({ byMonth, childName, options, onProgress
   gif.finish()
   const buffer = gif.bytes()
   const blob   = new Blob([buffer], { type: 'image/gif' })
-  triggerDownload(blob, `BabyTracker-${childName.replace(/[^\w-]/g, '-')}.gif`)
+  triggerDownload(blob, albumFilename(childName, 'gif'))
   onDone()
 }
 
@@ -461,6 +491,14 @@ export async function generateAlbumVideo({ byMonth, childName, options, onProgre
       .find(t => MediaRecorder.isTypeSupported(t)) ?? 'video/webm'
   const ext = mimeType.startsWith('video/mp4') ? 'mp4' : 'webm'
 
+  // MP4/H.264 is what Chrome, Safari, Edge, and effectively every phone records
+  // with a hardware encoder — that's the common case, so it gets the higher
+  // resolution/bitrate. The WebM/VP8 fallback (a handful of browsers, mostly
+  // desktop Firefox) is software-encoded and keeps the original safer settings.
+  const isHq               = ext === 'mp4'
+  const videoSize          = isHq ? VIDEO_SIZE_HQ    : VIDEO_SIZE
+  const videoBitsPerSecond = isHq ? VIDEO_BITRATE_HQ : VIDEO_BITRATE
+
   const photos = Object.entries(byMonth).sort(([a], [b]) => Number(a) - Number(b))
   if (photos.length === 0) throw new Error('אין תמונות לייצוא.')
 
@@ -472,10 +510,10 @@ export async function generateAlbumVideo({ byMonth, childName, options, onProgre
   ])
 
   const canvas = document.createElement('canvas')
-  canvas.width = canvas.height = VIDEO_SIZE
+  canvas.width = canvas.height = videoSize
   const ctx = canvas.getContext('2d')
 
-  await drawAlbumFrame(ctx, VIDEO_SIZE, imgs[0], photos[0][1], Number(photos[0][0]), options, dates[0])
+  await drawAlbumFrame(ctx, videoSize, imgs[0], photos[0][1], Number(photos[0][0]), options, dates[0])
 
   const videoStream = canvas.captureStream(30)
 
@@ -511,9 +549,10 @@ export async function generateAlbumVideo({ byMonth, childName, options, onProgre
     const chunks   = []
     recorder = new MediaRecorder(combined, {
       mimeType,
-      // 8 Mbps @ 1080p is high quality for a photo slideshow while staying within
-      // reach of mobile software encoders (12 Mbps could choke VP8 → dropped frames).
-      videoBitsPerSecond: 8_000_000,
+      // See videoSize/videoBitsPerSecond above: 16 Mbps @ 1440p on the hardware
+      // H.264 path, or the original 8 Mbps @ 1080p on the software VP8 fallback
+      // (12 Mbps+ was observed to choke VP8 → dropped frames).
+      videoBitsPerSecond,
     })
     recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
     const stoppedPromise = new Promise(resolve => { recorder.onstop = resolve })
@@ -540,8 +579,8 @@ export async function generateAlbumVideo({ byMonth, childName, options, onProgre
       onProgress({ phase: 'rendering', step: i + 1, total: photos.length })
       const [monthStr, photo] = photos[i]
       const off = document.createElement('canvas')
-      off.width = off.height = VIDEO_SIZE
-      await drawAlbumFrame(off.getContext('2d'), VIDEO_SIZE, imgs[i], photo, Number(monthStr), options, dates[i])
+      off.width = off.height = videoSize
+      await drawAlbumFrame(off.getContext('2d'), videoSize, imgs[i], photo, Number(monthStr), options, dates[i])
       offscreens.push(off)
     }
 
@@ -568,7 +607,7 @@ export async function generateAlbumVideo({ byMonth, childName, options, onProgre
     await stoppedPromise
 
     const blob = new Blob(chunks, { type: mimeType })
-    triggerDownload(blob, `BabyTracker-${childName.replace(/[^\w-]/g, '-')}.${ext}`)
+    triggerDownload(blob, albumFilename(childName, ext))
     onDone()
   } finally {
     if (recorder && recorder.state !== 'inactive') {

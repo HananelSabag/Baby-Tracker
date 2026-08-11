@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   computeAlbumBand, wrapCanvasText, parseDateOnly, getPhotoDate, suggestMilestoneDate,
+  albumFilename,
 } from '../lib/albumExport'
 
 // A minimal 2D-context stand-in: width is proportional to string length so we
@@ -188,5 +189,34 @@ describe('suggestMilestoneDate', () => {
     expect(suggestMilestoneDate(null, 3)).toBe('')
     expect(suggestMilestoneDate('nope', 3)).toBe('')
     expect(suggestMilestoneDate('2026-01-15', 0)).toBe('')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// albumFilename — the download name must keep the child's actual name
+// ---------------------------------------------------------------------------
+describe('albumFilename', () => {
+  it('keeps a Hebrew name intact instead of collapsing it to dashes', () => {
+    // \w is ASCII-only, so the old `.replace(/[^\w-]/g, '-')` turned every
+    // Hebrew letter into a dash — "הראל" became "----". This is the regression test.
+    expect(albumFilename('הראל', 'mp4')).toBe('אלבום שנתי - הראל.mp4')
+  })
+
+  it('builds the same "אלבום שנתי - <name>" pattern for every format', () => {
+    expect(albumFilename('הראל', 'zip')).toBe('אלבום שנתי - הראל.zip')
+    expect(albumFilename('הראל', 'gif')).toBe('אלבום שנתי - הראל.gif')
+  })
+
+  it('keeps a Latin name intact', () => {
+    expect(albumFilename('Harel', 'mp4')).toBe('אלבום שנתי - Harel.mp4')
+  })
+
+  it('strips characters invalid on Windows filesystems', () => {
+    expect(albumFilename('Ha:rel/<>?', 'mp4')).toBe('אלבום שנתי - Ha rel.mp4')
+  })
+
+  it('falls back to a plain title when the name is empty', () => {
+    expect(albumFilename('', 'mp4')).toBe('אלבום שנתי.mp4')
+    expect(albumFilename(null, 'mp4')).toBe('אלבום שנתי.mp4')
   })
 })

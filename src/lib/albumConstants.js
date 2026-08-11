@@ -49,7 +49,18 @@ export const MUSIC_TRACKS = [
   { id: 'Hiphop',       label: 'היפ הופ',       emoji: '🎤' },
 ]
 
-export const VIDEO_SIZE       = 1080
+// Two quality tiers for the video export, picked at record time by which codec
+// the browser actually supports (see generateAlbumVideo):
+//   • MP4/H.264 (Chrome, Safari, Edge, virtually every phone) — hardware-encoded
+//     on essentially all modern devices, so it can push more resolution/bitrate
+//     safely.
+//   • WebM/VP8 (the fallback for the handful of browsers without MP4 recording,
+//     mainly desktop Firefox) — software-encoded, so it keeps the original,
+//     already-tuned-for-mobile settings rather than risking dropped frames.
+export const VIDEO_SIZE           = 1080
+export const VIDEO_BITRATE        = 8_000_000
+export const VIDEO_SIZE_HQ        = 1440
+export const VIDEO_BITRATE_HQ     = 16_000_000
 export const TRANSITION_MS    = 600
 export const GIF_SIZE         = 600
 export const PREVIEW_SIZE     = 160
