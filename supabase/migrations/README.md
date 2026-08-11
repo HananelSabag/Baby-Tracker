@@ -15,3 +15,9 @@ applied to production. Apply them via your normal flow:
 
 **Pre-flight reminder**: never run `supabase db reset` against the prod project.
 The user has live data and explicitly asked us not to delete anything.
+
+## Later migrations
+
+| File | What it does | Status |
+|------|--------------|--------|
+| `20260811_001_milestone_photo_date.sql` | Adds the nullable `milestone_photos.photo_date`, so the date printed on an album page is the one the parent picks instead of EXIF / upload time. Additive and not backfilled — existing rows keep the old fallback behaviour. | **Applied to prod** 2026-08-11. |

@@ -128,6 +128,39 @@ export function formatAlbumTime(sec) {
 
 // ── Date helpers ───────────────────────────────────────────────────────────────
 
+// A `date` column comes back as a bare 'YYYY-MM-DD'. `new Date('2026-08-11')`
+// parses that as UTC midnight, which renders as the *previous* day in any
+// negative-offset timezone — so build a local Date from the parts instead.
+export function parseDateOnly(value) {
+  if (typeof value !== 'string') return null
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value.trim())
+  if (!m) return null
+  const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  return isNaN(dt.getTime()) ? null : dt
+}
+
+/**
+ * The date this milestone actually happened: the child's monthly birthday for
+ * `month` (1..12). Offered as the default in the edit sheet so the printed
+ * album carries the real milestone date instead of whenever the file was
+ * uploaded. Returns 'YYYY-MM-DD' (the format an <input type="date"> wants).
+ */
+export function suggestMilestoneDate(birthDateStr, month) {
+  if (!birthDateStr || !month) return ''
+  const birth = new Date(birthDateStr)
+  if (isNaN(birth.getTime())) return ''
+
+  const y = birth.getUTCFullYear()
+  const m = birth.getUTCMonth() + month
+  const d = birth.getUTCDate()
+  // Clamp instead of letting Date roll over: a child born on the 31st has no
+  // 31st in a 30-day month, and rolling over would print the 1st of the *next*
+  // month as the milestone date.
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
+  const target  = new Date(Date.UTC(y, m, Math.min(d, lastDay)))
+  return target.toISOString().slice(0, 10)
+}
+
 function formatHebrewDate(d) {
   const dt = d instanceof Date ? d : new Date(d)
   if (isNaN(dt.getTime())) return null
@@ -137,7 +170,18 @@ function formatHebrewDate(d) {
   return `${day} ${mon} ${year}`
 }
 
+/**
+ * Date shown on a printed/exported page, in priority order:
+ *   1. `photo_date` — the date the user picked. Always wins: the album is
+ *      printed, so the user's chosen date is the authoritative one and must not
+ *      be second-guessed by EXIF or by when the file happened to be uploaded.
+ *   2. EXIF DateTimeOriginal — when the photo was actually taken.
+ *   3. `created_at` — upload time, last resort.
+ */
 export async function getPhotoDate(photo) {
+  const picked = parseDateOnly(photo.photo_date)
+  if (picked) return formatHebrewDate(picked)
+
   try {
     const exifr = await import('exifr')
     const data  = await exifr.parse(photo.photo_url.split('?')[0], ['DateTimeOriginal', 'DateTime'])
@@ -300,7 +344,9 @@ export async function drawAlbumFrame(ctx, size, img, photo, month, options, prec
 
 // ── ZIP export pipeline ────────────────────────────────────────────────────────
 
-// Print options for the ZIP pages — month + caption baked in, no date scrim.
+// Print options for the ZIP pages — month + caption baked in. The date is drawn
+// only when the user picked one explicitly (see below), never from EXIF or the
+// upload time, so pages without a chosen date print exactly as they always did.
 const ZIP_FRAME_OPTIONS = { showMonthLabel: true, showCaption: true, showDate: false, effectOverride: null }
 
 async function renderPage(photo, month) {
@@ -309,10 +355,17 @@ async function renderPage(photo, month) {
   canvas.height = CANVAS_SIZE
   const ctx = canvas.getContext('2d')
 
+  // A date the parent typed in is deliberate — the printed page is the whole
+  // point of the ZIP, so it gets printed. Passing it precomputed also keeps the
+  // EXIF lookup out of the print loop.
+  const chosen  = parseDateOnly(photo.photo_date)
+  const options = chosen ? { ...ZIP_FRAME_OPTIONS, showDate: true } : ZIP_FRAME_OPTIONS
+  const dateStr = chosen ? await getPhotoDate(photo) : null
+
   const img = await loadImageCrossOrigin(photo.photo_url)
   // Same compositor as preview/GIF/video → the printed page matches what the
-  // user saw. `precomputedDate: null` skips the EXIF lookup (date is off here).
-  await drawAlbumFrame(ctx, CANVAS_SIZE, img, photo, month, ZIP_FRAME_OPTIONS, null)
+  // user saw.
+  await drawAlbumFrame(ctx, CANVAS_SIZE, img, photo, month, options, dateStr)
 
   return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92))
 }
