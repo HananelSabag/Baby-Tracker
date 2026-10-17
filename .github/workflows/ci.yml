@@ -10,6 +10,11 @@ jobs:
   test-and-build:
     name: Test & Build
     runs-on: ubuntu-latest
+    # This workflow validates code; it does not deploy this bundle.
+    # Unit tests and the build must not require production credentials.
+    env:
+      VITE_SUPABASE_URL: https://example.supabase.co
+      VITE_SUPABASE_ANON_KEY: ci-placeholder-not-a-real-key
 
     steps:
       - name: Checkout repository
@@ -26,12 +31,6 @@ jobs:
 
       - name: Run unit tests
         run: npm run test:run
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - name: Build production bundle
         run: npm run build
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
