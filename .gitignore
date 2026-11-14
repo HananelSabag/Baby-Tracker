@@ -28,3 +28,9 @@ Thumbs.db
 *.ntvs*
 *.njsproj
 *.sln
+
+# AI-agent working files stay on the developer machine
+.claude/
+CLAUDE*.md
+AGENTS.md
+BABY_TRACKER_MEDIA_PROGRESS.md
